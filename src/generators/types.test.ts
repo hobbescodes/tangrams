@@ -178,4 +178,67 @@ describe("generateTypes", () => {
 
     expect(result).toMatchSnapshot();
   });
+
+  describe("alias handling", () => {
+    it("generates correct types for aliased fields", async () => {
+      const documents = await loadDocuments(`${fixturesDir}/alias.graphql`);
+      const result = generateTypes({
+        schema: testSchema,
+        documents,
+      });
+
+      // GetMultipleUsers should have firstUser and secondUser, not user
+      expect(result).toContain("firstUser:");
+      expect(result).toContain("secondUser:");
+    });
+
+    it("generates aliased field names in inline selections", async () => {
+      const documents = await loadDocuments(`${fixturesDir}/alias.graphql`);
+      const result = generateTypes({
+        schema: testSchema,
+        documents,
+      });
+
+      // GetUsersWithAliases should use aliased names
+      expect(result).toContain("allUsers:");
+      expect(result).toContain("userId:");
+      expect(result).toContain("userName:");
+      expect(result).toContain("userEmail:");
+    });
+
+    it("supports aliased __typename", async () => {
+      const documents = await loadDocuments(`${fixturesDir}/alias.graphql`);
+      const result = generateTypes({
+        schema: testSchema,
+        documents,
+      });
+
+      // GetUserWithTypename should have type: instead of __typename:
+      expect(result).toContain('type: "User"');
+    });
+
+    it("handles mixed aliased and non-aliased fields", async () => {
+      const documents = await loadDocuments(`${fixturesDir}/alias.graphql`);
+      const result = generateTypes({
+        schema: testSchema,
+        documents,
+      });
+
+      // GetMixedFields should have both aliased and non-aliased fields
+      expect(result).toContain("id:");
+      expect(result).toContain("displayName:");
+      expect(result).toContain("email:");
+      expect(result).toContain("avatar:");
+    });
+
+    it("matches snapshot for aliased operations", async () => {
+      const documents = await loadDocuments(`${fixturesDir}/alias.graphql`);
+      const result = generateTypes({
+        schema: testSchema,
+        documents,
+      });
+
+      expect(result).toMatchSnapshot();
+    });
+  });
 });

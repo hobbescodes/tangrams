@@ -1,0 +1,45 @@
+# Tests for GraphQL alias handling in type generation
+
+fragment UserFields on User {
+  id
+  name
+  email
+}
+
+# Query with multiple aliases of the same field
+query GetMultipleUsers($firstId: ID!, $secondId: ID!) {
+  firstUser: user(id: $firstId) {
+    ...UserFields
+  }
+  secondUser: user(id: $secondId) {
+    ...UserFields
+  }
+}
+
+# Query with aliased fields and inline selections
+query GetUsersWithAliases($limit: Int) {
+  allUsers: users(limit: $limit) {
+    userId: id
+    userName: name
+    userEmail: email
+  }
+}
+
+# Query with aliased __typename
+query GetUserWithTypename($id: ID!) {
+  user(id: $id) {
+    id
+    name
+    type: __typename
+  }
+}
+
+# Mixed aliases and non-aliased fields
+query GetMixedFields($id: ID!) {
+  user(id: $id) {
+    id
+    displayName: name
+    email
+    avatar: avatarUrl
+  }
+}

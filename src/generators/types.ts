@@ -271,16 +271,18 @@ function extractSelectionFieldsWithSpreads(
     const sel = selection as {
       kind: string;
       name?: { value: string };
+      alias?: { value: string };
       selectionSet?: { selections: readonly unknown[] };
     };
 
     if (sel.kind === "Field") {
-      const fieldName = sel.name?.value;
-      if (!fieldName) continue;
+      const fieldName = sel.name?.value; // Schema field name (for type lookup)
+      const outputName = sel.alias?.value ?? fieldName; // Use alias if present
+      if (!fieldName || !outputName) continue;
 
-      // Handle __typename
+      // Handle __typename (can be aliased, though rare)
       if (fieldName === "__typename") {
-        fields.push(`${indent}__typename: "${parentType.name}"`);
+        fields.push(`${indent}${outputName}: "${parentType.name}"`);
         continue;
       }
 
@@ -298,7 +300,7 @@ function extractSelectionFieldsWithSpreads(
       );
 
       const optional = !isNonNullType(fieldType) ? " | null" : "";
-      fields.push(`${indent}${fieldName}: ${tsType}${optional}`);
+      fields.push(`${indent}${outputName}: ${tsType}${optional}`);
     }
 
     if (sel.kind === "FragmentSpread") {
