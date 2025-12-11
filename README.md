@@ -76,10 +76,16 @@ bun add @tanstack/react-query @better-fetch/fetch zod
    import { defineConfig } from "tangen";
 
    export default defineConfig({
-     schema: {
-       url: "http://localhost:4000/graphql",
-     },
-     documents: "./src/graphql/**/*.graphql",
+     sources: [
+       {
+         name: "graphql",
+         type: "graphql",
+         schema: {
+           url: "http://localhost:4000/graphql",
+         },
+         documents: "./src/graphql/**/*.graphql",
+       },
+     ],
      output: {
        dir: "./src/generated",
      },
@@ -149,13 +155,15 @@ bun add @tanstack/react-query @better-fetch/fetch zod
 
 ### OpenAPI
 
-1. **Initialize configuration for OpenAPI**
+1. **Initialize configuration**
 
    ```bash
-   bunx tangen init --source openapi
+   bunx tangen init
    ```
 
 2. **Configure your OpenAPI spec**
+
+   Edit `tangen.config.ts` to use an OpenAPI source:
 
    ```typescript
    import { defineConfig } from "tangen";
@@ -211,34 +219,7 @@ bun add @tanstack/react-query @better-fetch/fetch zod
 
 ## Configuration
 
-### Legacy Configuration (GraphQL Only)
-
-For backward compatibility, tangen still supports the original single-source GraphQL configuration:
-
-```typescript
-import { defineConfig } from "tangen";
-
-export default defineConfig({
-  schema: {
-    url: "http://localhost:4000/graphql",
-    headers: {
-      "x-api-key": process.env.API_KEY,
-    },
-  },
-  scalars: {
-    DateTime: "Date",
-    JSON: "Record<string, unknown>",
-  },
-  documents: "./src/graphql/**/*.graphql",
-  output: {
-    dir: "./src/generated",
-  },
-});
-```
-
-### Multi-Source Configuration (Recommended)
-
-The new multi-source configuration supports multiple data sources:
+tangen uses a multi-source configuration that supports multiple data sources:
 
 ```typescript
 import { defineConfig } from "tangen";
@@ -523,20 +504,12 @@ tangen init [options]
 
 Options:
   -f, --force           Overwrite existing config file
-  -s, --source <type>   Source type: graphql, openapi, or both (default: graphql)
 ```
 
-Examples:
+Example:
 
 ```bash
-# Initialize with GraphQL (default)
 bunx tangen init
-
-# Initialize with OpenAPI
-bunx tangen init --source openapi
-
-# Initialize with both GraphQL and OpenAPI
-bunx tangen init --source both
 ```
 
 ### `tangen generate`
@@ -578,48 +551,6 @@ bunx tangen generate --watch
 # Watch with a custom config file
 bunx tangen generate --watch --config ./config/tangen.config.ts
 ```
-
-## Migration Guide
-
-### From Legacy to Multi-Source Config
-
-If you're using the legacy single-source GraphQL configuration, it will continue to work. However, you can migrate to the new multi-source format for better organization:
-
-**Before (legacy):**
-
-```typescript
-export default defineConfig({
-  schema: {
-    url: "http://localhost:4000/graphql",
-  },
-  documents: "./src/graphql/**/*.graphql",
-  output: {
-    dir: "./src/generated",
-  },
-});
-```
-
-**After (multi-source):**
-
-```typescript
-export default defineConfig({
-  sources: [
-    {
-      name: "graphql",
-      type: "graphql",
-      schema: {
-        url: "http://localhost:4000/graphql",
-      },
-      documents: "./src/graphql/**/*.graphql",
-    },
-  ],
-  output: {
-    dir: "./src/generated",
-  },
-});
-```
-
-Note: With a single source, the output structure remains the same (files directly in output dir).
 
 ## Roadmap
 

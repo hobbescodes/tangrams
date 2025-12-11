@@ -7,7 +7,6 @@ import consola from "consola";
 import { getAdapter } from "@/adapters";
 import { hasMultipleSources } from "./config";
 
-import type { GraphQLAdapterSchema } from "@/adapters/types";
 import type { GraphQLSourceConfig, SourceConfig, TangenConfig } from "./config";
 
 export interface GenerateOptions {
@@ -201,33 +200,4 @@ function getScalarsFromSource(
     return (source as GraphQLSourceConfig).scalars;
   }
   return undefined;
-}
-
-// =============================================================================
-// Legacy API Support
-// =============================================================================
-
-/**
- * Legacy result type for backward compatibility with watch mode
- * @deprecated Use GenerateResult with schemas map instead
- */
-export interface LegacyGenerateResult {
-  /** The introspected or cached schema (for first/only GraphQL source) */
-  schema: import("graphql").GraphQLSchema;
-}
-
-/**
- * Convert new result to legacy format for backward compatibility
- */
-export function toLegacyResult(result: GenerateResult): LegacyGenerateResult {
-  // Get the first GraphQL source's schema
-  for (const [_name, schema] of result.schemas) {
-    if (schema && typeof schema === "object" && "schema" in schema) {
-      const graphqlSchema = schema as GraphQLAdapterSchema;
-      return { schema: graphqlSchema.schema };
-    }
-  }
-
-  // Fallback - this shouldn't happen in practice
-  throw new Error("No GraphQL schema found in generation result");
 }

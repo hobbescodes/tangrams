@@ -4,11 +4,7 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import {
-  generateDefaultConfig,
-  generateMultiSourceConfig,
-} from "../../core/config";
-import { getConfigContent, getNextStepsMessage } from "./init";
+import { generateDefaultConfig } from "../../core/config";
 
 // We test the logic directly rather than the citty command
 // to avoid mocking process.cwd() and process.exit()
@@ -41,8 +37,7 @@ describe("init command logic", () => {
 
       const content = await readFile(configPath, "utf-8");
       expect(content).toContain("defineConfig");
-      expect(content).toContain("schema");
-      expect(content).toContain("documents");
+      expect(content).toContain("sources");
       expect(content).toContain("output");
     });
   });
@@ -73,6 +68,13 @@ describe("init command logic", () => {
       expect(config).toContain("export default defineConfig");
     });
 
+    it("includes sources configuration", () => {
+      const config = generateDefaultConfig();
+
+      expect(config).toContain("sources:");
+      expect(config).toContain('type: "graphql"');
+    });
+
     it("includes schema configuration", () => {
       const config = generateDefaultConfig();
 
@@ -92,89 +94,13 @@ describe("init command logic", () => {
 
       expect(config).toContain("output:");
       expect(config).toContain("dir:");
-      expect(config).toContain("client:");
-      expect(config).toContain("types:");
-      expect(config).toContain("operations:");
-    });
-  });
-
-  describe("generateMultiSourceConfig", () => {
-    it("generates GraphQL-only config", () => {
-      const config = generateMultiSourceConfig({ graphql: true });
-
-      expect(config).toContain("sources:");
-      expect(config).toContain('type: "graphql"');
-      expect(config).not.toContain('type: "openapi"');
     });
 
-    it("generates OpenAPI-only config", () => {
-      const config = generateMultiSourceConfig({ openapi: true });
+    it("includes commented OpenAPI source example", () => {
+      const config = generateDefaultConfig();
 
-      expect(config).toContain("sources:");
-      expect(config).toContain('type: "openapi"');
-      expect(config).toContain("spec:");
-      expect(config).not.toContain('type: "graphql"');
-    });
-
-    it("generates both GraphQL and OpenAPI config", () => {
-      const config = generateMultiSourceConfig({
-        graphql: true,
-        openapi: true,
-      });
-
-      expect(config).toContain("sources:");
-      expect(config).toContain('type: "graphql"');
-      expect(config).toContain('type: "openapi"');
-    });
-  });
-
-  describe("getConfigContent", () => {
-    it("returns default GraphQL config for 'graphql' source type", () => {
-      const content = getConfigContent("graphql");
-
-      expect(content).toContain("schema:");
-      expect(content).toContain("documents:");
-    });
-
-    it("returns OpenAPI config for 'openapi' source type", () => {
-      const content = getConfigContent("openapi");
-
-      expect(content).toContain("sources:");
-      expect(content).toContain('type: "openapi"');
-      expect(content).toContain("spec:");
-    });
-
-    it("returns multi-source config for 'both' source type", () => {
-      const content = getConfigContent("both");
-
-      expect(content).toContain("sources:");
-      expect(content).toContain('type: "graphql"');
-      expect(content).toContain('type: "openapi"');
-    });
-  });
-
-  describe("getNextStepsMessage", () => {
-    it("returns GraphQL-specific steps for 'graphql' source type", () => {
-      const steps = getNextStepsMessage("graphql");
-
-      expect(steps).toContain("1. Update the schema URL in tangen.config.ts");
-      expect(steps.some((s) => s.includes("GraphQL"))).toBe(true);
-    });
-
-    it("returns OpenAPI-specific steps for 'openapi' source type", () => {
-      const steps = getNextStepsMessage("openapi");
-
-      expect(steps).toContain(
-        "1. Update the spec path/URL in tangen.config.ts",
-      );
-      expect(steps.some((s) => s.includes("@better-fetch/fetch"))).toBe(true);
-    });
-
-    it("returns combined steps for 'both' source type", () => {
-      const steps = getNextStepsMessage("both");
-
-      expect(steps.some((s) => s.includes("GraphQL"))).toBe(true);
-      expect(steps.some((s) => s.includes("@better-fetch/fetch"))).toBe(true);
+      expect(config).toContain('// 	type: "openapi"');
+      expect(config).toContain("// 	spec:");
     });
   });
 });

@@ -140,29 +140,6 @@ export const multiSourceConfigSchema = z.object({
 export type MultiSourceConfig = z.infer<typeof multiSourceConfigSchema>;
 
 // =============================================================================
-// Legacy Config Schema (Backward Compatibility)
-// =============================================================================
-
-/**
- * Legacy single-source GraphQL configuration (for backward compatibility)
- */
-export const legacyConfigSchema = z.object({
-  schema: z.object({
-    /** GraphQL endpoint URL for introspection */
-    url: z.string().url(),
-    /** Headers to send with introspection request */
-    headers: z.record(z.string()).optional(),
-  }),
-  /** Custom scalar type mappings */
-  scalars: z.record(z.string()).optional(),
-  /** Glob pattern(s) for GraphQL document files */
-  documents: z.union([z.string(), z.array(z.string())]),
-  output: outputSchema,
-});
-
-export type LegacyConfig = z.infer<typeof legacyConfigSchema>;
-
-// =============================================================================
 // Unified Config Type
 // =============================================================================
 
@@ -172,66 +149,14 @@ export type LegacyConfig = z.infer<typeof legacyConfigSchema>;
 export type TangenConfig = z.output<typeof multiSourceConfigSchema>;
 
 /**
- * Input configuration type for multi-source format (before defaults applied)
+ * Input configuration type (before defaults applied)
  */
-export type MultiSourceConfigInput = z.input<typeof multiSourceConfigSchema>;
+export type TangenConfigInput = z.input<typeof multiSourceConfigSchema>;
 
 /**
- * Input configuration type for legacy format (before defaults applied)
+ * Config schema for validation
  */
-export type LegacyConfigInput = z.input<typeof legacyConfigSchema>;
-
-/**
- * Input configuration type (accepts both legacy and new formats)
- */
-export type TangenConfigInput = LegacyConfigInput | MultiSourceConfigInput;
-
-// =============================================================================
-// Config Detection and Normalization
-// =============================================================================
-
-/**
- * Check if a config object is in legacy format
- */
-function isLegacyConfig(config: unknown): config is LegacyConfig {
-  return (
-    typeof config === "object" &&
-    config !== null &&
-    "schema" in config &&
-    "documents" in config &&
-    !("sources" in config)
-  );
-}
-
-/**
- * Convert legacy config to new multi-source format
- */
-function normalizeLegacyConfig(legacy: LegacyConfig): TangenConfig {
-  return {
-    sources: [
-      {
-        name: "graphql",
-        type: "graphql",
-        schema: legacy.schema,
-        documents: legacy.documents,
-        scalars: legacy.scalars,
-      },
-    ],
-    output: legacy.output,
-  };
-}
-
-/**
- * Combined schema that accepts both legacy and new formats
- */
-export const configSchema = z
-  .union([legacyConfigSchema, multiSourceConfigSchema])
-  .transform((config): TangenConfig => {
-    if (isLegacyConfig(config)) {
-      return normalizeLegacyConfig(config);
-    }
-    return config;
-  });
+export const configSchema = multiSourceConfigSchema;
 
 // =============================================================================
 // Helper Functions
@@ -284,42 +209,18 @@ export async function loadTangenConfig(
 }
 
 // =============================================================================
-// Default Config Generators
+// Default Config Generator
 // =============================================================================
 
 /**
- * Generate a default GraphQL config file content (legacy format for simplicity)
+ * Generate a config file content
  */
 export function generateDefaultConfig(): string {
   return `import { defineConfig } from "tangen"
 
 export default defineConfig({
-	schema: {
-		url: "http://localhost:4000/graphql",
-		// headers: { "x-api-key": process.env.API_KEY },
-	},
-	// scalars: { DateTime: "Date", JSON: "Record<string, unknown>" },
-	documents: "./src/graphql/**/*.graphql",
-	output: {
-		dir: "./src/generated",
-		client: "client.ts",
-		types: "types.ts",
-		operations: "operations.ts",
-	},
-})
-`;
-}
-
-/**
- * Generate a multi-source config file content
- */
-export function generateMultiSourceConfig(
-  options: { graphql?: boolean; openapi?: boolean } = { graphql: true },
-): string {
-  const sources: string[] = [];
-
-  if (options.graphql) {
-    sources.push(`		{
+	sources: [
+		{
 			name: "graphql",
 			type: "graphql",
 			schema: {
@@ -328,24 +229,14 @@ export function generateMultiSourceConfig(
 			},
 			// scalars: { DateTime: "Date", JSON: "Record<string, unknown>" },
 			documents: "./src/graphql/**/*.graphql",
-		}`);
-  }
-
-  if (options.openapi) {
-    sources.push(`		{
-			name: "api",
-			type: "openapi",
-			spec: "./openapi.yaml", // or "https://api.example.com/openapi.json"
-			// include: ["/users/**", "/posts/**"],
-			// exclude: ["/internal/**"],
-		}`);
-  }
-
-  return `import { defineConfig } from "tangen"
-
-export default defineConfig({
-	sources: [
-${sources.join(",\n")}
+		},
+		// {
+		// 	name: "api",
+		// 	type: "openapi",
+		// 	spec: "./openapi.yaml", // or "https://api.example.com/openapi.json"
+		// 	// include: ["/users/**", "/posts/**"],
+		// 	// exclude: ["/internal/**"],
+		// },
 	],
 	output: {
 		dir: "./src/generated",
