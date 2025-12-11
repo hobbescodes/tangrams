@@ -1,5 +1,22 @@
 # tangen
 
+## 0.7.0
+
+### Minor Changes
+
+- 95abb98: Add watch mode to the generate command. Use `--watch` or `-w` flag to automatically regenerate when config or GraphQL document files change. Features include:
+
+  - Watches config file and all GraphQL documents matching the configured patterns
+  - Caches the schema between document changes for faster rebuilds
+  - Debounces rapid file changes to avoid redundant regenerations
+  - Press `r` to force refresh (re-introspects schema)
+  - Press `q` to quit watch mode
+  - Continues watching even if generation fails (e.g., invalid GraphQL syntax)
+
+### Patch Changes
+
+- 8f5fe75: Fix watch mode not detecting file changes with chokidar v5. Chokidar v4+ removed glob pattern support, so the watcher now extracts base directories from glob patterns and uses picomatch to filter file change events. This ensures that both existing file modifications and newly created files matching the document patterns trigger regeneration.
+
 ## 0.6.0
 
 ### Minor Changes
