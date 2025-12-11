@@ -1,35 +1,35 @@
 fragment UserFields on User {
-	id
-	name
-	email
-	avatarUrl
-	createdAt
+  id
+  name
+  email
+  avatarUrl
+  createdAt
 }
 
 query GetUser($id: ID!) {
-	user(id: $id) {
-		...UserFields
-	}
+  user(id: $id) {
+    ...UserFields
+  }
 }
 
 query ListUsers($limit: Int, $offset: Int) {
-	users(limit: $limit, offset: $offset) {
-		...UserFields
-	}
+  users(limit: $limit, offset: $offset) {
+    ...UserFields
+  }
 }
 
 mutation CreateUser($input: CreateUserInput!) {
-	createUser(input: $input) {
-		...UserFields
-	}
+  createUser(input: $input) {
+    ...UserFields
+  }
 }
 
 mutation UpdateUser($id: ID!, $input: UpdateUserInput!) {
-	updateUser(id: $id, input: $input) {
-		...UserFields
-	}
+  updateUser(id: $id, input: $input) {
+    ...UserFields
+  }
 }
 
 mutation DeleteUser($id: ID!) {
-	deleteUser(id: $id)
+  deleteUser(id: $id)
 }

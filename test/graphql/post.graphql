@@ -1,27 +1,27 @@
 fragment PostFields on Post {
-	id
-	title
-	content
-	published
-	createdAt
-	tags
+  id
+  title
+  content
+  published
+  createdAt
+  tags
 }
 
 fragment PostWithAuthor on Post {
-	...PostFields
-	author {
-		...UserFields
-	}
+  ...PostFields
+  author {
+    ...UserFields
+  }
 }
 
 query GetPosts($authorId: ID) {
-	posts(authorId: $authorId) {
-		...PostWithAuthor
-	}
+  posts(authorId: $authorId) {
+    ...PostWithAuthor
+  }
 }
 
 mutation CreatePost($input: CreatePostInput!) {
-	createPost(input: $input) {
-		...PostFields
-	}
+  createPost(input: $input) {
+    ...PostFields
+  }
 }

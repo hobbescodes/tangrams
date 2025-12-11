@@ -2,17 +2,17 @@
  * Convert a string to PascalCase
  */
 export function toPascalCase(str: string): string {
-	return str
-		.replace(/[-_\s]+(.)?/g, (_, c) => (c ? c.toUpperCase() : ""))
-		.replace(/^(.)/, (c) => c.toUpperCase())
+  return str
+    .replace(/[-_\s]+(.)?/g, (_, c) => (c ? c.toUpperCase() : ""))
+    .replace(/^(.)/, (c) => c.toUpperCase());
 }
 
 /**
  * Convert a string to camelCase
  */
 export function toCamelCase(str: string): string {
-	const pascal = toPascalCase(str)
-	return pascal.charAt(0).toLowerCase() + pascal.slice(1)
+  const pascal = toPascalCase(str);
+  return pascal.charAt(0).toLowerCase() + pascal.slice(1);
 }
 
 /**
@@ -20,7 +20,7 @@ export function toCamelCase(str: string): string {
  * e.g., "GetUser" -> "getUserQueryOptions"
  */
 export function toQueryOptionsName(operationName: string): string {
-	return `${toCamelCase(operationName)}QueryOptions`
+  return `${toCamelCase(operationName)}QueryOptions`;
 }
 
 /**
@@ -28,7 +28,7 @@ export function toQueryOptionsName(operationName: string): string {
  * e.g., "CreateUser" -> "createUserMutationOptions"
  */
 export function toMutationOptionsName(operationName: string): string {
-	return `${toCamelCase(operationName)}MutationOptions`
+  return `${toCamelCase(operationName)}MutationOptions`;
 }
 
 /**
@@ -36,7 +36,7 @@ export function toMutationOptionsName(operationName: string): string {
  * e.g., "GetUser" -> "GetUserDocument"
  */
 export function toDocumentName(operationName: string): string {
-	return `${toPascalCase(operationName)}Document`
+  return `${toPascalCase(operationName)}Document`;
 }
 
 /**
@@ -44,7 +44,7 @@ export function toDocumentName(operationName: string): string {
  * e.g., "UserFields" -> "UserFieldsFragmentDoc"
  */
 export function toFragmentDocName(fragmentName: string): string {
-	return `${toPascalCase(fragmentName)}FragmentDoc`
+  return `${toPascalCase(fragmentName)}FragmentDoc`;
 }
 
 /**
@@ -52,7 +52,7 @@ export function toFragmentDocName(fragmentName: string): string {
  * e.g., "GetUser" -> "GetUserQuery"
  */
 export function toQueryTypeName(operationName: string): string {
-	return `${toPascalCase(operationName)}Query`
+  return `${toPascalCase(operationName)}Query`;
 }
 
 /**
@@ -60,7 +60,7 @@ export function toQueryTypeName(operationName: string): string {
  * e.g., "CreateUser" -> "CreateUserMutation"
  */
 export function toMutationTypeName(operationName: string): string {
-	return `${toPascalCase(operationName)}Mutation`
+  return `${toPascalCase(operationName)}Mutation`;
 }
 
 /**
@@ -68,7 +68,7 @@ export function toMutationTypeName(operationName: string): string {
  * e.g., "GetUser" -> "GetUserQueryVariables"
  */
 export function toQueryVariablesTypeName(operationName: string): string {
-	return `${toPascalCase(operationName)}QueryVariables`
+  return `${toPascalCase(operationName)}QueryVariables`;
 }
 
 /**
@@ -76,7 +76,7 @@ export function toQueryVariablesTypeName(operationName: string): string {
  * e.g., "CreateUser" -> "CreateUserMutationVariables"
  */
 export function toMutationVariablesTypeName(operationName: string): string {
-	return `${toPascalCase(operationName)}MutationVariables`
+  return `${toPascalCase(operationName)}MutationVariables`;
 }
 
 /**
@@ -84,5 +84,5 @@ export function toMutationVariablesTypeName(operationName: string): string {
  * e.g., "UserFields" -> "UserFieldsFragment"
  */
 export function toFragmentTypeName(fragmentName: string): string {
-	return `${toPascalCase(fragmentName)}Fragment`
+  return `${toPascalCase(fragmentName)}Fragment`;
 }

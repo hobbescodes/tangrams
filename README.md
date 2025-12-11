@@ -59,7 +59,7 @@ bun add @tanstack/react-query graphql-request
    Edit `tangen.config.ts` with your GraphQL endpoint:
 
    ```typescript
-   import { defineConfig } from "tangen"
+   import { defineConfig } from "tangen";
 
    export default defineConfig({
      schema: {
@@ -69,7 +69,7 @@ bun add @tanstack/react-query graphql-request
      output: {
        dir: "./src/generated",
      },
-   })
+   });
    ```
 
 3. **Create your GraphQL operations**
@@ -107,27 +107,27 @@ bun add @tanstack/react-query graphql-request
 5. **Use the generated code**
 
    ```typescript
-   import { useQuery, useMutation } from "@tanstack/react-query"
+   import { useQuery, useMutation } from "@tanstack/react-query";
    import {
      getUserQueryOptions,
      createUserMutationOptions,
-   } from "./generated/operations"
+   } from "./generated/operations";
 
    // In your component
    function UserProfile({ userId }: { userId: string }) {
-     const { data, isLoading } = useQuery(getUserQueryOptions({ id: userId }))
+     const { data, isLoading } = useQuery(getUserQueryOptions({ id: userId }));
 
-     if (isLoading) return <div>Loading...</div>
+     if (isLoading) return <div>Loading...</div>;
 
-     return <div>Hello, {data?.user?.name}</div>
+     return <div>Hello, {data?.user?.name}</div>;
    }
 
    function CreateUserForm() {
-     const { mutate, isPending } = useMutation(createUserMutationOptions())
+     const { mutate, isPending } = useMutation(createUserMutationOptions());
 
      const handleSubmit = (data: { name: string; email: string }) => {
-       mutate({ input: data })
-     }
+       mutate({ input: data });
+     };
 
      // ...
    }
@@ -138,7 +138,7 @@ bun add @tanstack/react-query graphql-request
 ### Full Configuration Example
 
 ```typescript
-import { defineConfig } from "tangen"
+import { defineConfig } from "tangen";
 
 export default defineConfig({
   // Schema introspection settings
@@ -149,23 +149,19 @@ export default defineConfig({
       "x-api-key": process.env.API_KEY,
     },
   },
-
   // Optional: headers to include in generated client
   client: {
     headers: {
       "Content-Type": "application/json",
     },
   },
-
   // Optional: custom scalar type mappings
   scalars: {
     DateTime: "Date",
     JSON: "Record<string, unknown>",
   },
-
   // Glob pattern(s) for GraphQL operation files
   documents: "./src/graphql/**/*.graphql",
-
   // Output configuration
   output: {
     dir: "./src/generated",
@@ -173,39 +169,39 @@ export default defineConfig({
     types: "types.ts", // default
     operations: "operations.ts", // default
   },
-})
+});
 ```
 
 ### Configuration Options
 
-| Option | Type | Required | Description |
-| --- | --- | --- | --- |
-| `schema.url` | `string` | Yes | GraphQL endpoint URL for introspection |
-| `schema.headers` | `Record<string, string>` | No | Headers to send with introspection request |
-| `client.headers` | `Record<string, string>` | No | Headers to include in generated client |
-| `scalars` | `Record<string, string>` | No | Custom scalar type mappings |
-| `documents` | `string \| string[]` | Yes | Glob pattern(s) for `.graphql` files |
-| `output.dir` | `string` | Yes | Output directory for generated files |
-| `output.client` | `string` | No | Client filename (default: `client.ts`) |
-| `output.types` | `string` | No | Types filename (default: `types.ts`) |
-| `output.operations` | `string` | No | Operations filename (default: `operations.ts`) |
+| Option              | Type                     | Required | Description                                    |
+| ------------------- | ------------------------ | -------- | ---------------------------------------------- |
+| `schema.url`        | `string`                 | Yes      | GraphQL endpoint URL for introspection         |
+| `schema.headers`    | `Record<string, string>` | No       | Headers to send with introspection request     |
+| `client.headers`    | `Record<string, string>` | No       | Headers to include in generated client         |
+| `scalars`           | `Record<string, string>` | No       | Custom scalar type mappings                    |
+| `documents`         | `string \| string[]`     | Yes      | Glob pattern(s) for `.graphql` files           |
+| `output.dir`        | `string`                 | Yes      | Output directory for generated files           |
+| `output.client`     | `string`                 | No       | Client filename (default: `client.ts`)         |
+| `output.types`      | `string`                 | No       | Types filename (default: `types.ts`)           |
+| `output.operations` | `string`                 | No       | Operations filename (default: `operations.ts`) |
 
 ### Default Scalar Mappings
 
 tangen includes sensible defaults for common scalars:
 
 | GraphQL Scalar | TypeScript Type |
-| --- | --- |
-| `ID` | `string` |
-| `String` | `string` |
-| `Int` | `number` |
-| `Float` | `number` |
-| `Boolean` | `boolean` |
-| `DateTime` | `string` |
-| `Date` | `string` |
-| `JSON` | `unknown` |
-| `BigInt` | `bigint` |
-| `UUID` | `string` |
+| -------------- | --------------- |
+| `ID`           | `string`        |
+| `String`       | `string`        |
+| `Int`          | `number`        |
+| `Float`        | `number`        |
+| `Boolean`      | `boolean`       |
+| `DateTime`     | `string`        |
+| `Date`         | `string`        |
+| `JSON`         | `unknown`       |
+| `BigInt`       | `bigint`        |
+| `UUID`         | `string`        |
 
 Override any of these using the `scalars` config option.
 
@@ -216,23 +212,23 @@ Override any of these using the `scalars` config option.
 A configured `graphql-request` client with helpers:
 
 ```typescript
-import { GraphQLClient } from "graphql-request"
+import { GraphQLClient } from "graphql-request";
 
 export const client = new GraphQLClient("http://localhost:4000/graphql", {
   headers: {
     /* your configured headers */
   },
-})
+});
 
 // Update headers at runtime (e.g., for auth tokens)
 export const setClientHeaders = (headers: HeadersInit) => {
-  client.setHeaders(headers)
-}
+  client.setHeaders(headers);
+};
 
 // Create a new client instance with custom headers
 export const getClient = (headers?: HeadersInit) => {
-  return new GraphQLClient(endpoint, { headers })
-}
+  return new GraphQLClient(endpoint, { headers });
+};
 ```
 
 ### `types.ts`
@@ -242,9 +238,9 @@ TypeScript types generated from your schema and operations:
 ```typescript
 // Schema types
 export type CreateUserInput = {
-  name: string
-  email: string
-}
+  name: string;
+  email: string;
+};
 
 export enum UserRole {
   ADMIN = "ADMIN",
@@ -253,14 +249,14 @@ export enum UserRole {
 
 // Fragment types
 export type UserFieldsFragment = {
-  id: string
-  name: string
-  email: string
-}
+  id: string;
+  name: string;
+  email: string;
+};
 
 // Operation types
-export type GetUserQueryVariables = { id: string }
-export type GetUserQuery = { user: UserFieldsFragment | null }
+export type GetUserQueryVariables = { id: string };
+export type GetUserQuery = { user: UserFieldsFragment | null };
 ```
 
 ### `operations.ts`
@@ -272,13 +268,13 @@ export const getUserQueryOptions = (variables: GetUserQueryVariables) =>
   queryOptions({
     queryKey: ["GetUser", variables],
     queryFn: () => client.request<GetUserQuery>(GetUserDocument, variables),
-  })
+  });
 
 export const createUserMutationOptions = () => ({
   mutationKey: ["CreateUser"],
   mutationFn: (variables: CreateUserMutationVariables) =>
     client.request<CreateUserMutation>(CreateUserDocument, variables),
-})
+});
 ```
 
 ## CLI Reference
@@ -310,21 +306,21 @@ Options:
 The generated client includes helpers for setting headers at runtime, which is useful for authentication:
 
 ```typescript
-import { setClientHeaders } from "./generated/client"
+import { setClientHeaders } from "./generated/client";
 
 // After user logs in
 function onLogin(token: string) {
   setClientHeaders({
     Authorization: `Bearer ${token}`,
-  })
+  });
 }
 
 // Or use getClient for one-off requests with different headers
-import { getClient } from "./generated/client"
+import { getClient } from "./generated/client";
 
 const authenticatedClient = getClient({
   Authorization: `Bearer ${token}`,
-})
+});
 ```
 
 ## Roadmap
