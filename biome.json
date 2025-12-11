@@ -44,7 +44,6 @@
         "noUnusedImports": { "fix": "safe", "level": "error" }
       },
       "style": {
-        "noNonNullAssertion": "off",
         "useImportType": {
           "level": "error",
           "options": { "style": "separatedType" }
