@@ -304,28 +304,6 @@ Options:
   -c, --config <path>    Path to config file
 ```
 
-## Runtime Authentication
-
-The generated client includes helpers for setting headers at runtime, which is useful for authentication:
-
-```typescript
-import { setClientHeaders } from "./generated/client";
-
-// After user logs in
-function onLogin(token: string) {
-  setClientHeaders({
-    Authorization: `Bearer ${token}`,
-  });
-}
-
-// Or use getClient for one-off requests with different headers
-import { getClient } from "./generated/client";
-
-const authenticatedClient = getClient({
-  Authorization: `Bearer ${token}`,
-});
-```
-
 ## Roadmap
 
 - TanStack Form integration
