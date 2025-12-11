@@ -254,11 +254,12 @@ describe("loadTangenConfig", () => {
     `;
     await writeFile(configPath, validConfig, "utf-8");
 
-    const config = await loadTangenConfig({ configPath });
+    const result = await loadTangenConfig({ configPath });
 
-    expect(config.schema.url).toBe("http://localhost:4000/graphql");
-    expect(config.documents).toBe("./src/graphql/**/*.graphql");
-    expect(config.output.dir).toBe("./src/generated");
+    expect(result.config.schema.url).toBe("http://localhost:4000/graphql");
+    expect(result.config.documents).toBe("./src/graphql/**/*.graphql");
+    expect(result.config.output.dir).toBe("./src/generated");
+    expect(result.configPath).toBe(configPath);
   });
 
   it("applies default values to loaded config", async () => {
@@ -275,11 +276,11 @@ describe("loadTangenConfig", () => {
     `;
     await writeFile(configPath, configWithDefaults, "utf-8");
 
-    const config = await loadTangenConfig({ configPath });
+    const result = await loadTangenConfig({ configPath });
 
-    expect(config.output.client).toBe("client.ts");
-    expect(config.output.types).toBe("types.ts");
-    expect(config.output.operations).toBe("operations.ts");
+    expect(result.config.output.client).toBe("client.ts");
+    expect(result.config.output.types).toBe("types.ts");
+    expect(result.config.output.operations).toBe("operations.ts");
   });
 });
 
@@ -318,9 +319,9 @@ describe("loadTangenConfig with dotenv", () => {
 		`;
     await writeFile(configPath, configContent, "utf-8");
 
-    const config = await loadTangenConfig({ configPath });
+    const result = await loadTangenConfig({ configPath });
 
-    expect(config.schema.headers?.["x-api-key"]).toBe("secret123");
+    expect(result.config.schema.headers?.["x-api-key"]).toBe("secret123");
   });
 
   it("does not load .env when dotenv is false", async () => {
@@ -338,12 +339,12 @@ describe("loadTangenConfig with dotenv", () => {
 		`;
     await writeFile(configPath, configContent, "utf-8");
 
-    const config = await loadTangenConfig({
+    const result = await loadTangenConfig({
       configPath,
       dotenv: false,
     });
 
-    expect(config.schema.headers?.["x-api-key"]).toBe("fallback");
+    expect(result.config.schema.headers?.["x-api-key"]).toBe("fallback");
   });
 
   it("loads custom env file when specified", async () => {
@@ -365,12 +366,12 @@ describe("loadTangenConfig with dotenv", () => {
 		`;
     await writeFile(configPath, configContent, "utf-8");
 
-    const config = await loadTangenConfig({
+    const result = await loadTangenConfig({
       configPath,
       dotenv: { fileName: ".env.local" },
     });
 
-    expect(config.schema.headers?.["x-api-key"]).toBe("local123");
+    expect(result.config.schema.headers?.["x-api-key"]).toBe("local123");
   });
 
   it("merges multiple env files with later files taking priority", async () => {
@@ -400,12 +401,12 @@ describe("loadTangenConfig with dotenv", () => {
 		`;
     await writeFile(configPath, configContent, "utf-8");
 
-    const config = await loadTangenConfig({
+    const result = await loadTangenConfig({
       configPath,
       dotenv: { fileName: [".env", ".env.local"] },
     });
 
-    expect(config.schema.headers?.["x-api-key"]).toBe("override");
-    expect(config.schema.headers?.["x-other"]).toBe("other");
+    expect(result.config.schema.headers?.["x-api-key"]).toBe("override");
+    expect(result.config.schema.headers?.["x-other"]).toBe("other");
   });
 });

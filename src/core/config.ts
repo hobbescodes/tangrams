@@ -16,6 +16,16 @@ export interface LoadConfigOptions {
 }
 
 /**
+ * Result of loading the tangen config
+ */
+export interface LoadConfigResult {
+  /** The validated configuration */
+  config: TangenConfig;
+  /** The resolved path to the config file */
+  configPath: string;
+}
+
+/**
  * Configuration schema for tangen
  */
 export const configSchema = z.object({
@@ -55,7 +65,7 @@ export function defineConfig(config: TangenConfig): TangenConfig {
  */
 export async function loadTangenConfig(
   options: LoadConfigOptions = {},
-): Promise<TangenConfig> {
+): Promise<LoadConfigResult> {
   // If a config path is provided, use its directory as cwd for dotenv resolution
   const cwd = options.configPath ? dirname(options.configPath) : undefined;
 
@@ -83,7 +93,10 @@ export async function loadTangenConfig(
     throw new Error(`Invalid configuration in ${configFile}:\n${errors}`);
   }
 
-  return result.data;
+  return {
+    config: result.data,
+    configPath: configFile as string,
+  };
 }
 
 /**

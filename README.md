@@ -298,7 +298,35 @@ Generate TypeScript code from your GraphQL schema and operations.
 tangen generate [options]
 
 Options:
-  -c, --config <path>    Path to config file
+  -c, --config <path>     Path to config file
+  -f, --force             Force regeneration of all files including client
+  -w, --watch             Watch for file changes and regenerate automatically
+  --env-file <path>       Path to env file (can be specified multiple times)
+  --no-dotenv             Disable automatic .env file loading
+```
+
+#### Watch Mode
+
+When using `--watch`, tangen will:
+
+- Watch your config file and all GraphQL documents for changes
+- Automatically regenerate when files change
+- Cache the schema between document changes for faster rebuilds
+- Continue watching even if generation fails (e.g., invalid GraphQL syntax)
+
+Interactive commands in watch mode:
+
+- Press `r` to force a full refresh (re-introspects schema)
+- Press `q` to quit
+
+Example:
+
+```bash
+# Start watching for changes
+bunx tangen generate --watch
+
+# Watch with a custom config file
+bunx tangen generate --watch --config ./config/tangen.config.ts
 ```
 
 ## Roadmap

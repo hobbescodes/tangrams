@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { configSchema } from "../../core/config";
+import { generateCommand } from "./generate";
 
 // We test the config loading and validation logic
 // rather than the citty command to avoid mocking process.exit()
@@ -206,5 +207,51 @@ describe("generate command logic", () => {
         expect(result.data.output.operations).toBe("graphql-operations.ts");
       }
     });
+  });
+});
+
+describe("generate command definition", () => {
+  // Cast args to access the properties directly since citty uses Resolvable types
+  // biome-ignore lint/suspicious/noExplicitAny: citty types are complex
+  const args = generateCommand.args as any;
+  // biome-ignore lint/suspicious/noExplicitAny: citty types are complex
+  const meta = generateCommand.meta as any;
+
+  it("should have correct metadata", () => {
+    expect(meta.name).toBe("generate");
+    expect(meta.description).toBe(
+      "Generate TanStack Query artifacts from GraphQL schema",
+    );
+  });
+
+  it("should define --config/-c argument", () => {
+    expect(args.config).toBeDefined();
+    expect(args.config.type).toBe("string");
+    expect(args.config.alias).toBe("c");
+  });
+
+  it("should define --force/-f argument", () => {
+    expect(args.force).toBeDefined();
+    expect(args.force.type).toBe("boolean");
+    expect(args.force.alias).toBe("f");
+    expect(args.force.default).toBe(false);
+  });
+
+  it("should define --watch/-w argument", () => {
+    expect(args.watch).toBeDefined();
+    expect(args.watch.type).toBe("boolean");
+    expect(args.watch.alias).toBe("w");
+    expect(args.watch.default).toBe(false);
+  });
+
+  it("should define --env-file argument", () => {
+    expect(args["env-file"]).toBeDefined();
+    expect(args["env-file"].type).toBe("string");
+  });
+
+  it("should define --no-dotenv argument", () => {
+    expect(args["no-dotenv"]).toBeDefined();
+    expect(args["no-dotenv"].type).toBe("boolean");
+    expect(args["no-dotenv"].default).toBe(false);
   });
 });
