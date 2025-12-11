@@ -72,13 +72,19 @@ export async function generate(options: GenerateOptions): Promise<void> {
 
   // Step 5: Generate types
   consola.info("Generating types...");
-  const typesCode = generateTypes({
+  const typesResult = generateTypes({
     schema,
     documents,
     scalars,
   });
+
+  // Log any warnings about type references
+  for (const warning of typesResult.warnings) {
+    consola.warn(warning);
+  }
+
   const typesPath = join(outputDir, output.types);
-  await writeFile(typesPath, typesCode, "utf-8");
+  await writeFile(typesPath, typesResult.code, "utf-8");
   consola.success(`Generated ${output.types}`);
 
   // Step 6: Generate operations
