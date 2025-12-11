@@ -1,5 +1,12 @@
 # tangen
 
+## 0.4.1
+
+### Patch Changes
+
+- 50c5cd4: Fix type generation for GraphQL field aliases. Previously, aliased fields like `firstUser: user(id: "1")` would generate types with the schema field name (`user`) instead of the alias (`firstUser`). Now aliases are correctly reflected in generated TypeScript types.
+- 5567fa1: Fix CLI compatibility with Node.js by replacing Bun-specific `Bun.file().exists()` API with Node.js `fs/promises` access check.
+
 ## 0.4.0
 
 ### Minor Changes
