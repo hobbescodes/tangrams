@@ -1,10 +1,12 @@
 import {
   isEnumType,
   isInputObjectType,
+  isInterfaceType,
   isListType,
   isNonNullType,
   isObjectType,
   isScalarType,
+  isUnionType,
 } from "graphql";
 
 import {
@@ -20,10 +22,12 @@ import { collectUsedTypes } from "../utils/type-collector";
 import type {
   GraphQLEnumType,
   GraphQLInputObjectType,
+  GraphQLInterfaceType,
   GraphQLObjectType,
   GraphQLOutputType,
   GraphQLSchema,
   GraphQLType,
+  GraphQLUnionType,
 } from "graphql";
 import type {
   ParsedDocuments,
@@ -45,6 +49,16 @@ export interface TypeGeneratorResult {
 }
 
 /**
+ * Context object passed to type generation functions
+ */
+interface GeneratorContext {
+  schema: GraphQLSchema;
+  allFragments: ParsedFragment[];
+  scalars: Record<string, string>;
+  warnings: string[];
+}
+
+/**
  * Generate TypeScript types from schema and operations
  */
 export function generateTypes(
@@ -54,7 +68,18 @@ export function generateTypes(
   const scalars = resolveScalars(userScalars);
 
   // Collect only the types that are actually used by the documents
-  const { usedTypes, warnings } = collectUsedTypes(schema, documents);
+  const { usedTypes, warnings: collectionWarnings } = collectUsedTypes(
+    schema,
+    documents,
+  );
+
+  // Create context for generation
+  const ctx: GeneratorContext = {
+    schema,
+    allFragments: documents.fragments,
+    scalars,
+    warnings: [...collectionWarnings],
+  };
 
   const lines: string[] = [];
   lines.push("/* eslint-disable */");
@@ -73,12 +98,7 @@ export function generateTypes(
   if (documents.fragments.length > 0) {
     lines.push("// Fragment Types");
     for (const fragment of documents.fragments) {
-      const fragmentType = generateFragmentType(
-        schema,
-        fragment,
-        documents.fragments,
-        scalars,
-      );
+      const fragmentType = generateFragmentType(ctx, fragment);
       lines.push(fragmentType);
       lines.push("");
     }
@@ -88,12 +108,7 @@ export function generateTypes(
   if (documents.operations.length > 0) {
     lines.push("// Operation Types");
     for (const operation of documents.operations) {
-      const operationTypes = generateOperationTypes(
-        schema,
-        operation,
-        documents.fragments,
-        scalars,
-      );
+      const operationTypes = generateOperationTypes(ctx, operation);
       lines.push(operationTypes);
       lines.push("");
     }
@@ -101,7 +116,7 @@ export function generateTypes(
 
   return {
     code: lines.join("\n"),
-    warnings,
+    warnings: ctx.warnings,
   };
 }
 
@@ -188,25 +203,65 @@ function generateInputType(
  * Generate TypeScript type for a fragment
  */
 function generateFragmentType(
-  schema: GraphQLSchema,
+  ctx: GeneratorContext,
   fragment: ParsedFragment,
-  allFragments: ParsedFragment[],
-  scalars: Record<string, string>,
 ): string {
   const typeName = toFragmentTypeName(fragment.name);
-  const parentType = schema.getType(fragment.typeName) as GraphQLObjectType;
+  const parentType = ctx.schema.getType(fragment.typeName);
 
-  if (!parentType || !isObjectType(parentType)) {
+  // Support fragments on both object types and interface types
+  if (
+    !parentType ||
+    (!isObjectType(parentType) && !isInterfaceType(parentType))
+  ) {
     return `export type ${typeName} = unknown // Unable to resolve type ${fragment.typeName}`;
   }
 
-  const { fields, spreadFragments } = extractSelectionFieldsWithSpreads(
-    fragment.node.selectionSet,
-    parentType,
-    schema,
-    allFragments,
-    scalars,
-  );
+  const { fields, spreadFragments, inlineFragments } =
+    extractSelectionFieldsWithSpreads(
+      fragment.node.selectionSet,
+      parentType,
+      ctx,
+    );
+
+  // If fragment is on an interface and has inline fragments, generate union type
+  if (isInterfaceType(parentType) && inlineFragments.length > 0) {
+    const unionMembers = inlineFragments.map((inlineFrag) => {
+      let memberType = `{\n    __typename: "${inlineFrag.typeName}"`;
+
+      // Include common interface fields
+      if (fields) {
+        memberType += `\n${fields}`;
+      }
+
+      // Include fragment-specific fields
+      if (inlineFrag.fields) {
+        memberType += `\n${inlineFrag.fields}`;
+      }
+
+      memberType += "\n  }";
+
+      // Handle fragment spreads within inline fragments
+      if (inlineFrag.spreadFragments.length > 0) {
+        const spreadTypes = inlineFrag.spreadFragments
+          .map((f) => toFragmentTypeName(f))
+          .join(" & ");
+        return `${spreadTypes} & ${memberType}`;
+      }
+
+      return memberType;
+    });
+
+    // Handle top-level fragment spreads
+    if (spreadFragments.length > 0) {
+      const spreadTypes = spreadFragments
+        .map((f) => toFragmentTypeName(f))
+        .join(" & ");
+      return `export type ${typeName} = ${spreadTypes} & (${unionMembers.join(" | ")})`;
+    }
+
+    return `export type ${typeName} = ${unionMembers.join(" | ")}`;
+  }
 
   // If there are fragment spreads, use intersection type
   if (spreadFragments.length > 0) {
@@ -226,10 +281,8 @@ function generateFragmentType(
  * Generate TypeScript types for an operation (return type and variables)
  */
 function generateOperationTypes(
-  schema: GraphQLSchema,
+  ctx: GeneratorContext,
   operation: ParsedOperation,
-  allFragments: ParsedFragment[],
-  scalars: Record<string, string>,
 ): string {
   const lines: string[] = [];
 
@@ -243,7 +296,7 @@ function generateOperationTypes(
   if (variables && variables.length > 0) {
     const varFields = variables
       .map((v) => {
-        const tsType = graphqlTypeToTS(v.type, scalars);
+        const tsType = graphqlTypeToTS(v.type, ctx.scalars);
         const optional = v.type.kind !== "NonNullType" ? "?" : "";
         return `  ${v.variable.name.value}${optional}: ${tsType}`;
       })
@@ -263,8 +316,8 @@ function generateOperationTypes(
 
   const rootType =
     operation.operation === "query"
-      ? schema.getQueryType()
-      : schema.getMutationType();
+      ? ctx.schema.getQueryType()
+      : ctx.schema.getMutationType();
 
   if (!rootType) {
     lines.push(
@@ -276,9 +329,7 @@ function generateOperationTypes(
   const { fields } = extractSelectionFieldsWithSpreads(
     operation.node.selectionSet,
     rootType,
-    schema,
-    allFragments,
-    scalars,
+    ctx,
   );
 
   lines.push(`export type ${returnTypeName} = {\n${fields}\n}`);
@@ -286,27 +337,34 @@ function generateOperationTypes(
   return lines.join("\n");
 }
 
-interface SelectionResult {
+interface InlineFragmentResult {
+  typeName: string;
   fields: string;
   spreadFragments: string[];
 }
 
+interface SelectionResult {
+  fields: string;
+  spreadFragments: string[];
+  inlineFragments: InlineFragmentResult[];
+}
+
 /**
  * Extract TypeScript field definitions from a GraphQL selection set
- * Also returns fragment spread names for intersection types
+ * Also returns fragment spread names for intersection types and inline fragments
  */
 function extractSelectionFieldsWithSpreads(
   selectionSet: { selections: readonly unknown[] } | undefined,
-  parentType: GraphQLObjectType,
-  schema: GraphQLSchema,
-  allFragments: ParsedFragment[],
-  scalars: Record<string, string>,
+  parentType: GraphQLObjectType | GraphQLInterfaceType,
+  ctx: GeneratorContext,
   indent = "  ",
 ): SelectionResult {
-  if (!selectionSet) return { fields: "", spreadFragments: [] };
+  if (!selectionSet)
+    return { fields: "", spreadFragments: [], inlineFragments: [] };
 
   const fields: string[] = [];
   const spreadFragments: string[] = [];
+  const inlineFragments: InlineFragmentResult[] = [];
   const parentFields = parentType.getFields();
 
   for (const selection of selectionSet.selections) {
@@ -315,6 +373,7 @@ function extractSelectionFieldsWithSpreads(
       name?: { value: string };
       alias?: { value: string };
       selectionSet?: { selections: readonly unknown[] };
+      typeCondition?: { name: { value: string } };
     };
 
     if (sel.kind === "Field") {
@@ -335,9 +394,7 @@ function extractSelectionFieldsWithSpreads(
       const tsType = generateFieldType(
         fieldType,
         sel.selectionSet,
-        schema,
-        allFragments,
-        scalars,
+        ctx,
         indent,
       );
 
@@ -351,9 +408,36 @@ function extractSelectionFieldsWithSpreads(
         spreadFragments.push(fragmentName);
       }
     }
+
+    if (
+      sel.kind === "InlineFragment" &&
+      sel.typeCondition &&
+      sel.selectionSet
+    ) {
+      const typeName = sel.typeCondition.name.value;
+      const fragmentType = ctx.schema.getType(typeName);
+
+      if (
+        fragmentType &&
+        (isObjectType(fragmentType) || isInterfaceType(fragmentType))
+      ) {
+        const fragmentResult = extractSelectionFieldsWithSpreads(
+          sel.selectionSet,
+          fragmentType,
+          ctx,
+          indent,
+        );
+
+        inlineFragments.push({
+          typeName,
+          fields: fragmentResult.fields,
+          spreadFragments: fragmentResult.spreadFragments,
+        });
+      }
+    }
   }
 
-  return { fields: fields.join("\n"), spreadFragments };
+  return { fields: fields.join("\n"), spreadFragments, inlineFragments };
 }
 
 /**
@@ -362,39 +446,23 @@ function extractSelectionFieldsWithSpreads(
 function generateFieldType(
   type: GraphQLOutputType,
   selectionSet: { selections: readonly unknown[] } | undefined,
-  schema: GraphQLSchema,
-  allFragments: ParsedFragment[],
-  scalars: Record<string, string>,
+  ctx: GeneratorContext,
   indent: string,
 ): string {
   // Unwrap NonNull
   if (isNonNullType(type)) {
-    return generateFieldType(
-      type.ofType,
-      selectionSet,
-      schema,
-      allFragments,
-      scalars,
-      indent,
-    );
+    return generateFieldType(type.ofType, selectionSet, ctx, indent);
   }
 
   // Handle lists
   if (isListType(type)) {
-    const innerType = generateFieldType(
-      type.ofType,
-      selectionSet,
-      schema,
-      allFragments,
-      scalars,
-      indent,
-    );
+    const innerType = generateFieldType(type.ofType, selectionSet, ctx, indent);
     return `Array<${innerType}>`;
   }
 
   // Handle scalars
   if (isScalarType(type)) {
-    return scalars[type.name] ?? "unknown";
+    return ctx.scalars[type.name] ?? "unknown";
   }
 
   // Handle enums
@@ -402,14 +470,22 @@ function generateFieldType(
     return type.name;
   }
 
+  // Handle union types
+  if (isUnionType(type) && selectionSet) {
+    return generateUnionType(type, selectionSet, ctx, indent);
+  }
+
+  // Handle interface types
+  if (isInterfaceType(type) && selectionSet) {
+    return generateInterfaceType(type, selectionSet, ctx, indent);
+  }
+
   // Handle object types with nested selections
   if (isObjectType(type) && selectionSet) {
     const { fields, spreadFragments } = extractSelectionFieldsWithSpreads(
       selectionSet,
       type,
-      schema,
-      allFragments,
-      scalars,
+      ctx,
       `${indent}  `,
     );
 
@@ -428,6 +504,181 @@ function generateFieldType(
   }
 
   return "unknown";
+}
+
+/**
+ * Generate TypeScript type for a GraphQL union type
+ */
+function generateUnionType(
+  type: GraphQLUnionType,
+  selectionSet: { selections: readonly unknown[] },
+  ctx: GeneratorContext,
+  indent: string,
+): string {
+  const possibleTypes = type.getTypes();
+
+  // Extract inline fragments directly from selection set
+  const inlineFragments: InlineFragmentResult[] = [];
+
+  for (const selection of selectionSet.selections) {
+    const sel = selection as {
+      kind: string;
+      typeCondition?: { name: { value: string } };
+      selectionSet?: { selections: readonly unknown[] };
+    };
+
+    if (
+      sel.kind === "InlineFragment" &&
+      sel.typeCondition &&
+      sel.selectionSet
+    ) {
+      const typeName = sel.typeCondition.name.value;
+      const fragmentType = ctx.schema.getType(typeName);
+
+      if (
+        fragmentType &&
+        (isObjectType(fragmentType) || isInterfaceType(fragmentType))
+      ) {
+        const fragmentResult = extractSelectionFieldsWithSpreads(
+          sel.selectionSet,
+          fragmentType,
+          ctx,
+          `${indent}    `,
+        );
+
+        inlineFragments.push({
+          typeName,
+          fields: fragmentResult.fields,
+          spreadFragments: fragmentResult.spreadFragments,
+        });
+      }
+    }
+  }
+
+  // If no inline fragments, emit warning and generate minimal discriminated union
+  if (inlineFragments.length === 0) {
+    ctx.warnings.push(
+      `Union type "${type.name}" has no inline fragments. Consider adding "... on TypeName { fields }" to select specific fields.`,
+    );
+
+    // Generate minimal union with just __typename
+    const minimalUnion = possibleTypes
+      .map((t) => `{ __typename: "${t.name}" }`)
+      .join(" | ");
+    return minimalUnion;
+  }
+
+  // Generate discriminated union from inline fragments
+  const unionMembers = inlineFragments.map((fragment) => {
+    const { spreadFragments } = fragment;
+
+    // Build the type with __typename discriminator
+    let memberType = `{\n${indent}    __typename: "${fragment.typeName}"`;
+
+    if (fragment.fields) {
+      memberType += `\n${fragment.fields}`;
+    }
+
+    memberType += `\n${indent}  }`;
+
+    // If there are fragment spreads, create intersection type
+    if (spreadFragments.length > 0) {
+      const spreadTypes = spreadFragments
+        .map((f) => toFragmentTypeName(f))
+        .join(" & ");
+      return `${spreadTypes} & ${memberType}`;
+    }
+
+    return memberType;
+  });
+
+  return unionMembers.join(" | ");
+}
+
+/**
+ * Generate TypeScript type for a GraphQL interface type
+ */
+function generateInterfaceType(
+  type: GraphQLInterfaceType,
+  selectionSet: { selections: readonly unknown[] },
+  ctx: GeneratorContext,
+  indent: string,
+): string {
+  const { fields, inlineFragments, spreadFragments } =
+    extractSelectionFieldsWithSpreads(selectionSet, type, ctx, `${indent}  `);
+
+  // If no inline fragments, generate type with common fields only
+  if (inlineFragments.length === 0) {
+    // Get all possible implementations
+    const implementations = ctx.schema.getPossibleTypes(type);
+
+    if (implementations.length > 0 && !fields) {
+      // No fields selected and no inline fragments - emit warning
+      ctx.warnings.push(
+        `Interface type "${type.name}" has no fields or inline fragments selected. Consider adding "... on TypeName { fields }" to select specific fields.`,
+      );
+
+      // Generate minimal union with just __typename
+      const minimalUnion = implementations
+        .map((t) => `{ __typename: "${t.name}" }`)
+        .join(" | ");
+      return minimalUnion;
+    }
+
+    // Has common fields but no inline fragments - return object with those fields
+    let result = `{\n${indent}    __typename: string`;
+    if (fields) {
+      result += `\n${fields}`;
+    }
+    result += `\n${indent}  }`;
+
+    if (spreadFragments.length > 0) {
+      const spreadTypes = spreadFragments
+        .map((f) => toFragmentTypeName(f))
+        .join(" & ");
+      return `${spreadTypes} & ${result}`;
+    }
+
+    return result;
+  }
+
+  // Generate discriminated union from inline fragments
+  const unionMembers = inlineFragments.map((fragment) => {
+    // Build the type with __typename discriminator
+    let memberType = `{\n${indent}    __typename: "${fragment.typeName}"`;
+
+    // Include common interface fields
+    if (fields) {
+      memberType += `\n${fields}`;
+    }
+
+    // Include fragment-specific fields
+    if (fragment.fields) {
+      memberType += `\n${fragment.fields}`;
+    }
+
+    memberType += `\n${indent}  }`;
+
+    // If there are fragment spreads in the inline fragment, create intersection type
+    if (fragment.spreadFragments.length > 0) {
+      const spreadTypes = fragment.spreadFragments
+        .map((f) => toFragmentTypeName(f))
+        .join(" & ");
+      return `${spreadTypes} & ${memberType}`;
+    }
+
+    return memberType;
+  });
+
+  // If there are top-level fragment spreads, include them
+  if (spreadFragments.length > 0) {
+    const spreadTypes = spreadFragments
+      .map((f) => toFragmentTypeName(f))
+      .join(" & ");
+    return `${spreadTypes} & (${unionMembers.join(" | ")})`;
+  }
+
+  return unionMembers.join(" | ");
 }
 
 /**

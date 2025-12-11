@@ -3,10 +3,16 @@
  * Extracted from test/server.ts
  */
 export const schemaSDL = `
+  interface Node {
+    id: ID!
+  }
+
   type Query {
     user(id: ID!): User
     users(limit: Int, offset: Int): [User!]!
     posts(authorId: ID): [Post!]!
+    search(query: String!): [SearchResult!]!
+    node(id: ID!): Node
   }
 
   type Mutation {
@@ -16,7 +22,7 @@ export const schemaSDL = `
     createPost(input: CreatePostInput!): Post!
   }
 
-  type User {
+  type User implements Node {
     id: ID!
     name: String!
     email: String!
@@ -25,7 +31,7 @@ export const schemaSDL = `
     posts: [Post!]!
   }
 
-  type Post {
+  type Post implements Node {
     id: ID!
     title: String!
     content: String!
@@ -34,6 +40,8 @@ export const schemaSDL = `
     createdAt: DateTime!
     tags: [String!]!
   }
+
+  union SearchResult = User | Post
 
   input CreateUserInput {
     name: String!

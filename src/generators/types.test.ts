@@ -253,4 +253,117 @@ describe("generateTypes", () => {
       expect(result.code).toMatchSnapshot();
     });
   });
+
+  describe("union types", () => {
+    it("generates discriminated union type for union fields with inline fragments", async () => {
+      const documents = await loadDocuments(`${fixturesDir}/union.graphql`);
+      const result = generateTypes({
+        schema: testSchema,
+        documents,
+      });
+
+      // Should generate discriminated union with __typename
+      expect(result.code).toContain('__typename: "User"');
+      expect(result.code).toContain('__typename: "Post"');
+    });
+
+    it("generates union members with selected fields", async () => {
+      const documents = await loadDocuments(`${fixturesDir}/union.graphql`);
+      const result = generateTypes({
+        schema: testSchema,
+        documents,
+      });
+
+      // User variant should have User-specific fields
+      expect(result.code).toContain("name:");
+      expect(result.code).toContain("email:");
+
+      // Post variant should have Post-specific fields
+      expect(result.code).toContain("title:");
+      expect(result.code).toContain("content:");
+    });
+
+    it("emits warning for union without inline fragments", async () => {
+      const documents = await loadDocuments(`${fixturesDir}/union.graphql`);
+      const result = generateTypes({
+        schema: testSchema,
+        documents,
+      });
+
+      // SearchMinimal query has no inline fragments
+      expect(result.warnings).toContainEqual(
+        expect.stringContaining("SearchResult"),
+      );
+      expect(result.warnings).toContainEqual(
+        expect.stringContaining("inline fragments"),
+      );
+    });
+
+    it("matches snapshot for union operations", async () => {
+      const documents = await loadDocuments(`${fixturesDir}/union.graphql`);
+      const result = generateTypes({
+        schema: testSchema,
+        documents,
+      });
+
+      expect(result.code).toMatchSnapshot();
+    });
+  });
+
+  describe("interface types", () => {
+    it("generates discriminated union type for interface fields with inline fragments", async () => {
+      const documents = await loadDocuments(`${fixturesDir}/interface.graphql`);
+      const result = generateTypes({
+        schema: testSchema,
+        documents,
+      });
+
+      // Should generate discriminated union with __typename
+      expect(result.code).toContain('__typename: "User"');
+      expect(result.code).toContain('__typename: "Post"');
+    });
+
+    it("includes common interface fields in all variants", async () => {
+      const documents = await loadDocuments(`${fixturesDir}/interface.graphql`);
+      const result = generateTypes({
+        schema: testSchema,
+        documents,
+      });
+
+      // GetNode selects id from the interface, should be in generated type
+      expect(result.code).toContain("id:");
+    });
+
+    it("handles interface with only common fields", async () => {
+      const documents = await loadDocuments(`${fixturesDir}/interface.graphql`);
+      const result = generateTypes({
+        schema: testSchema,
+        documents,
+      });
+
+      // GetNodeMinimal only selects id, should have a simpler type
+      expect(result.code).toContain("GetNodeMinimalQuery");
+    });
+
+    it("generates fragment types for fragments on interfaces", async () => {
+      const documents = await loadDocuments(`${fixturesDir}/interface.graphql`);
+      const result = generateTypes({
+        schema: testSchema,
+        documents,
+      });
+
+      // NodeFields fragment should be generated
+      expect(result.code).toContain("NodeFieldsFragment");
+    });
+
+    it("matches snapshot for interface operations", async () => {
+      const documents = await loadDocuments(`${fixturesDir}/interface.graphql`);
+      const result = generateTypes({
+        schema: testSchema,
+        documents,
+      });
+
+      expect(result.code).toMatchSnapshot();
+    });
+  });
 });

@@ -1,0 +1,23 @@
+# Test union type queries
+
+query SearchContent($query: String!) {
+  search(query: $query) {
+    ... on User {
+      id
+      name
+      email
+    }
+    ... on Post {
+      id
+      title
+      content
+    }
+  }
+}
+
+# Test union without inline fragments (should generate warning)
+query SearchMinimal($query: String!) {
+  search(query: $query) {
+    __typename
+  }
+}

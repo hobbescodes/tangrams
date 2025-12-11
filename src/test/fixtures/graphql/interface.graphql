@@ -1,0 +1,39 @@
+# Test interface type queries
+
+query GetNode($id: ID!) {
+  node(id: $id) {
+    id
+    ... on User {
+      name
+      email
+    }
+    ... on Post {
+      title
+      content
+    }
+  }
+}
+
+# Test interface with only common fields (no inline fragments)
+query GetNodeMinimal($id: ID!) {
+  node(id: $id) {
+    id
+  }
+}
+
+# Fragment on interface type
+fragment NodeFields on Node {
+  id
+  ... on User {
+    name
+  }
+  ... on Post {
+    title
+  }
+}
+
+query GetNodeWithFragment($id: ID!) {
+  node(id: $id) {
+    ...NodeFields
+  }
+}
