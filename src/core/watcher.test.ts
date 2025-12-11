@@ -355,6 +355,279 @@ describe("createWatcher", () => {
     await vi.advanceTimersByTimeAsync(100);
     expect(onConfigChange).toHaveBeenCalledTimes(1);
   });
+
+  it("should add new files to watched documents on 'add' event", async () => {
+    const chokidar = await import("chokidar");
+    const mockWatcher = {
+      on: vi.fn().mockReturnThis(),
+      close: vi.fn().mockResolvedValue(undefined),
+    };
+    (chokidar.watch as Mock).mockReturnValue(mockWatcher);
+
+    const onDocumentChange = vi.fn();
+    const watcher = createWatcher({
+      configPath: "/path/to/config.ts",
+      documentPatterns: "**/*.graphql",
+      onConfigChange: vi.fn(),
+      onDocumentChange,
+      debounceMs: 100,
+    });
+
+    await watcher.start();
+
+    // Get the add handler for documents (second watcher)
+    const addHandler = mockWatcher.on.mock.calls.filter(
+      (call: unknown[]) => call[0] === "add",
+    )[0]?.[1];
+
+    // Add a new file that matches the pattern
+    addHandler?.("/path/to/new-file.graphql");
+
+    // Should be in watched documents
+    expect(watcher.getWatchedDocuments()).toContain(
+      "/path/to/new-file.graphql",
+    );
+
+    // Debounced document change should be called
+    await vi.advanceTimersByTimeAsync(100);
+    expect(onDocumentChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("should not add duplicate files on 'add' event", async () => {
+    const chokidar = await import("chokidar");
+    const mockWatcher = {
+      on: vi.fn().mockReturnThis(),
+      close: vi.fn().mockResolvedValue(undefined),
+    };
+    (chokidar.watch as Mock).mockReturnValue(mockWatcher);
+
+    const watcher = createWatcher({
+      configPath: "/path/to/config.ts",
+      documentPatterns: "**/*.graphql",
+      onConfigChange: vi.fn(),
+      onDocumentChange: vi.fn(),
+    });
+
+    await watcher.start();
+
+    const initialCount = watcher.getWatchedDocuments().length;
+
+    // Get the add handler
+    const addHandler = mockWatcher.on.mock.calls.filter(
+      (call: unknown[]) => call[0] === "add",
+    )[0]?.[1];
+
+    // Try to add an existing file
+    addHandler?.("/path/to/file1.graphql");
+
+    // Should still have the same count
+    expect(watcher.getWatchedDocuments().length).toBe(initialCount);
+  });
+
+  it("should remove files from watched documents on 'unlink' event", async () => {
+    const chokidar = await import("chokidar");
+    const mockWatcher = {
+      on: vi.fn().mockReturnThis(),
+      close: vi.fn().mockResolvedValue(undefined),
+    };
+    (chokidar.watch as Mock).mockReturnValue(mockWatcher);
+
+    const onDocumentChange = vi.fn();
+    const watcher = createWatcher({
+      configPath: "/path/to/config.ts",
+      documentPatterns: "**/*.graphql",
+      onConfigChange: vi.fn(),
+      onDocumentChange,
+      debounceMs: 100,
+    });
+
+    await watcher.start();
+
+    // Verify file1 is in watched documents
+    expect(watcher.getWatchedDocuments()).toContain("/path/to/file1.graphql");
+
+    // Get the unlink handler
+    const unlinkHandler = mockWatcher.on.mock.calls.filter(
+      (call: unknown[]) => call[0] === "unlink",
+    )[0]?.[1];
+
+    // Remove file1
+    unlinkHandler?.("/path/to/file1.graphql");
+
+    // Should no longer be in watched documents
+    expect(watcher.getWatchedDocuments()).not.toContain(
+      "/path/to/file1.graphql",
+    );
+
+    // Debounced document change should be called
+    await vi.advanceTimersByTimeAsync(100);
+    expect(onDocumentChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("should ignore files that don't match pattern on 'add' event", async () => {
+    const chokidar = await import("chokidar");
+    const mockWatcher = {
+      on: vi.fn().mockReturnThis(),
+      close: vi.fn().mockResolvedValue(undefined),
+    };
+    (chokidar.watch as Mock).mockReturnValue(mockWatcher);
+
+    const onDocumentChange = vi.fn();
+    const watcher = createWatcher({
+      configPath: "/path/to/config.ts",
+      documentPatterns: "**/*.graphql",
+      onConfigChange: vi.fn(),
+      onDocumentChange,
+      debounceMs: 100,
+    });
+
+    await watcher.start();
+
+    const initialCount = watcher.getWatchedDocuments().length;
+
+    // Get the add handler
+    const addHandler = mockWatcher.on.mock.calls.filter(
+      (call: unknown[]) => call[0] === "add",
+    )[0]?.[1];
+
+    // Try to add a file that doesn't match the pattern
+    addHandler?.("/path/to/file.ts");
+
+    // Should not be added
+    expect(watcher.getWatchedDocuments().length).toBe(initialCount);
+
+    // Document change should NOT be called
+    await vi.advanceTimersByTimeAsync(100);
+    expect(onDocumentChange).not.toHaveBeenCalled();
+  });
+
+  it("should ignore files that don't match pattern on 'change' event", async () => {
+    const chokidar = await import("chokidar");
+    const mockWatcher = {
+      on: vi.fn().mockReturnThis(),
+      close: vi.fn().mockResolvedValue(undefined),
+    };
+    (chokidar.watch as Mock).mockReturnValue(mockWatcher);
+
+    const onDocumentChange = vi.fn();
+    const watcher = createWatcher({
+      configPath: "/path/to/config.ts",
+      documentPatterns: "**/*.graphql",
+      onConfigChange: vi.fn(),
+      onDocumentChange,
+      debounceMs: 100,
+    });
+
+    await watcher.start();
+
+    // Get the change handler for documents (second watcher)
+    const documentChangeHandler = mockWatcher.on.mock.calls.filter(
+      (call: unknown[]) => call[0] === "change",
+    )[1]?.[1];
+
+    // Try to trigger change for a non-matching file
+    documentChangeHandler?.("/path/to/file.ts");
+
+    // Document change should NOT be called
+    await vi.advanceTimersByTimeAsync(100);
+    expect(onDocumentChange).not.toHaveBeenCalled();
+  });
+
+  it("should ignore files that don't match pattern on 'unlink' event", async () => {
+    const chokidar = await import("chokidar");
+    const mockWatcher = {
+      on: vi.fn().mockReturnThis(),
+      close: vi.fn().mockResolvedValue(undefined),
+    };
+    (chokidar.watch as Mock).mockReturnValue(mockWatcher);
+
+    const onDocumentChange = vi.fn();
+    const watcher = createWatcher({
+      configPath: "/path/to/config.ts",
+      documentPatterns: "**/*.graphql",
+      onConfigChange: vi.fn(),
+      onDocumentChange,
+      debounceMs: 100,
+    });
+
+    await watcher.start();
+
+    // Get the unlink handler
+    const unlinkHandler = mockWatcher.on.mock.calls.filter(
+      (call: unknown[]) => call[0] === "unlink",
+    )[0]?.[1];
+
+    // Try to unlink a non-matching file
+    unlinkHandler?.("/path/to/file.ts");
+
+    // Document change should NOT be called
+    await vi.advanceTimersByTimeAsync(100);
+    expect(onDocumentChange).not.toHaveBeenCalled();
+  });
+
+  it("should handle error on document watcher", async () => {
+    const chokidar = await import("chokidar");
+    const mockWatcher = {
+      on: vi.fn().mockReturnThis(),
+      close: vi.fn().mockResolvedValue(undefined),
+    };
+    (chokidar.watch as Mock).mockReturnValue(mockWatcher);
+
+    const onError = vi.fn();
+    const watcher = createWatcher({
+      configPath: "/path/to/config.ts",
+      documentPatterns: "**/*.graphql",
+      onConfigChange: vi.fn(),
+      onDocumentChange: vi.fn(),
+      onError,
+    });
+
+    await watcher.start();
+
+    // Get all error handlers (config and document watchers)
+    const errorHandlers = mockWatcher.on.mock.calls.filter(
+      (call: unknown[]) => call[0] === "error",
+    );
+
+    // Second error handler is for document watcher
+    const documentErrorHandler = errorHandlers[1]?.[1];
+
+    // Simulate an error
+    const testError = new Error("Document watcher error");
+    documentErrorHandler?.(testError);
+
+    expect(onError).toHaveBeenCalledWith(testError);
+  });
+
+  it("should handle stop when watchers are null", async () => {
+    const watcher = createWatcher({
+      configPath: "/path/to/config.ts",
+      documentPatterns: "**/*.graphql",
+      onConfigChange: vi.fn(),
+      onDocumentChange: vi.fn(),
+    });
+
+    // Stop without start should not throw
+    await expect(watcher.stop()).resolves.not.toThrow();
+  });
+
+  it("should handle single string pattern for documents", async () => {
+    const fg = await import("fast-glob");
+    const watcher = createWatcher({
+      configPath: "/path/to/config.ts",
+      documentPatterns: "**/*.graphql", // Single string, not array
+      onConfigChange: vi.fn(),
+      onDocumentChange: vi.fn(),
+    });
+
+    await watcher.start();
+
+    // Should convert to array internally
+    expect(fg.default).toHaveBeenCalledWith(["**/*.graphql"], {
+      absolute: true,
+      onlyFiles: true,
+    });
+  });
 });
 
 describe("setupKeyboardInput", () => {
