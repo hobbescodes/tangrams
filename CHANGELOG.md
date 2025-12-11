@@ -1,5 +1,11 @@
 # tangen
 
+## 0.4.0
+
+### Minor Changes
+
+- dd80cce: Use `mutationOptions` API from TanStack Query for generated mutation options instead of plain object literals. This provides better type safety and aligns with the `queryOptions` pattern.
+
 ## 0.3.0
 
 ### Minor Changes
