@@ -10,11 +10,19 @@ import { generateTypes } from "../generators/types";
 import { loadDocuments } from "./documents";
 import { introspectSchema } from "./introspection";
 
+import type { GraphQLSchema } from "graphql";
 import type { TangenConfig } from "./config";
 
 export interface GenerateOptions {
   config: TangenConfig;
   force?: boolean;
+  /** Cached schema to use instead of introspecting. Used by watch mode for faster rebuilds. */
+  cachedSchema?: GraphQLSchema;
+}
+
+export interface GenerateResult {
+  /** The introspected or cached schema */
+  schema: GraphQLSchema;
 }
 
 /**
@@ -32,17 +40,25 @@ async function fileExists(path: string): Promise<boolean> {
 /**
  * Main generation orchestrator
  */
-export async function generate(options: GenerateOptions): Promise<void> {
-  const { config, force = false } = options;
+export async function generate(
+  options: GenerateOptions,
+): Promise<GenerateResult> {
+  const { config, force = false, cachedSchema } = options;
   const { schema: schemaConfig, output, scalars } = config;
 
-  // Step 1: Introspect schema
-  consola.info(`Introspecting schema from ${schemaConfig.url}...`);
-  const schema = await introspectSchema({
-    url: schemaConfig.url,
-    headers: schemaConfig.headers,
-  });
-  consola.success("Schema introspection complete");
+  // Step 1: Introspect schema (or use cached)
+  let schema: GraphQLSchema;
+  if (cachedSchema) {
+    consola.info("Using cached schema...");
+    schema = cachedSchema;
+  } else {
+    consola.info(`Introspecting schema from ${schemaConfig.url}...`);
+    schema = await introspectSchema({
+      url: schemaConfig.url,
+      headers: schemaConfig.headers,
+    });
+    consola.success("Schema introspection complete");
+  }
 
   // Step 2: Load user documents
   consola.info("Loading GraphQL documents...");
@@ -108,4 +124,6 @@ export async function generate(options: GenerateOptions): Promise<void> {
     title: "Generation Complete",
     message: `Files generated in ${output.dir}:\n  - ${output.client}\n  - ${output.types}\n  - ${output.operations}`,
   });
+
+  return { schema };
 }

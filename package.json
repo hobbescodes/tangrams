@@ -52,6 +52,7 @@
   },
   "dependencies": {
     "c12": "^3.3.2",
+    "chokidar": "^5.0.0",
     "citty": "^0.1.6",
     "consola": "^3.4.0",
     "fast-glob": "^3.3.3",
