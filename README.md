@@ -152,12 +152,6 @@ export default defineConfig({
       "x-api-key": process.env.API_KEY,
     },
   },
-  // Optional: headers to include in generated client
-  client: {
-    headers: {
-      "Content-Type": "application/json",
-    },
-  },
   // Optional: custom scalar type mappings
   scalars: {
     DateTime: "Date",
@@ -181,7 +175,6 @@ export default defineConfig({
 | ------------------- | ------------------------ | -------- | ---------------------------------------------- |
 | `schema.url`        | `string`                 | Yes      | GraphQL endpoint URL for introspection         |
 | `schema.headers`    | `Record<string, string>` | No       | Headers to send with introspection request     |
-| `client.headers`    | `Record<string, string>` | No       | Headers to include in generated client         |
 | `scalars`           | `Record<string, string>` | No       | Custom scalar type mappings                    |
 | `documents`         | `string \| string[]`     | Yes      | Glob pattern(s) for `.graphql` files           |
 | `output.dir`        | `string`                 | Yes      | Output directory for generated files           |
