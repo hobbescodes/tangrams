@@ -31,7 +31,12 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!!test/generated", "!!.changeset"]
+    "includes": [
+      "**",
+      "!!test/generated",
+      "!!.changeset",
+      "!!src/test/fixtures/graphql/anonymous.graphql"
+    ]
   },
   "formatter": {
     "indentStyle": "space",

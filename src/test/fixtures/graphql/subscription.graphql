@@ -1,0 +1,8 @@
+# Subscription (should be skipped)
+subscription OnUserCreated {
+  userCreated {
+    id
+    name
+    email
+  }
+}

@@ -214,20 +214,18 @@ A configured `graphql-request` client with helpers:
 ```typescript
 import { GraphQLClient } from "graphql-request";
 
-export const client = new GraphQLClient("http://localhost:4000/graphql", {
-  headers: {
-    /* your configured headers */
-  },
-});
+const endpoint = "http://localhost:4000/graphql";
 
-// Update headers at runtime (e.g., for auth tokens)
-export const setClientHeaders = (headers: HeadersInit) => {
-  client.setHeaders(headers);
-};
-
-// Create a new client instance with custom headers
-export const getClient = (headers?: HeadersInit) => {
-  return new GraphQLClient(endpoint, { headers });
+/**
+ * Returns a GraphQL client instance.
+ * Customize this function to add dynamic headers (e.g., auth tokens).
+ */
+export const getClient = async () => {
+  return new GraphQLClient(endpoint, {
+    headers: {
+      // Add your headers here
+    },
+  });
 };
 ```
 
@@ -267,13 +265,17 @@ Ready-to-use `queryOptions` and mutation options:
 export const getUserQueryOptions = (variables: GetUserQueryVariables) =>
   queryOptions({
     queryKey: ["GetUser", variables],
-    queryFn: () => client.request<GetUserQuery>(GetUserDocument, variables),
+    queryFn: async () =>
+      (await getClient()).request<GetUserQuery>(GetUserDocument, variables),
   });
 
 export const createUserMutationOptions = () => ({
   mutationKey: ["CreateUser"],
-  mutationFn: (variables: CreateUserMutationVariables) =>
-    client.request<CreateUserMutation>(CreateUserDocument, variables),
+  mutationFn: async (variables: CreateUserMutationVariables) =>
+    (await getClient()).request<CreateUserMutation>(
+      CreateUserDocument,
+      variables
+    ),
 });
 ```
 

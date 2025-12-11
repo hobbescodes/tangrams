@@ -1,0 +1,45 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`generateClient matches snapshot for standard endpoint 1`] = `
+"/* eslint-disable */
+/* GraphQL Client - Generated once by tangen. Customize as needed. */
+
+import { GraphQLClient } from "graphql-request"
+
+const endpoint = "http://localhost:4000/graphql"
+
+/**
+ * Returns a GraphQL client instance.
+ * Customize this function to add dynamic headers (e.g., auth tokens).
+ */
+export const getClient = async () => {
+	return new GraphQLClient(endpoint, {
+		headers: {
+			// Add your headers here
+		},
+	})
+}
+"
+`;
+
+exports[`generateClient matches snapshot for production endpoint 1`] = `
+"/* eslint-disable */
+/* GraphQL Client - Generated once by tangen. Customize as needed. */
+
+import { GraphQLClient } from "graphql-request"
+
+const endpoint = "https://api.example.com/graphql"
+
+/**
+ * Returns a GraphQL client instance.
+ * Customize this function to add dynamic headers (e.g., auth tokens).
+ */
+export const getClient = async () => {
+	return new GraphQLClient(endpoint, {
+		headers: {
+			// Add your headers here
+		},
+	})
+}
+"
+`;

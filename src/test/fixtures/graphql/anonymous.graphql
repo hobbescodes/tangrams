@@ -1,0 +1,7 @@
+# Anonymous operation (should cause an error)
+query {
+  users {
+    id
+    name
+  }
+}
