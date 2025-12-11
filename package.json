@@ -57,6 +57,7 @@
     "consola": "^3.4.0",
     "fast-glob": "^3.3.3",
     "graphql": "^16.10.0",
+    "picomatch": "^4.0.3",
     "zod": "^3.24.4"
   },
   "devDependencies": {
@@ -64,6 +65,7 @@
     "@changesets/cli": "^2.29.8",
     "@tanstack/react-query": "^5.80.6",
     "@types/bun": "latest",
+    "@types/picomatch": "^4.0.2",
     "@vitest/coverage-istanbul": "^3.2.3",
     "graphql-request": "^7.1.2",
     "tsup": "^8.5.0",

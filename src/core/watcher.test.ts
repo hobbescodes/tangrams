@@ -21,7 +21,13 @@ vi.mock("fast-glob", () => ({
 }));
 
 // Import after mocks are set up
-import { clearConsole, createWatcher, setupKeyboardInput } from "./watcher";
+import {
+  clearConsole,
+  createWatcher,
+  getGlobBaseDir,
+  getWatchDirs,
+  setupKeyboardInput,
+} from "./watcher";
 
 describe("createWatcher", () => {
   beforeEach(() => {
@@ -115,7 +121,7 @@ describe("createWatcher", () => {
     });
   });
 
-  it("should setup document watcher with glob patterns", async () => {
+  it("should setup document watcher with base directories (not glob patterns)", async () => {
     const chokidar = await import("chokidar");
     const watcher = createWatcher({
       configPath: "/path/to/config.ts",
@@ -126,16 +132,14 @@ describe("createWatcher", () => {
 
     await watcher.start();
 
-    expect(chokidar.watch).toHaveBeenCalledWith(
-      ["src/**/*.graphql", "lib/**/*.gql"],
-      {
-        ignoreInitial: true,
-        awaitWriteFinish: {
-          stabilityThreshold: 100,
-          pollInterval: 50,
-        },
+    // chokidar v4+ doesn't support globs, so we extract base directories
+    expect(chokidar.watch).toHaveBeenCalledWith(["src", "lib"], {
+      ignoreInitial: true,
+      awaitWriteFinish: {
+        stabilityThreshold: 100,
+        pollInterval: 50,
       },
-    );
+    });
   });
 
   it("should call onConfigChange when config file changes (with debounce)", async () => {
@@ -202,12 +206,12 @@ describe("createWatcher", () => {
       (call: unknown[]) => call[0] === "change",
     )[1]?.[1];
 
-    // Simulate multiple rapid changes
-    documentChangeHandler?.();
+    // Simulate multiple rapid changes with file paths that match the pattern
+    documentChangeHandler?.("src/queries.graphql");
     await vi.advanceTimersByTimeAsync(50);
-    documentChangeHandler?.();
+    documentChangeHandler?.("src/mutations.graphql");
     await vi.advanceTimersByTimeAsync(50);
-    documentChangeHandler?.();
+    documentChangeHandler?.("src/subscriptions.graphql");
 
     // Should still not be called
     expect(onDocumentChange).not.toHaveBeenCalled();
@@ -403,5 +407,84 @@ describe("clearConsole", () => {
       clearConsole();
       clearConsole();
     }).not.toThrow();
+  });
+});
+
+describe("getGlobBaseDir", () => {
+  it("should extract base directory from glob pattern with **", () => {
+    expect(getGlobBaseDir("./src/graphql/**/*.graphql")).toBe("./src/graphql");
+    expect(getGlobBaseDir("src/graphql/**/*.graphql")).toBe("src/graphql");
+  });
+
+  it("should extract base directory from glob pattern with *", () => {
+    expect(getGlobBaseDir("src/*.ts")).toBe("src");
+    expect(getGlobBaseDir("./src/*.ts")).toBe("./src");
+  });
+
+  it("should return . for patterns starting with glob characters", () => {
+    expect(getGlobBaseDir("**/*.graphql")).toBe(".");
+    expect(getGlobBaseDir("*.graphql")).toBe(".");
+  });
+
+  it("should handle patterns with nested directories", () => {
+    expect(getGlobBaseDir("./src/lib/graphql/**/*.graphql")).toBe(
+      "./src/lib/graphql",
+    );
+  });
+
+  it("should handle patterns with question mark glob", () => {
+    expect(getGlobBaseDir("src/?.ts")).toBe("src");
+  });
+
+  it("should handle patterns with bracket glob", () => {
+    expect(getGlobBaseDir("src/[abc].ts")).toBe("src");
+  });
+
+  it("should handle patterns with brace glob", () => {
+    expect(getGlobBaseDir("src/{a,b}.ts")).toBe("src");
+  });
+
+  it("should handle patterns with no glob characters", () => {
+    expect(getGlobBaseDir("src/file.ts")).toBe("src");
+  });
+
+  it("should handle patterns with only filename", () => {
+    expect(getGlobBaseDir("file.ts")).toBe(".");
+  });
+});
+
+describe("getWatchDirs", () => {
+  it("should extract unique base directories from multiple patterns", () => {
+    const patterns = ["src/**/*.graphql", "lib/**/*.gql"];
+    const dirs = getWatchDirs(patterns);
+    expect(dirs).toEqual(["src", "lib"]);
+  });
+
+  it("should deduplicate identical directories", () => {
+    const patterns = ["src/**/*.graphql", "src/**/*.gql", "src/*.ts"];
+    const dirs = getWatchDirs(patterns);
+    expect(dirs).toEqual(["src"]);
+  });
+
+  it("should keep different subdirectories as separate entries", () => {
+    const patterns = ["src/**/*.graphql", "src/queries/*.graphql"];
+    const dirs = getWatchDirs(patterns);
+    expect(dirs).toEqual(["src", "src/queries"]);
+  });
+
+  it("should handle single pattern", () => {
+    const patterns = ["./src/graphql/**/*.graphql"];
+    const dirs = getWatchDirs(patterns);
+    expect(dirs).toEqual(["./src/graphql"]);
+  });
+
+  it("should handle patterns with different base dirs", () => {
+    const patterns = [
+      "./src/graphql/**/*.graphql",
+      "./lib/queries/**/*.gql",
+      "**/*.graphql",
+    ];
+    const dirs = getWatchDirs(patterns);
+    expect(dirs).toEqual(["./src/graphql", "./lib/queries", "."]);
   });
 });

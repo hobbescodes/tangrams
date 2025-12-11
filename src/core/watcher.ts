@@ -1,5 +1,6 @@
 import { watch } from "chokidar";
 import fg from "fast-glob";
+import picomatch from "picomatch";
 
 import type { FSWatcher } from "chokidar";
 
@@ -25,6 +26,57 @@ export interface Watcher {
   stop: () => Promise<void>;
   /** Get the list of document files being watched */
   getWatchedDocuments: () => string[];
+}
+
+/**
+ * Extract the base directory from a glob pattern.
+ * Returns the static part of the path before any glob characters.
+ *
+ * Examples:
+ * - "./src/graphql/**\/*.graphql" -> "./src/graphql"
+ * - "src/*.ts" -> "src"
+ * - "**\/*.graphql" -> "."
+ */
+export function getGlobBaseDir(pattern: string): string {
+  // Glob special characters
+  const globChars = ["*", "?", "[", "{", "(", "!"];
+
+  // Find the first glob character
+  let firstGlobIndex = pattern.length;
+  for (const char of globChars) {
+    const index = pattern.indexOf(char);
+    if (index !== -1 && index < firstGlobIndex) {
+      firstGlobIndex = index;
+    }
+  }
+
+  // Get the path up to (but not including) the first glob character
+  const staticPart = pattern.slice(0, firstGlobIndex);
+
+  // Find the last path separator in the static part
+  const lastSepIndex = Math.max(
+    staticPart.lastIndexOf("/"),
+    staticPart.lastIndexOf("\\"),
+  );
+
+  if (lastSepIndex === -1) {
+    // No separator found, use current directory
+    return ".";
+  }
+
+  const baseDir = staticPart.slice(0, lastSepIndex);
+  return baseDir || ".";
+}
+
+/**
+ * Get unique base directories from multiple glob patterns.
+ */
+export function getWatchDirs(patterns: string[]): string[] {
+  const dirs = new Set<string>();
+  for (const pattern of patterns) {
+    dirs.add(getGlobBaseDir(pattern));
+  }
+  return Array.from(dirs);
 }
 
 /**
@@ -103,9 +155,15 @@ export function createWatcher(options: WatcherOptions): Watcher {
       onError?.(error instanceof Error ? error : new Error(String(error)));
     });
 
-    // Watch document files using glob patterns
-    // This allows us to pick up new files that match the patterns
-    documentWatcher = watch(patterns, {
+    // Create a matcher function from the glob patterns
+    // This is used to filter file events to only those matching the patterns
+    const isMatch = picomatch(patterns);
+
+    // Get base directories to watch (chokidar v4+ doesn't support globs)
+    const watchDirs = getWatchDirs(patterns);
+
+    // Watch the base directories recursively
+    documentWatcher = watch(watchDirs, {
       ignoreInitial: true,
       awaitWriteFinish: {
         stabilityThreshold: 100,
@@ -114,6 +172,9 @@ export function createWatcher(options: WatcherOptions): Watcher {
     });
 
     documentWatcher.on("add", async (filePath) => {
+      // Only handle files that match the glob patterns
+      if (!isMatch(filePath)) return;
+
       // Update the watched documents list when a new file is added
       if (!watchedDocuments.includes(filePath)) {
         watchedDocuments.push(filePath);
@@ -121,11 +182,17 @@ export function createWatcher(options: WatcherOptions): Watcher {
       debouncedDocumentChange();
     });
 
-    documentWatcher.on("change", () => {
+    documentWatcher.on("change", (filePath) => {
+      // Only handle files that match the glob patterns
+      if (!isMatch(filePath)) return;
+
       debouncedDocumentChange();
     });
 
     documentWatcher.on("unlink", (filePath) => {
+      // Only handle files that match the glob patterns
+      if (!isMatch(filePath)) return;
+
       // Remove from watched documents when file is deleted
       watchedDocuments = watchedDocuments.filter((f) => f !== filePath);
       debouncedDocumentChange();
