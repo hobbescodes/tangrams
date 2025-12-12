@@ -1,0 +1,69 @@
+"""
+GraphQL schema definition for testing file-based schema loading
+"""
+interface Node {
+  id: ID!
+}
+
+type Query {
+  user(id: ID!): User
+  users(limit: Int, offset: Int): [User!]!
+  posts(authorId: ID): [Post!]!
+  search(query: String!): [SearchResult!]!
+  node(id: ID!): Node
+}
+
+type Mutation {
+  createUser(input: CreateUserInput!): User!
+  updateUser(id: ID!, input: UpdateUserInput!): User
+  deleteUser(id: ID!): Boolean!
+  createPost(input: CreatePostInput!): Post!
+}
+
+type User implements Node {
+  id: ID!
+  name: String!
+  email: String!
+  avatarUrl: String
+  createdAt: DateTime!
+  posts: [Post!]!
+}
+
+type Post implements Node {
+  id: ID!
+  title: String!
+  content: String!
+  published: Boolean!
+  author: User!
+  createdAt: DateTime!
+  tags: [String!]!
+}
+
+union SearchResult = User | Post
+
+input CreateUserInput {
+  name: String!
+  email: String!
+  avatarUrl: String
+}
+
+input UpdateUserInput {
+  name: String
+  email: String
+  avatarUrl: String
+}
+
+input CreatePostInput {
+  title: String!
+  content: String!
+  authorId: ID!
+  tags: [String!]
+}
+
+enum UserRole {
+  ADMIN
+  USER
+  GUEST
+}
+
+scalar DateTime

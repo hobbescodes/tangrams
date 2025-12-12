@@ -72,7 +72,7 @@ describe("generate command logic", () => {
   });
 
   describe("error formatting", () => {
-    it("provides descriptive error for missing schema url", () => {
+    it("provides descriptive error for missing schema url or file", () => {
       const source = {
         name: "graphql",
         type: "graphql",
@@ -85,7 +85,8 @@ describe("generate command logic", () => {
       if (!result.success) {
         const errors = result.error.errors;
         expect(errors.length).toBeGreaterThan(0);
-        expect(errors.some((e) => e.path.includes("url"))).toBe(true);
+        // With union type, error indicates invalid schema config (must have url or file)
+        expect(errors.some((e) => e.path.includes("schema"))).toBe(true);
       }
     });
 

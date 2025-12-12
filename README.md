@@ -24,7 +24,7 @@ Currently supporting **TanStack Query** with more integrations on the way.
 
 ## Supported Data Sources
 
-- **GraphQL** - Via introspection
+- **GraphQL** - Via introspection endpoint or local SDL files
 - **OpenAPI** - Via spec file (local or remote URL)
 
 ## Installation
@@ -68,9 +68,11 @@ bun add @tanstack/react-query @better-fetch/fetch zod
 
    This creates a `tangen.config.ts` file in your project root.
 
-2. **Configure your schema endpoint**
+2. **Configure your schema source**
 
-   Edit `tangen.config.ts` with your GraphQL endpoint:
+   Edit `tangen.config.ts` with your GraphQL schema source. You can use either a URL for introspection or local SDL files:
+
+   **Option A: URL-based (introspection)**
 
    ```typescript
    import { defineConfig } from "tangen";
@@ -83,6 +85,29 @@ bun add @tanstack/react-query @better-fetch/fetch zod
            type: "graphql",
            schema: {
              url: "http://localhost:4000/graphql",
+           },
+           documents: "./src/graphql/**/*.graphql",
+         },
+       ],
+     },
+   });
+   ```
+
+   **Option B: File-based (local SDL files)**
+
+   ```typescript
+   import { defineConfig } from "tangen";
+
+   export default defineConfig({
+     query: {
+       sources: [
+         {
+           name: "graphql",
+           type: "graphql",
+           schema: {
+             file: "./schema.graphql",
+             // Or use glob patterns for multiple files:
+             // file: ["./schema.graphql", "./extensions/**/*.graphql"],
            },
            documents: "./src/graphql/**/*.graphql",
          },
@@ -226,6 +251,7 @@ export default defineConfig({
   output: "./src/generated", // optional, defaults to "./src/generated"
   query: {
     sources: [
+      // GraphQL with URL-based schema (introspection)
       {
         name: "graphql",
         type: "graphql",
@@ -240,6 +266,15 @@ export default defineConfig({
           DateTime: "Date",
         },
       },
+      // GraphQL with file-based schema (local SDL files)
+      // {
+      //   name: "local-graphql",
+      //   type: "graphql",
+      //   schema: {
+      //     file: ["./schema.graphql", "./extensions/**/*.graphql"],
+      //   },
+      //   documents: "./src/graphql/**/*.graphql",
+      // },
       {
         name: "rest-api",
         type: "openapi",
@@ -262,10 +297,24 @@ export default defineConfig({
 | ---------- | ------------------------ | -------- | ------------------------------------------ |
 | `name`     | `string`                 | Yes      | Unique name for this source                |
 | `type`     | `"graphql"`              | Yes      | Source type                                |
-| `schema.url` | `string`               | Yes      | GraphQL endpoint URL for introspection     |
-| `schema.headers` | `Record<string, string>` | No  | Headers to send with introspection request |
-| `documents` | `string \| string[]`    | Yes      | Glob pattern(s) for `.graphql` files       |
+| `schema`   | `object`                 | Yes      | Schema configuration (see below)           |
+| `documents` | `string \| string[]`    | Yes      | Glob pattern(s) for `.graphql` operation files |
 | `scalars`  | `Record<string, string>` | No       | Custom scalar type mappings                |
+
+#### Schema Configuration (choose one)
+
+**URL-based (introspection):**
+
+| Option           | Type                     | Required | Description                                |
+| ---------------- | ------------------------ | -------- | ------------------------------------------ |
+| `schema.url`     | `string`                 | Yes      | GraphQL endpoint URL for introspection     |
+| `schema.headers` | `Record<string, string>` | No       | Headers to send with introspection request |
+
+**File-based (local SDL files):**
+
+| Option        | Type                  | Required | Description                                    |
+| ------------- | --------------------- | -------- | ---------------------------------------------- |
+| `schema.file` | `string \| string[]`  | Yes      | Path or glob pattern(s) for `.graphql` schema files |
 
 ### OpenAPI Source Options
 

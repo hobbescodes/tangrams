@@ -16,7 +16,11 @@ import {
   queryConfigSchema,
 } from "./config";
 
-import type { GraphQLSourceConfig, QueryConfig } from "./config";
+import type {
+  GraphQLSchemaUrlConfig,
+  GraphQLSourceConfig,
+  QueryConfig,
+} from "./config";
 
 describe("graphqlSourceSchema", () => {
   it("validates a valid GraphQL source", () => {
@@ -135,6 +139,63 @@ describe("graphqlSourceSchema", () => {
         DateTime: "Date",
         JSON: "Record<string, unknown>",
       },
+    };
+    const result = graphqlSourceSchema.safeParse(source);
+    expect(result.success).toBe(true);
+  });
+
+  // File-based schema configuration tests
+  it("validates file-based schema with single file path", () => {
+    const source = {
+      name: "main-api",
+      type: "graphql",
+      schema: { file: "./schema.graphql" },
+      documents: "./src/graphql/**/*.graphql",
+    };
+    const result = graphqlSourceSchema.safeParse(source);
+    expect(result.success).toBe(true);
+  });
+
+  it("validates file-based schema with glob pattern", () => {
+    const source = {
+      name: "main-api",
+      type: "graphql",
+      schema: { file: "./schemas/**/*.graphql" },
+      documents: "./src/graphql/**/*.graphql",
+    };
+    const result = graphqlSourceSchema.safeParse(source);
+    expect(result.success).toBe(true);
+  });
+
+  it("validates file-based schema with array of patterns", () => {
+    const source = {
+      name: "main-api",
+      type: "graphql",
+      schema: { file: ["./schema.graphql", "./extensions/**/*.graphql"] },
+      documents: "./src/graphql/**/*.graphql",
+    };
+    const result = graphqlSourceSchema.safeParse(source);
+    expect(result.success).toBe(true);
+  });
+
+  it("fails when schema has neither url nor file", () => {
+    const source = {
+      name: "main-api",
+      type: "graphql",
+      schema: {},
+      documents: "./src/graphql/**/*.graphql",
+    };
+    const result = graphqlSourceSchema.safeParse(source);
+    expect(result.success).toBe(false);
+  });
+
+  it("validates file-based schema with scalars", () => {
+    const source = {
+      name: "main-api",
+      type: "graphql",
+      schema: { file: "./schema.graphql" },
+      documents: "./src/graphql/**/*.graphql",
+      scalars: { DateTime: "Date" },
     };
     const result = graphqlSourceSchema.safeParse(source);
     expect(result.success).toBe(true);
@@ -694,7 +755,8 @@ describe("loadTangenConfig", () => {
     const source = result.config.query?.sources[0];
     expect(source?.type).toBe("graphql");
     const graphqlSource = source as GraphQLSourceConfig;
-    expect(graphqlSource.schema.url).toBe("http://localhost:4000/graphql");
+    const schemaConfig = graphqlSource.schema as GraphQLSchemaUrlConfig;
+    expect(schemaConfig.url).toBe("http://localhost:4000/graphql");
     expect(graphqlSource.documents).toBe("./src/graphql/**/*.graphql");
     expect(result.config.output).toBe("./src/generated");
     expect(result.configPath).toBe(configPath);
@@ -851,7 +913,8 @@ describe("loadTangenConfig with dotenv", () => {
 
     const graphqlSource = result.config.query
       ?.sources[0] as GraphQLSourceConfig;
-    expect(graphqlSource.schema.headers?.["x-api-key"]).toBe("secret123");
+    const schemaConfig = graphqlSource.schema as GraphQLSchemaUrlConfig;
+    expect(schemaConfig.headers?.["x-api-key"]).toBe("secret123");
   });
 
   it("does not load .env when dotenv is false", async () => {
@@ -883,7 +946,8 @@ describe("loadTangenConfig with dotenv", () => {
 
     const graphqlSource = result.config.query
       ?.sources[0] as GraphQLSourceConfig;
-    expect(graphqlSource.schema.headers?.["x-api-key"]).toBe("fallback");
+    const schemaConfig = graphqlSource.schema as GraphQLSchemaUrlConfig;
+    expect(schemaConfig.headers?.["x-api-key"]).toBe("fallback");
   });
 
   it("loads custom env file when specified", async () => {
@@ -919,7 +983,8 @@ describe("loadTangenConfig with dotenv", () => {
 
     const graphqlSource = result.config.query
       ?.sources[0] as GraphQLSourceConfig;
-    expect(graphqlSource.schema.headers?.["x-api-key"]).toBe("local123");
+    const schemaConfig = graphqlSource.schema as GraphQLSchemaUrlConfig;
+    expect(schemaConfig.headers?.["x-api-key"]).toBe("local123");
   });
 
   it("merges multiple env files with later files taking priority", async () => {
@@ -963,7 +1028,8 @@ describe("loadTangenConfig with dotenv", () => {
 
     const graphqlSource = result.config.query
       ?.sources[0] as GraphQLSourceConfig;
-    expect(graphqlSource.schema.headers?.["x-api-key"]).toBe("override");
-    expect(graphqlSource.schema.headers?.["x-other"]).toBe("other");
+    const schemaConfig = graphqlSource.schema as GraphQLSchemaUrlConfig;
+    expect(schemaConfig.headers?.["x-api-key"]).toBe("override");
+    expect(schemaConfig.headers?.["x-other"]).toBe("other");
   });
 });

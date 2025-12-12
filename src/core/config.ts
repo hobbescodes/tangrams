@@ -41,6 +41,36 @@ const sourceNameSchema = z
   );
 
 /**
+ * GraphQL schema configuration - URL-based (introspection)
+ */
+export const graphqlSchemaUrlConfig = z.object({
+  /** GraphQL endpoint URL for introspection */
+  url: z.string().url(),
+  /** Headers to send with introspection request */
+  headers: z.record(z.string()).optional(),
+});
+
+/**
+ * GraphQL schema configuration - File-based (local SDL files)
+ */
+export const graphqlSchemaFileConfig = z.object({
+  /** Glob pattern(s) for GraphQL schema files (.graphql) */
+  file: z.union([z.string(), z.array(z.string())]),
+});
+
+/**
+ * GraphQL schema configuration - either URL or file-based
+ */
+export const graphqlSchemaConfig = z.union([
+  graphqlSchemaUrlConfig,
+  graphqlSchemaFileConfig,
+]);
+
+export type GraphQLSchemaUrlConfig = z.infer<typeof graphqlSchemaUrlConfig>;
+export type GraphQLSchemaFileConfig = z.infer<typeof graphqlSchemaFileConfig>;
+export type GraphQLSchemaConfig = z.infer<typeof graphqlSchemaConfig>;
+
+/**
  * GraphQL source configuration
  */
 export const graphqlSourceSchema = z.object({
@@ -48,13 +78,8 @@ export const graphqlSourceSchema = z.object({
   name: sourceNameSchema,
   /** Source type discriminator */
   type: z.literal("graphql"),
-  /** GraphQL schema configuration */
-  schema: z.object({
-    /** GraphQL endpoint URL for introspection */
-    url: z.string().url(),
-    /** Headers to send with introspection request */
-    headers: z.record(z.string()).optional(),
-  }),
+  /** GraphQL schema configuration - URL for introspection or file path(s) for local SDL */
+  schema: graphqlSchemaConfig,
   /** Glob pattern(s) for GraphQL document files */
   documents: z.union([z.string(), z.array(z.string())]),
   /** Custom scalar type mappings */
@@ -247,6 +272,10 @@ export default defineConfig({
 					url: "http://localhost:4000/graphql",
 					// headers: { "x-api-key": process.env.API_KEY },
 				},
+				// Or use local schema file(s):
+				// schema: {
+				// 	file: "./schema.graphql", // or ["./schema.graphql", "./extensions/**/*.graphql"]
+				// },
 				// scalars: { DateTime: "Date", JSON: "Record<string, unknown>" },
 				documents: "./src/graphql/**/*.graphql",
 			},

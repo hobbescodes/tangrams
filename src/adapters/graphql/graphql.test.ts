@@ -1,9 +1,16 @@
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { Kind, OperationTypeNode, buildSchema } from "graphql";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { graphqlAdapter } from "./index";
+import {
+  isFileSchemaConfig,
+  isUrlSchemaConfig,
+  loadSchemaFromFiles,
+} from "./schema";
 
 import type { GraphQLSourceConfig } from "@/core/config";
 import type { GraphQLAdapterSchema } from "../types";
@@ -218,5 +225,199 @@ describe("GraphQL Adapter", () => {
       // The query key should include the operation name
       expect(result.content).toContain("GetUsers");
     });
+  });
+
+  describe("generateClient with file-based schema", () => {
+    it("generates a client with placeholder URL for file-based schema", () => {
+      const fileConfig: GraphQLSourceConfig = {
+        name: "test-api",
+        type: "graphql",
+        schema: { file: "./schema.graphql" },
+        documents: join(fixturesDir, "*.graphql"),
+      };
+
+      const schema: GraphQLAdapterSchema = {
+        schema: testSchema,
+        documents: { operations: [], fragments: [] },
+      };
+
+      const result = graphqlAdapter.generateClient(schema, fileConfig, {
+        queryConfig: {
+          sources: [fileConfig],
+          files: {
+            client: "client.ts",
+            types: "types.ts",
+            operations: "operations.ts",
+          },
+        },
+        outputDir: "./generated",
+      });
+
+      expect(result.filename).toBe("client.ts");
+      expect(result.content).toContain("YOUR_GRAPHQL_ENDPOINT");
+      expect(result.content).toContain("TODO: Set your GraphQL endpoint URL");
+    });
+  });
+});
+
+describe("Schema Type Guards", () => {
+  it("isUrlSchemaConfig returns true for URL config", () => {
+    const config = { url: "http://localhost:4000/graphql" };
+    expect(isUrlSchemaConfig(config)).toBe(true);
+    expect(isFileSchemaConfig(config)).toBe(false);
+  });
+
+  it("isUrlSchemaConfig returns true for URL config with headers", () => {
+    const config = {
+      url: "http://localhost:4000/graphql",
+      headers: { Authorization: "Bearer token" },
+    };
+    expect(isUrlSchemaConfig(config)).toBe(true);
+    expect(isFileSchemaConfig(config)).toBe(false);
+  });
+
+  it("isFileSchemaConfig returns true for file config with string", () => {
+    const config = { file: "./schema.graphql" };
+    expect(isFileSchemaConfig(config)).toBe(true);
+    expect(isUrlSchemaConfig(config)).toBe(false);
+  });
+
+  it("isFileSchemaConfig returns true for file config with array", () => {
+    const config = { file: ["./schema.graphql", "./extensions/*.graphql"] };
+    expect(isFileSchemaConfig(config)).toBe(true);
+    expect(isUrlSchemaConfig(config)).toBe(false);
+  });
+});
+
+describe("loadSchemaFromFiles", () => {
+  const testDir = join(tmpdir(), `tangen-schema-test-${Date.now()}`);
+
+  beforeEach(async () => {
+    await mkdir(testDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await rm(testDir, { recursive: true, force: true });
+  });
+
+  it("loads a single GraphQL schema file", async () => {
+    const schemaContent = `
+      type Query {
+        hello: String!
+      }
+    `;
+    await writeFile(join(testDir, "schema.graphql"), schemaContent);
+
+    const schema = await loadSchemaFromFiles(join(testDir, "schema.graphql"));
+
+    expect(schema).toBeDefined();
+    expect(schema.getQueryType()?.name).toBe("Query");
+  });
+
+  it("loads multiple GraphQL schema files using glob", async () => {
+    const baseSchema = `
+      type Query {
+        user: User
+      }
+    `;
+    const extendedSchema = `
+      type User {
+        id: ID!
+        name: String!
+      }
+    `;
+    await writeFile(join(testDir, "base.graphql"), baseSchema);
+    await writeFile(join(testDir, "user.graphql"), extendedSchema);
+
+    const schema = await loadSchemaFromFiles(join(testDir, "*.graphql"));
+
+    expect(schema).toBeDefined();
+    expect(schema.getQueryType()?.name).toBe("Query");
+    expect(schema.getType("User")).toBeDefined();
+  });
+
+  it("loads schema files from array of patterns", async () => {
+    await mkdir(join(testDir, "subdir"), { recursive: true });
+
+    const baseSchema = `
+      type Query {
+        post: Post
+      }
+    `;
+    const extendedSchema = `
+      type Post {
+        id: ID!
+        title: String!
+      }
+    `;
+    await writeFile(join(testDir, "schema.graphql"), baseSchema);
+    await writeFile(join(testDir, "subdir", "post.graphql"), extendedSchema);
+
+    const schema = await loadSchemaFromFiles([
+      join(testDir, "schema.graphql"),
+      join(testDir, "subdir", "*.graphql"),
+    ]);
+
+    expect(schema).toBeDefined();
+    expect(schema.getQueryType()?.name).toBe("Query");
+    expect(schema.getType("Post")).toBeDefined();
+  });
+
+  it("throws error when no files match pattern", async () => {
+    await expect(
+      loadSchemaFromFiles(join(testDir, "nonexistent.graphql")),
+    ).rejects.toThrow("No GraphQL schema files found matching");
+  });
+
+  it("throws descriptive error on invalid schema syntax", async () => {
+    const invalidSchema = `
+      type Query {
+        hello: String!
+      
+      // Missing closing brace
+    `;
+    await writeFile(join(testDir, "invalid.graphql"), invalidSchema);
+
+    await expect(
+      loadSchemaFromFiles(join(testDir, "invalid.graphql")),
+    ).rejects.toThrow("Failed to build GraphQL schema from files");
+  });
+
+  it("throws descriptive error on type conflicts", async () => {
+    // Define the same type twice with different fields
+    const schema1 = `
+      type Query {
+        user: User
+      }
+      type User {
+        id: ID!
+        name: String!
+      }
+    `;
+    const schema2 = `
+      type User {
+        id: ID!
+        email: String!
+      }
+    `;
+    await writeFile(join(testDir, "schema1.graphql"), schema1);
+    await writeFile(join(testDir, "schema2.graphql"), schema2);
+
+    await expect(
+      loadSchemaFromFiles(join(testDir, "*.graphql")),
+    ).rejects.toThrow("Failed to build GraphQL schema from files");
+  });
+
+  it("loads the test fixture schema successfully", async () => {
+    const schema = await loadSchemaFromFiles(
+      join(fixturesDir, "schema.graphql"),
+    );
+
+    expect(schema).toBeDefined();
+    expect(schema.getQueryType()?.name).toBe("Query");
+    expect(schema.getMutationType()?.name).toBe("Mutation");
+    expect(schema.getType("User")).toBeDefined();
+    expect(schema.getType("Post")).toBeDefined();
+    expect(schema.getType("DateTime")).toBeDefined();
   });
 });

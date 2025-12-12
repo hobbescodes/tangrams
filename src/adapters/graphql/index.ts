@@ -6,11 +6,17 @@
  */
 
 import { loadDocuments } from "@/core/documents";
-import { introspectSchema } from "@/core/introspection";
 import { generateGraphQLClient } from "./client";
 import { generateGraphQLOperations } from "./operations";
+import {
+  introspectSchema,
+  isFileSchemaConfig,
+  isUrlSchemaConfig,
+  loadSchemaFromFiles,
+} from "./schema";
 import { generateGraphQLTypes } from "./types";
 
+import type { GraphQLSchema } from "graphql";
 import type { GraphQLSourceConfig } from "@/core/config";
 import type {
   GeneratedFile,
@@ -28,14 +34,26 @@ class GraphQLAdapterImpl implements IGraphQLAdapter {
   readonly type = "graphql" as const;
 
   /**
-   * Load the GraphQL schema via introspection and parse documents
+   * Load the GraphQL schema via introspection or from local files, and parse documents
    */
   async loadSchema(config: GraphQLSourceConfig): Promise<GraphQLAdapterSchema> {
-    // Introspect the schema from the GraphQL endpoint
-    const schema = await introspectSchema({
-      url: config.schema.url,
-      headers: config.schema.headers,
-    });
+    let schema: GraphQLSchema;
+
+    if (isUrlSchemaConfig(config.schema)) {
+      // Introspect the schema from the GraphQL endpoint
+      schema = await introspectSchema({
+        url: config.schema.url,
+        headers: config.schema.headers,
+      });
+    } else if (isFileSchemaConfig(config.schema)) {
+      // Load schema from local SDL file(s)
+      schema = await loadSchemaFromFiles(config.schema.file);
+    } else {
+      // This should never happen due to Zod validation, but TypeScript needs this
+      throw new Error(
+        "Invalid schema configuration: must specify either 'url' or 'file'",
+      );
+    }
 
     // Load and parse the GraphQL documents
     const documents = await loadDocuments(config.documents);
@@ -89,4 +107,9 @@ export const graphqlAdapter = new GraphQLAdapterImpl();
 export type { GraphQLAdapterSchema };
 
 export { loadDocuments } from "./documents";
-export { introspectSchema } from "./schema";
+export {
+  introspectSchema,
+  isFileSchemaConfig,
+  isUrlSchemaConfig,
+  loadSchemaFromFiles,
+} from "./schema";

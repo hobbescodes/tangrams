@@ -1,6 +1,8 @@
 /**
  * GraphQL client generation
  */
+import { isUrlSchemaConfig } from "./schema";
+
 import type { GraphQLSourceConfig } from "@/core/config";
 import type {
   GeneratedFile,
@@ -16,14 +18,22 @@ export function generateGraphQLClient(
   config: GraphQLSourceConfig,
   _context: GenerationContext,
 ): GeneratedFile {
-  const { url } = config.schema;
+  // For URL-based schemas, use the configured URL
+  // For file-based schemas, use a placeholder that the user must configure
+  const endpoint = isUrlSchemaConfig(config.schema)
+    ? config.schema.url
+    : "YOUR_GRAPHQL_ENDPOINT";
+
+  const endpointComment = isUrlSchemaConfig(config.schema)
+    ? ""
+    : " // TODO: Set your GraphQL endpoint URL";
 
   const content = `/* eslint-disable */
 /* GraphQL Client - Generated once by tangen. Customize as needed. */
 
 import { GraphQLClient } from "graphql-request"
 
-const endpoint = "${url}"
+const endpoint = "${endpoint}"${endpointComment}
 
 /**
  * Returns a GraphQL client instance.
