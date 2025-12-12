@@ -42,18 +42,30 @@ pnpm add -D tangrams
 
 ### Peer Dependencies
 
-tangrams generates code that uses these packages, so you'll need them in your project:
+Install dependencies based on what you're generating:
 
-**For GraphQL sources:**
+**TanStack Query (`generates` includes `"query"`):**
 
 ```bash
-bun add @tanstack/react-query graphql-request
+bun add @tanstack/react-query
 ```
 
-**For OpenAPI sources:**
+**TanStack Form (`generates` includes `"form"`):**
 
 ```bash
-bun add @tanstack/react-query @better-fetch/fetch zod
+bun add @tanstack/react-form zod
+```
+
+**GraphQL sources (when generating `"query"`):**
+
+```bash
+bun add graphql-request
+```
+
+**OpenAPI sources (when generating `"query"`):**
+
+```bash
+bun add @better-fetch/fetch zod
 ```
 
 ## Quick Start
