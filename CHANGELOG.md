@@ -1,5 +1,11 @@
 # tangrams
 
+## 0.2.1
+
+### Patch Changes
+
+- b42e3ed: Rename package from `tangen` to `tangrams`.
+
 ## 0.2.0
 
 ### Minor Changes
