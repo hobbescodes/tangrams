@@ -1,0 +1,153 @@
+---
+title: OpenAPI
+description: Generate TanStack Query pieces from your OpenAPI spec.
+---
+
+# OpenAPI
+
+Tangrams takes your OpenAPI specification and generates perfectly-shaped pieces for TanStack Query - `queryOptions` and `mutationOptions` with Zod validation built in.
+
+## Setup
+
+### 1. Initialize Configuration
+
+```bash
+bunx tangrams init
+```
+
+### 2. Configure Your Spec
+
+Edit `tangrams.config.ts`:
+
+```typescript
+import { defineConfig } from "tangrams"
+
+export default defineConfig({
+  sources: [
+    {
+      name: "api",
+      type: "openapi",
+      spec: "./openapi.yaml", // or a URL
+      generates: ["query"],
+    },
+  ],
+})
+```
+
+### 3. Generate
+
+```bash
+bunx tangrams generate
+```
+
+## Generated Pieces
+
+### Zod Schemas
+
+Every OpenAPI component becomes a Zod schema with inferred types:
+
+```typescript
+// Generated: schema.ts
+import * as z from "zod"
+
+export const userSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.email(),
+})
+
+export type User = z.infer<typeof userSchema>
+```
+
+### Query Options
+
+Every GET endpoint becomes a `queryOptions` function with Zod validation:
+
+```typescript
+// Generated: operations.ts
+export const listUsersQueryOptions = (params?: ListUsersParams) =>
+  queryOptions({
+    queryKey: ["api", "listUsers", params],
+    queryFn: async () => {
+      const { data, error } = await $fetch<ListUsersResponse>("/users", {
+        output: listUsersResponseSchema,
+      })
+      if (error) throw error
+      return data
+    },
+  })
+```
+
+### Mutation Options
+
+POST/PUT/PATCH/DELETE endpoints become `mutationOptions`:
+
+```typescript
+export const createUserMutationOptions = () =>
+  mutationOptions({
+    mutationKey: ["api", "createUser"],
+    mutationFn: async (body: CreateUserRequest) => {
+      const { data, error } = await $fetch<User>("/users", {
+        method: "POST",
+        output: userSchema,
+        body,
+      })
+      if (error) throw error
+      return data
+    },
+  })
+```
+
+## Usage
+
+The generated pieces snap right into TanStack Query:
+
+```typescript
+import { useQuery, useMutation } from "@tanstack/react-query"
+import {
+  listUsersQueryOptions,
+  createUserMutationOptions,
+} from "./generated/operations"
+
+function UserList() {
+  // Fully typed with runtime validation
+  const { data } = useQuery(listUsersQueryOptions({ limit: 10 }))
+  
+  const { mutate } = useMutation(createUserMutationOptions())
+
+  return (
+    <ul>
+      {data?.map((user) => (
+        <li key={user.id}>{user.name}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+## Path Filtering
+
+Only generate pieces for the endpoints you need:
+
+```typescript
+{
+  name: "api",
+  type: "openapi",
+  spec: "./openapi.yaml",
+  include: ["/users/**", "/posts/**"],
+  exclude: ["/internal/**"],
+  generates: ["query"],
+}
+```
+
+## Configuration
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `name` | `string` | Yes | Unique identifier for this source |
+| `type` | `"openapi"` | Yes | Source type |
+| `spec` | `string` | Yes | Path to OpenAPI spec (local or URL) |
+| `headers` | `object` | No | Headers for fetching remote spec |
+| `include` | `string[]` | No | Glob patterns for paths to include |
+| `exclude` | `string[]` | No | Glob patterns for paths to exclude |
+| `generates` | `array` | Yes | What to generate (`["query"]`, `["form"]`, or both) |

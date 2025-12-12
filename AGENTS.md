@@ -1,18 +1,31 @@
 # AGENTS.md
 
+## Monorepo Structure
+
+This is a Bun workspaces monorepo with the following structure:
+
+- `packages/cli/` - The `tangrams` CLI package (published to npm)
+- `apps/docs/` - Documentation site (TanStack Start + Fumadocs)
+
 ## Commands
+
+### Root Commands (run from repo root)
 - **Install**: `bun install`
-- **Build**: `bun run build`
+- **Build CLI**: `bun run build`
 - **Lint**: `bun run lint` (fix: `bun run lint:fix`)
 - **Format**: `bun run format`
-- **Typecheck**: `bun run typecheck`
-- **Test all**: `bun run test`
+- **Typecheck all**: `bun run typecheck`
+- **Test CLI**: `bun run test`
+- **Dev CLI**: `bun run dev:cli`
+- **Dev Docs**: `bun run dev:docs`
+
+### CLI Package Commands (run from `packages/cli/`)
 - **Test single**: `bun run test <file>` (e.g., `bun run test src/core/generator.test.ts`)
 - **Update snapshots**: `bun run test -u`
 
 ## Code Style (Biome)
 - Tabs for indentation, double quotes, no semicolons (except when required)
-- Imports are auto-organized; use `@/*` alias for `./src/*`
+- Imports are auto-organized; use `@/*` alias for `./src/*` (CLI package)
 - Use `type` imports for type-only imports (`import type { X } from "y"`)
 
 ## Naming Conventions
@@ -39,6 +52,8 @@
   ```
 - Use `patch` for bug fixes, `minor` for new features or breaking changes
 - **Never use `major`** - major version bumps are always done manually
+- The docs app is ignored by changesets (private package)
 
 ## Documentation
-- Always verify and update documentation (README.md) after making breaking changes or changes that affect user-facing APIs, config structure, or CLI behavior
+- Always verify and update documentation (README.md, docs site) after making breaking changes or changes that affect user-facing APIs, config structure, or CLI behavior
+- Docs content lives in `apps/docs/content/docs/`

@@ -1,0 +1,108 @@
+---
+title: Getting Started
+description: Assemble type-safe pieces for your TanStack data layer.
+---
+
+# Assemble the Pieces
+
+Every data layer is a puzzle. Your API schema defines the shapes, but you still need perfectly-fitting pieces for your TanStack applications - type-safe `queryOptions`, `mutationOptions`, and `formOptions` that snap right into place.
+
+**Tangrams** generates those pieces from your GraphQL or OpenAPI schemas.
+
+## The Puzzle Pieces
+
+Tangrams generates code that integrates seamlessly with the TanStack ecosystem:
+
+| Piece | What It Generates | Fits Into |
+|-------|-------------------|-----------|
+| **Query Options** | `queryOptions()` with typed variables and responses | `useQuery`, `useSuspenseQuery` |
+| **Mutation Options** | `mutationOptions()` with typed inputs | `useMutation` |
+| **Form Options** | `formOptions()` with Zod validators | `useForm` |
+
+## Quick Start
+
+```bash
+# Install the CLI
+bun add -D tangrams
+
+# Initialize your config
+bunx tangrams init
+
+# Generate the pieces
+bunx tangrams generate
+```
+
+## Installation
+
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+<Tabs items={['bun', 'npm', 'pnpm']}>
+  <Tab value="bun">
+```bash
+bun add -D tangrams
+```
+  </Tab>
+  <Tab value="npm">
+```bash
+npm install -D tangrams
+```
+  </Tab>
+  <Tab value="pnpm">
+```bash
+pnpm add -D tangrams
+```
+  </Tab>
+</Tabs>
+
+### Peer Dependencies
+
+The pieces you generate depend on which TanStack libraries you're using:
+
+**TanStack Query:**
+```bash
+bun add @tanstack/react-query
+```
+
+**TanStack Form:**
+```bash
+bun add @tanstack/react-form zod
+```
+
+**Data fetching** (depends on your schema type):
+```bash
+# For GraphQL
+bun add graphql-request
+
+# For OpenAPI
+bun add @better-fetch/fetch zod
+```
+
+## How It Works
+
+1. **Bring your schema** - Point Tangrams at your GraphQL SDL or OpenAPI spec
+2. **Configure what to generate** - Choose which pieces you need (Query, Form, or both)
+3. **Run the generator** - Get fully-typed, ready-to-use code
+4. **Import and use** - The pieces fit perfectly into your TanStack hooks
+
+```typescript
+// Generated pieces snap right in
+import { useQuery, useMutation } from "@tanstack/react-query"
+import { getUserQueryOptions, updateUserMutationOptions } from "./generated/operations"
+
+function UserProfile({ id }: { id: string }) {
+  // Type-safe query with automatic cache keys
+  const { data } = useQuery(getUserQueryOptions({ id }))
+  
+  // Type-safe mutation
+  const { mutate } = useMutation(updateUserMutationOptions())
+  
+  return <div>{data?.user.name}</div>
+}
+```
+
+## Next Steps
+
+Choose your data source to get started:
+
+- [GraphQL Guide](/docs/graphql) - Generate pieces from GraphQL schemas and operations
+- [OpenAPI Guide](/docs/openapi) - Generate pieces from OpenAPI/Swagger specs

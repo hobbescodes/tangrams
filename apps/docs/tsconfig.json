@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "baseUrl": ".",
+    "skipLibCheck": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "fumadocs-mdx:collections/*": ["./.source/*"]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "lib/**/*",
+    "content/**/*",
+    "source.config.ts",
+    "vite.config.ts",
+    ".source/**/*"
+  ],
+  "exclude": ["node_modules", ".output"]
+}
