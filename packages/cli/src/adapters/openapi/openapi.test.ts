@@ -1340,3 +1340,317 @@ describe("generateFormOptions", () => {
     expect(result.content).toContain('from "../schema/api/types"');
   });
 });
+
+describe("generateOperations with serverFunctions", () => {
+  const config: OpenAPISourceConfig = {
+    name: "petstore",
+    type: "openapi",
+    generates: ["query"],
+    spec: join(fixturesDir, "petstore.json"),
+  };
+
+  it("imports createServerFn when serverFunctions is enabled", async () => {
+    const schema = await openapiAdapter.loadSchema(config);
+    const result = openapiAdapter.generateOperations(schema, config, {
+      clientImportPath: "./client",
+      typesImportPath: "./types",
+      sourceName: "petstore",
+      serverFunctions: true,
+    });
+
+    expect(result.content).toContain(
+      'import { createServerFn } from "@tanstack/react-start"',
+    );
+  });
+
+  it("generates server functions for GET operations", async () => {
+    const schema = await openapiAdapter.loadSchema(config);
+    const result = openapiAdapter.generateOperations(schema, config, {
+      clientImportPath: "./client",
+      typesImportPath: "./types",
+      sourceName: "petstore",
+      serverFunctions: true,
+    });
+
+    // Should generate server functions with GET method for queries
+    expect(result.content).toContain(
+      'listPetsFn = createServerFn({ method: "GET" })',
+    );
+    expect(result.content).toContain(
+      'getPetFn = createServerFn({ method: "GET" })',
+    );
+  });
+
+  it("generates server functions for mutation operations", async () => {
+    const schema = await openapiAdapter.loadSchema(config);
+    const result = openapiAdapter.generateOperations(schema, config, {
+      clientImportPath: "./client",
+      typesImportPath: "./types",
+      sourceName: "petstore",
+      serverFunctions: true,
+    });
+
+    // Should generate server functions with POST method for mutations
+    expect(result.content).toContain(
+      'createPetFn = createServerFn({ method: "POST" })',
+    );
+    expect(result.content).toContain(
+      'updatePetFn = createServerFn({ method: "POST" })',
+    );
+    expect(result.content).toContain(
+      'deletePetFn = createServerFn({ method: "POST" })',
+    );
+  });
+
+  it("uses Zod schema validators for server functions", async () => {
+    const schema = await openapiAdapter.loadSchema(config);
+    const result = openapiAdapter.generateOperations(schema, config, {
+      clientImportPath: "./client",
+      typesImportPath: "./types",
+      sourceName: "petstore",
+      serverFunctions: true,
+    });
+
+    // Should use Zod schemas for validation
+    expect(result.content).toContain(".validator(listPetsParamsSchema)");
+    expect(result.content).toContain(".validator(getPetParamsSchema)");
+  });
+
+  it("imports Zod schemas when serverFunctions is enabled", async () => {
+    const schema = await openapiAdapter.loadSchema(config);
+    const result = openapiAdapter.generateOperations(schema, config, {
+      clientImportPath: "./client",
+      typesImportPath: "./types",
+      sourceName: "petstore",
+      serverFunctions: true,
+    });
+
+    // Should import params schemas for validation
+    expect(result.content).toContain("listPetsParamsSchema");
+    expect(result.content).toContain("getPetParamsSchema");
+    // Should import request schemas for mutations with body
+    expect(result.content).toContain("createPetRequestSchema");
+  });
+
+  it("generates queryOptions that use server functions", async () => {
+    const schema = await openapiAdapter.loadSchema(config);
+    const result = openapiAdapter.generateOperations(schema, config, {
+      clientImportPath: "./client",
+      typesImportPath: "./types",
+      sourceName: "petstore",
+      serverFunctions: true,
+    });
+
+    // queryOptions should call the server function
+    expect(result.content).toContain(
+      "queryFn: () => listPetsFn({ data: params })",
+    );
+    expect(result.content).toContain(
+      "queryFn: () => getPetFn({ data: params })",
+    );
+  });
+
+  it("generates mutationOptions that use server functions", async () => {
+    const schema = await openapiAdapter.loadSchema(config);
+    const result = openapiAdapter.generateOperations(schema, config, {
+      clientImportPath: "./client",
+      typesImportPath: "./types",
+      sourceName: "petstore",
+      serverFunctions: true,
+    });
+
+    // mutationOptions should call the server function
+    expect(result.content).toContain(
+      "mutationFn: (body: CreatePetRequest) => createPetFn({ data: body })",
+    );
+  });
+
+  it("handles mutations with both path params and body", async () => {
+    const schema = await openapiAdapter.loadSchema(config);
+    const result = openapiAdapter.generateOperations(schema, config, {
+      clientImportPath: "./client",
+      typesImportPath: "./types",
+      sourceName: "petstore",
+      serverFunctions: true,
+    });
+
+    // updatePet has both path param and body
+    expect(result.content).toContain("updatePetMutationOptions");
+    expect(result.content).toContain("updatePetFn");
+    // Should handle combined params + body
+    expect(result.content).toContain("params: UpdatePetParams");
+    expect(result.content).toContain("body: UpdatePetRequest");
+  });
+
+  it("handles mutations with only path params (no body)", async () => {
+    const schema = await openapiAdapter.loadSchema(config);
+    const result = openapiAdapter.generateOperations(schema, config, {
+      clientImportPath: "./client",
+      typesImportPath: "./types",
+      sourceName: "petstore",
+      serverFunctions: true,
+    });
+
+    // deletePet has only path param, no body
+    expect(result.content).toContain("deletePetFn");
+    expect(result.content).toContain("deletePetMutationOptions");
+  });
+
+  it("handles queries with no params", async () => {
+    // Create a mock schema with a GET operation without params
+    const noParamsSchema: OpenAPIAdapterSchema = {
+      document: {
+        openapi: "3.0.0",
+        info: { title: "Test API", version: "1.0.0" },
+        paths: {
+          "/health": {
+            get: {
+              operationId: "getHealth",
+              responses: {
+                "200": {
+                  description: "OK",
+                  content: {
+                    "application/json": {
+                      schema: {
+                        type: "object",
+                        properties: { status: { type: "string" } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      baseUrl: "https://api.example.com",
+    };
+
+    const noParamsConfig: OpenAPISourceConfig = {
+      name: "health",
+      type: "openapi",
+      generates: ["query"],
+      spec: "./health.json",
+    };
+
+    const result = openapiAdapter.generateOperations(
+      noParamsSchema,
+      noParamsConfig,
+      {
+        clientImportPath: "./client",
+        typesImportPath: "./types",
+        sourceName: "health",
+        serverFunctions: true,
+      },
+    );
+
+    // Should generate server function without validator
+    expect(result.content).toContain(
+      'getHealthFn = createServerFn({ method: "GET" })',
+    );
+    expect(result.content).toContain(".handler(async () =>");
+    // Should generate queryOptions that calls server function without data
+    expect(result.content).toContain("queryFn: () => getHealthFn()");
+  });
+
+  it("handles mutations with no params or body", async () => {
+    // Create a mock schema with a POST operation without params or body
+    const noParamsSchema: OpenAPIAdapterSchema = {
+      document: {
+        openapi: "3.0.0",
+        info: { title: "Test API", version: "1.0.0" },
+        paths: {
+          "/trigger": {
+            post: {
+              operationId: "triggerAction",
+              responses: {
+                "200": {
+                  description: "OK",
+                  content: {
+                    "application/json": {
+                      schema: {
+                        type: "object",
+                        properties: { triggered: { type: "boolean" } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      baseUrl: "https://api.example.com",
+    };
+
+    const noParamsConfig: OpenAPISourceConfig = {
+      name: "trigger",
+      type: "openapi",
+      generates: ["query"],
+      spec: "./trigger.json",
+    };
+
+    const result = openapiAdapter.generateOperations(
+      noParamsSchema,
+      noParamsConfig,
+      {
+        clientImportPath: "./client",
+        typesImportPath: "./types",
+        sourceName: "trigger",
+        serverFunctions: true,
+      },
+    );
+
+    // Should generate server function without validator
+    expect(result.content).toContain(
+      'triggerActionFn = createServerFn({ method: "POST" })',
+    );
+    expect(result.content).toContain(".handler(async () =>");
+    // Should generate mutationOptions that calls server function without data
+    expect(result.content).toContain("mutationFn: () => triggerActionFn()");
+  });
+
+  it("handles operations with query params in server functions", async () => {
+    const schema = await openapiAdapter.loadSchema(config);
+    const result = openapiAdapter.generateOperations(schema, config, {
+      clientImportPath: "./client",
+      typesImportPath: "./types",
+      sourceName: "petstore",
+      serverFunctions: true,
+    });
+
+    // listPets has query params - should build query string
+    expect(result.content).toContain("buildQuery");
+    expect(result.content).toContain("listPetsFn");
+  });
+
+  it("does not import createServerFn when serverFunctions is disabled", async () => {
+    const schema = await openapiAdapter.loadSchema(config);
+    const result = openapiAdapter.generateOperations(schema, config, {
+      clientImportPath: "./client",
+      typesImportPath: "./types",
+      sourceName: "petstore",
+      serverFunctions: false,
+    });
+
+    expect(result.content).not.toContain("createServerFn");
+    expect(result.content).not.toContain("@tanstack/react-start");
+  });
+
+  it("does not generate server functions when serverFunctions is disabled", async () => {
+    const schema = await openapiAdapter.loadSchema(config);
+    const result = openapiAdapter.generateOperations(schema, config, {
+      clientImportPath: "./client",
+      typesImportPath: "./types",
+      sourceName: "petstore",
+      serverFunctions: false,
+    });
+
+    // Should NOT have server function exports
+    expect(result.content).not.toContain("listPetsFn =");
+    expect(result.content).not.toContain("createPetFn =");
+    // But should still have queryOptions/mutationOptions
+    expect(result.content).toContain("listPetsQueryOptions");
+    expect(result.content).toContain("createPetMutationOptions");
+  });
+});

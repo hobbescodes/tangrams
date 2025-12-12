@@ -34,6 +34,8 @@ export interface OperationGenOptions {
   typesImportPath: string;
   /** The source name to include in query/mutation keys */
   sourceName: string;
+  /** Enable TanStack Start server functions wrapping */
+  serverFunctions?: boolean;
 }
 
 /**

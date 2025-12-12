@@ -24,6 +24,7 @@ export function generateGraphQLOperations(
     clientImportPath: options.clientImportPath,
     typesImportPath: options.typesImportPath,
     sourceName: options.sourceName,
+    serverFunctions: options.serverFunctions,
   });
 
   return {

@@ -18,6 +18,7 @@ Currently supporting **TanStack Query** and **TanStack Form** with more integrat
 ## Features
 
 - **TanStack Query** - Generate type-safe `queryOptions` and `mutationOptions` from your GraphQL operations or OpenAPI specs
+- **TanStack Start** - Optionally wrap operations in `createServerFn` for server-side data fetching
 - **TanStack Form** - Generate type-safe `formOptions` with Zod validation schemas from your mutations
 - **TanStack DB** - Generate collection definitions from your schema _(coming soon)_
 - **TanStack Pacer** - Generate rate-limited operation wrappers _(coming soon)_
@@ -54,6 +55,12 @@ bun add @tanstack/react-query
 
 ```bash
 bun add @tanstack/react-form zod
+```
+
+**TanStack Start (when using `serverFunctions: true`):**
+
+```bash
+bun add @tanstack/react-router @tanstack/react-start
 ```
 
 **GraphQL sources (when generating `"query"`):**
@@ -308,20 +315,21 @@ generates: ["query", "form"]; // Generate both
 ```typescript
 generates: {
   query: {
+    serverFunctions: true,           // wrap operations in createServerFn (TanStack Start)
     files: {
-      client: "api-client.ts",      // default: "client.ts"
-      types: "api-types.ts",        // default: "types.ts" (GraphQL only)
-      operations: "api-ops.ts",     // default: "operations.ts"
+      client: "api-client.ts",       // default: "client.ts"
+      types: "api-types.ts",         // default: "types.ts" (GraphQL only)
+      operations: "api-ops.ts",      // default: "operations.ts"
     },
   },
   form: {
     files: {
-      forms: "user-forms.ts",       // default: "forms.ts"
+      forms: "user-forms.ts",        // default: "forms.ts"
     },
   },
   zod: {
     files: {
-      schema: "types.ts",           // default: "schema.ts"
+      schema: "types.ts",            // default: "schema.ts"
     },
   },
 }
@@ -745,6 +753,102 @@ function CreateUserForm() {
     </form>
   );
 }
+```
+
+## TanStack Start Integration
+
+tangrams can generate server functions for TanStack Start, wrapping your query and mutation operations in `createServerFn` for server-side data fetching.
+
+### Configuration
+
+Enable server functions by setting `serverFunctions: true` in your query configuration:
+
+```typescript
+import { defineConfig } from "tangrams";
+
+export default defineConfig({
+  sources: [
+    {
+      name: "graphql",
+      type: "graphql",
+      schema: { url: "http://localhost:4000/graphql" },
+      documents: "./src/graphql/**/*.graphql",
+      generates: {
+        query: { serverFunctions: true },
+      },
+    },
+  ],
+});
+```
+
+### Peer Dependencies
+
+For server functions, you'll need TanStack Start:
+
+```bash
+bun add @tanstack/react-router @tanstack/react-start
+```
+
+### Generated Output
+
+When `serverFunctions: true`, tangrams generates both server functions and query/mutation options that use them:
+
+```typescript
+// Server function for the query (runs on server)
+export const getUserFn = createServerFn({ method: "GET" })
+  .validator((data: GetUserQueryVariables) => data)
+  .handler(async ({ data }) =>
+    (await getClient()).request<GetUserQuery>(GetUserDocument, data)
+  );
+
+// Query options that use the server function
+export const getUserQueryOptions = (variables: GetUserQueryVariables) =>
+  queryOptions({
+    queryKey: ["graphql", "GetUser", variables],
+    queryFn: () => getUserFn({ data: variables }),
+  });
+
+// Server function for mutations (runs on server)
+export const createUserFn = createServerFn({ method: "POST" })
+  .validator((data: CreateUserMutationVariables) => data)
+  .handler(async ({ data }) =>
+    (await getClient()).request<CreateUserMutation>(CreateUserDocument, data)
+  );
+
+// Mutation options that use the server function
+export const createUserMutationOptions = () =>
+  mutationOptions({
+    mutationKey: ["graphql", "CreateUser"],
+    mutationFn: (variables: CreateUserMutationVariables) =>
+      createUserFn({ data: variables }),
+  });
+```
+
+### Usage
+
+Use the generated options exactly as before - the server function wrapping is transparent:
+
+```typescript
+import { useQuery, useMutation } from "@tanstack/react-query";
+import {
+  getUserQueryOptions,
+  createUserMutationOptions,
+} from "./generated/query/graphql/operations";
+
+function UserProfile({ userId }: { userId: string }) {
+  // Data fetching happens on the server!
+  const { data } = useQuery(getUserQueryOptions({ id: userId }));
+  return <div>{data?.user?.name}</div>;
+}
+```
+
+You can also call server functions directly:
+
+```typescript
+import { getUserFn } from "./generated/query/graphql/operations";
+
+// Call directly in loaders, actions, or other server contexts
+const user = await getUserFn({ data: { id: "123" } });
 ```
 
 ## Roadmap

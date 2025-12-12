@@ -85,6 +85,8 @@ export type ZodFilesConfigInput = z.input<typeof zodFilesSchema>;
 export const queryGenerateOptionsSchema = z.object({
   /** File naming configuration */
   files: queryFilesSchema.optional(),
+  /** Enable TanStack Start server functions wrapping */
+  serverFunctions: z.boolean().optional(),
 });
 
 /**
@@ -368,7 +370,7 @@ export default defineConfig({
  * Normalized generates config result
  */
 export interface NormalizedGenerates {
-  query?: { files: QueryFilesConfig };
+  query?: { files: QueryFilesConfig; serverFunctions?: boolean };
   form?: { files: FormFilesConfig };
   zod: { files: ZodFilesConfig };
 }
@@ -394,6 +396,7 @@ export function normalizeGenerates(
           types: "types.ts",
           operations: "operations.ts",
         },
+        serverFunctions: false,
       };
     }
 
@@ -413,7 +416,9 @@ export function normalizeGenerates(
 
   if (generates.query) {
     const queryConfig =
-      generates.query === true ? {} : (generates.query as { files?: unknown });
+      generates.query === true
+        ? {}
+        : (generates.query as { files?: unknown; serverFunctions?: boolean });
     const filesInput = queryConfig.files as QueryFilesConfigInput | undefined;
     result.query = {
       files: {
@@ -421,6 +426,7 @@ export function normalizeGenerates(
         types: filesInput?.types ?? "types.ts",
         operations: filesInput?.operations ?? "operations.ts",
       },
+      serverFunctions: queryConfig.serverFunctions ?? false,
     };
   }
 
@@ -500,4 +506,12 @@ export function getQuerySources(config: TangramsConfig): SourceConfig[] {
  */
 export function getFormSources(config: TangramsConfig): SourceConfig[] {
   return config.sources.filter(sourceGeneratesForm);
+}
+
+/**
+ * Check if a source uses server functions (TanStack Start)
+ */
+export function sourceUsesServerFunctions(source: SourceConfig): boolean {
+  const generates = normalizeGenerates(source.generates);
+  return generates.query?.serverFunctions === true;
 }

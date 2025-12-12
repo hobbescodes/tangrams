@@ -21,6 +21,7 @@ import {
   openApiSourceSchema,
   sourceGeneratesForm,
   sourceGeneratesQuery,
+  sourceUsesServerFunctions,
 } from "./config";
 
 import type {
@@ -354,6 +355,23 @@ describe("generatesSchema", () => {
       expect(result.success).toBe(true);
     });
 
+    it("validates generates with serverFunctions option", () => {
+      const result = generatesObjectSchema.safeParse({
+        query: { serverFunctions: true },
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("validates generates with serverFunctions and custom files", () => {
+      const result = generatesObjectSchema.safeParse({
+        query: {
+          serverFunctions: true,
+          files: { client: "custom-client.ts" },
+        },
+      });
+      expect(result.success).toBe(true);
+    });
+
     it("fails with empty object", () => {
       const result = generatesObjectSchema.safeParse({});
       expect(result.success).toBe(false);
@@ -646,6 +664,30 @@ describe("normalizeGenerates", () => {
     });
     expect(result.form?.files.forms).toBe("custom-forms.ts");
   });
+
+  it("normalizes array form with serverFunctions as false by default", () => {
+    const result = normalizeGenerates(["query"]);
+    expect(result.query?.serverFunctions).toBe(false);
+  });
+
+  it("normalizes object form with serverFunctions: true", () => {
+    const result = normalizeGenerates({
+      query: { serverFunctions: true },
+    });
+    expect(result.query?.serverFunctions).toBe(true);
+  });
+
+  it("normalizes object form with serverFunctions: false explicitly", () => {
+    const result = normalizeGenerates({
+      query: { serverFunctions: false },
+    });
+    expect(result.query?.serverFunctions).toBe(false);
+  });
+
+  it("normalizes object form with query: true and defaults serverFunctions to false", () => {
+    const result = normalizeGenerates({ query: true });
+    expect(result.query?.serverFunctions).toBe(false);
+  });
 });
 
 describe("utility functions", () => {
@@ -776,6 +818,56 @@ describe("utility functions", () => {
         "users-service",
         "payments-service",
       ]);
+    });
+  });
+
+  describe("sourceUsesServerFunctions", () => {
+    it("returns false for array form generates", () => {
+      const source = multiSourceConfig.sources[0]!;
+      expect(sourceUsesServerFunctions(source)).toBe(false);
+    });
+
+    it("returns false for object form without serverFunctions", () => {
+      const source: TangramsConfig["sources"][0] = {
+        name: "test-api",
+        type: "graphql",
+        schema: { url: "http://localhost:4000/graphql" },
+        documents: "./src/graphql/**/*.graphql",
+        generates: { query: true },
+      };
+      expect(sourceUsesServerFunctions(source)).toBe(false);
+    });
+
+    it("returns false when serverFunctions is explicitly false", () => {
+      const source: TangramsConfig["sources"][0] = {
+        name: "test-api",
+        type: "graphql",
+        schema: { url: "http://localhost:4000/graphql" },
+        documents: "./src/graphql/**/*.graphql",
+        generates: { query: { serverFunctions: false } },
+      };
+      expect(sourceUsesServerFunctions(source)).toBe(false);
+    });
+
+    it("returns true when serverFunctions is true", () => {
+      const source: TangramsConfig["sources"][0] = {
+        name: "test-api",
+        type: "graphql",
+        schema: { url: "http://localhost:4000/graphql" },
+        documents: "./src/graphql/**/*.graphql",
+        generates: { query: { serverFunctions: true } },
+      };
+      expect(sourceUsesServerFunctions(source)).toBe(true);
+    });
+
+    it("returns false for form-only generates", () => {
+      const source: TangramsConfig["sources"][0] = {
+        name: "test-api",
+        type: "openapi",
+        spec: "./specs/test.yaml",
+        generates: { form: true },
+      };
+      expect(sourceUsesServerFunctions(source)).toBe(false);
     });
   });
 });

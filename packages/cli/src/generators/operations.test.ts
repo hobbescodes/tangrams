@@ -291,4 +291,189 @@ describe("generateOperations", () => {
 
     expect(result).toMatchSnapshot();
   });
+
+  // Server Functions Tests
+  describe("with serverFunctions enabled", () => {
+    it("imports createServerFn from @tanstack/react-start", async () => {
+      const documents = await loadDocuments(`${fixturesDir}/user.graphql`);
+      const result = generateOperations({
+        documents,
+        clientImportPath: "./client",
+        typesImportPath: "./types",
+        sourceName: "test",
+        serverFunctions: true,
+      });
+
+      expect(result).toContain(
+        'import { createServerFn } from "@tanstack/react-start"',
+      );
+    });
+
+    it("generates server function for query operations", async () => {
+      const documents = await loadDocuments(`${fixturesDir}/user.graphql`);
+      const result = generateOperations({
+        documents,
+        clientImportPath: "./client",
+        typesImportPath: "./types",
+        sourceName: "test",
+        serverFunctions: true,
+      });
+
+      // Should generate server function with GET method for queries
+      expect(result).toContain(
+        'export const getUserFn = createServerFn({ method: "GET" })',
+      );
+      expect(result).toContain(
+        'export const listUsersFn = createServerFn({ method: "GET" })',
+      );
+    });
+
+    it("generates server function for mutation operations", async () => {
+      const documents = await loadDocuments(`${fixturesDir}/user.graphql`);
+      const result = generateOperations({
+        documents,
+        clientImportPath: "./client",
+        typesImportPath: "./types",
+        sourceName: "test",
+        serverFunctions: true,
+      });
+
+      // Should generate server function with POST method for mutations
+      expect(result).toContain(
+        'export const createUserFn = createServerFn({ method: "POST" })',
+      );
+      expect(result).toContain(
+        'export const updateUserFn = createServerFn({ method: "POST" })',
+      );
+      expect(result).toContain(
+        'export const deleteUserFn = createServerFn({ method: "POST" })',
+      );
+    });
+
+    it("uses validator for operations with variables", async () => {
+      const documents = await loadDocuments(`${fixturesDir}/user.graphql`);
+      const result = generateOperations({
+        documents,
+        clientImportPath: "./client",
+        typesImportPath: "./types",
+        sourceName: "test",
+        serverFunctions: true,
+      });
+
+      // GetUser has required variables
+      expect(result).toContain(
+        ".validator((data: GetUserQueryVariables) => data)",
+      );
+    });
+
+    it("does not use validator for operations without variables", async () => {
+      const documents = await loadDocuments(
+        `${fixturesDir}/query-only.graphql`,
+      );
+      const result = generateOperations({
+        documents,
+        clientImportPath: "./client",
+        typesImportPath: "./types",
+        sourceName: "test",
+        serverFunctions: true,
+      });
+
+      // GetAllUsers has no variables, should use handler directly
+      expect(result).toContain(
+        'export const getAllUsersFn = createServerFn({ method: "GET" })',
+      );
+      expect(result).toContain(".handler(async () =>");
+    });
+
+    it("generates queryOptions that use server functions", async () => {
+      const documents = await loadDocuments(`${fixturesDir}/user.graphql`);
+      const result = generateOperations({
+        documents,
+        clientImportPath: "./client",
+        typesImportPath: "./types",
+        sourceName: "test",
+        serverFunctions: true,
+      });
+
+      // queryOptions should call the server function
+      expect(result).toContain(
+        "queryFn: () => getUserFn({ data: variables ?? undefined })",
+      );
+    });
+
+    it("generates mutationOptions that use server functions", async () => {
+      const documents = await loadDocuments(`${fixturesDir}/user.graphql`);
+      const result = generateOperations({
+        documents,
+        clientImportPath: "./client",
+        typesImportPath: "./types",
+        sourceName: "test",
+        serverFunctions: true,
+      });
+
+      // mutationOptions should call the server function
+      expect(result).toContain(
+        "mutationFn: (variables: CreateUserMutationVariables) => createUserFn({ data: variables })",
+      );
+    });
+
+    it("handles optional variables correctly in server functions", async () => {
+      const documents = await loadDocuments(`${fixturesDir}/user.graphql`);
+      const result = generateOperations({
+        documents,
+        clientImportPath: "./client",
+        typesImportPath: "./types",
+        sourceName: "test",
+        serverFunctions: true,
+      });
+
+      // ListUsers has all optional variables
+      expect(result).toContain(
+        "listUsersQueryOptions = (variables?: ListUsersQueryVariables)",
+      );
+    });
+
+    it("matches snapshot for user operations with server functions", async () => {
+      const documents = await loadDocuments(`${fixturesDir}/user.graphql`);
+      const result = generateOperations({
+        documents,
+        clientImportPath: "./client",
+        typesImportPath: "./types",
+        sourceName: "test",
+        serverFunctions: true,
+      });
+
+      expect(result).toMatchSnapshot();
+    });
+
+    it("matches snapshot for query-only operations with server functions", async () => {
+      const documents = await loadDocuments(
+        `${fixturesDir}/query-only.graphql`,
+      );
+      const result = generateOperations({
+        documents,
+        clientImportPath: "./client",
+        typesImportPath: "./types",
+        sourceName: "test",
+        serverFunctions: true,
+      });
+
+      expect(result).toMatchSnapshot();
+    });
+
+    it("matches snapshot for mutation-only operations with server functions", async () => {
+      const documents = await loadDocuments(
+        `${fixturesDir}/mutation-only.graphql`,
+      );
+      const result = generateOperations({
+        documents,
+        clientImportPath: "./client",
+        typesImportPath: "./types",
+        sourceName: "test",
+        serverFunctions: true,
+      });
+
+      expect(result).toMatchSnapshot();
+    });
+  });
 });

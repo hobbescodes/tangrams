@@ -2,9 +2,11 @@ import { getFragmentDependencies } from "../core/documents";
 import {
   toDocumentName,
   toFragmentDocName,
+  toMutationFnName,
   toMutationOptionsName,
   toMutationTypeName,
   toMutationVariablesTypeName,
+  toQueryFnName,
   toQueryOptionsName,
   toQueryTypeName,
   toQueryVariablesTypeName,
@@ -22,6 +24,8 @@ export interface OperationsGeneratorOptions {
   typesImportPath: string;
   /** The source name to include in query/mutation keys */
   sourceName: string;
+  /** Enable TanStack Start server functions wrapping */
+  serverFunctions?: boolean;
 }
 
 /**
@@ -30,7 +34,13 @@ export interface OperationsGeneratorOptions {
 export function generateOperations(
   options: OperationsGeneratorOptions,
 ): string {
-  const { documents, clientImportPath, typesImportPath, sourceName } = options;
+  const {
+    documents,
+    clientImportPath,
+    typesImportPath,
+    sourceName,
+    serverFunctions = false,
+  } = options;
   const { operations, fragments } = documents;
 
   const lines: string[] = [];
@@ -51,6 +61,12 @@ export function generateOperations(
       `import { ${tanstackImports.join(", ")} } from "@tanstack/react-query"`,
     );
   }
+
+  // Add TanStack Start import if server functions are enabled
+  if (serverFunctions) {
+    lines.push(`import { createServerFn } from "@tanstack/react-start"`);
+  }
+
   lines.push(`import { getClient } from "${clientImportPath}"`);
   lines.push("");
 
@@ -80,9 +96,21 @@ export function generateOperations(
     lines.push("");
 
     if (operation.operation === "query") {
-      lines.push(generateQueryOptions(operation, sourceName));
+      if (serverFunctions) {
+        lines.push(generateQueryServerFn(operation));
+        lines.push("");
+        lines.push(generateQueryOptionsWithServerFn(operation, sourceName));
+      } else {
+        lines.push(generateQueryOptions(operation, sourceName));
+      }
     } else {
-      lines.push(generateMutationOptions(operation, sourceName));
+      if (serverFunctions) {
+        lines.push(generateMutationServerFn(operation));
+        lines.push("");
+        lines.push(generateMutationOptionsWithServerFn(operation, sourceName));
+      } else {
+        lines.push(generateMutationOptions(operation, sourceName));
+      }
     }
     lines.push("");
   }
@@ -150,6 +178,10 @@ ${operation.document}
 ${operation.document}
 \` + ${fragmentConcats}`;
 }
+
+// =============================================================================
+// Standard Query/Mutation Options (without server functions)
+// =============================================================================
 
 /**
  * Generate queryOptions for a query operation
@@ -222,5 +254,134 @@ function generateMutationOptions(
 		mutationKey: ["${sourceName}", "${operation.name}"],
 		mutationFn: async (variables: ${variablesType}) =>
 			(await getClient()).request<${mutationType}>(${docName}, variables),
+	})`;
+}
+
+// =============================================================================
+// Server Function Generation (TanStack Start)
+// =============================================================================
+
+/**
+ * Generate server function for a query operation
+ */
+function generateQueryServerFn(operation: ParsedOperation): string {
+  const fnName = toQueryFnName(operation.name);
+  const docName = toDocumentName(operation.name);
+  const queryType = toQueryTypeName(operation.name);
+  const variablesType = toQueryVariablesTypeName(operation.name);
+
+  const hasVariables =
+    operation.node.variableDefinitions &&
+    operation.node.variableDefinitions.length > 0;
+
+  if (!hasVariables) {
+    return `export const ${fnName} = createServerFn({ method: "GET" })
+	.handler(async () =>
+		(await getClient()).request<${queryType}>(${docName})
+	)`;
+  }
+
+  return `export const ${fnName} = createServerFn({ method: "GET" })
+	.validator((data: ${variablesType}) => data)
+	.handler(async ({ data }) =>
+		(await getClient()).request<${queryType}>(${docName}, data)
+	)`;
+}
+
+/**
+ * Generate queryOptions that uses server function
+ */
+function generateQueryOptionsWithServerFn(
+  operation: ParsedOperation,
+  sourceName: string,
+): string {
+  const optionsFnName = toQueryOptionsName(operation.name);
+  const serverFnName = toQueryFnName(operation.name);
+  const variablesType = toQueryVariablesTypeName(operation.name);
+
+  const hasVariables =
+    operation.node.variableDefinitions &&
+    operation.node.variableDefinitions.length > 0;
+
+  // Check if all variables are optional
+  const allOptional =
+    hasVariables &&
+    operation.node.variableDefinitions?.every(
+      (v) => v.type.kind !== "NonNullType",
+    );
+
+  if (!hasVariables) {
+    return `export const ${optionsFnName} = () =>
+	queryOptions({
+		queryKey: ["${sourceName}", "${operation.name}"],
+		queryFn: () => ${serverFnName}(),
+	})`;
+  }
+
+  const variableParam = allOptional
+    ? `variables?: ${variablesType}`
+    : `variables: ${variablesType}`;
+
+  return `export const ${optionsFnName} = (${variableParam}) =>
+	queryOptions({
+		queryKey: ["${sourceName}", "${operation.name}", variables],
+		queryFn: () => ${serverFnName}({ data: variables ?? undefined }),
+	})`;
+}
+
+/**
+ * Generate server function for a mutation operation
+ */
+function generateMutationServerFn(operation: ParsedOperation): string {
+  const fnName = toMutationFnName(operation.name);
+  const docName = toDocumentName(operation.name);
+  const mutationType = toMutationTypeName(operation.name);
+  const variablesType = toMutationVariablesTypeName(operation.name);
+
+  const hasVariables =
+    operation.node.variableDefinitions &&
+    operation.node.variableDefinitions.length > 0;
+
+  if (!hasVariables) {
+    return `export const ${fnName} = createServerFn({ method: "POST" })
+	.handler(async () =>
+		(await getClient()).request<${mutationType}>(${docName})
+	)`;
+  }
+
+  return `export const ${fnName} = createServerFn({ method: "POST" })
+	.validator((data: ${variablesType}) => data)
+	.handler(async ({ data }) =>
+		(await getClient()).request<${mutationType}>(${docName}, data)
+	)`;
+}
+
+/**
+ * Generate mutationOptions that uses server function
+ */
+function generateMutationOptionsWithServerFn(
+  operation: ParsedOperation,
+  sourceName: string,
+): string {
+  const optionsFnName = toMutationOptionsName(operation.name);
+  const serverFnName = toMutationFnName(operation.name);
+  const variablesType = toMutationVariablesTypeName(operation.name);
+
+  const hasVariables =
+    operation.node.variableDefinitions &&
+    operation.node.variableDefinitions.length > 0;
+
+  if (!hasVariables) {
+    return `export const ${optionsFnName} = () =>
+	mutationOptions({
+		mutationKey: ["${sourceName}", "${operation.name}"],
+		mutationFn: () => ${serverFnName}(),
+	})`;
+  }
+
+  return `export const ${optionsFnName} = () =>
+	mutationOptions({
+		mutationKey: ["${sourceName}", "${operation.name}"],
+		mutationFn: (variables: ${variablesType}) => ${serverFnName}({ data: variables }),
 	})`;
 }

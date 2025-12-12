@@ -447,3 +447,119 @@ generates: {
   },
 }
 ```
+
+## TanStack Start Integration
+
+Tangrams can generate server functions for TanStack Start, wrapping your operations in `createServerFn` for server-side data fetching.
+
+### Setup
+
+Enable server functions in your configuration:
+
+```typescript
+import { defineConfig } from "tangrams"
+
+export default defineConfig({
+  sources: [
+    {
+      name: "graphql",
+      type: "graphql",
+      schema: { url: "http://localhost:4000/graphql" },
+      documents: "./src/graphql/**/*.graphql",
+      generates: {
+        query: { serverFunctions: true },
+      },
+    },
+  ],
+})
+```
+
+### Peer Dependencies
+
+<Tabs items={['bun', 'npm', 'pnpm']}>
+  <Tab value="bun">
+```bash
+bun add @tanstack/react-router @tanstack/react-start
+```
+  </Tab>
+  <Tab value="npm">
+```bash
+npm install @tanstack/react-router @tanstack/react-start
+```
+  </Tab>
+  <Tab value="pnpm">
+```bash
+pnpm add @tanstack/react-router @tanstack/react-start
+```
+  </Tab>
+</Tabs>
+
+### Generated Output
+
+When `serverFunctions: true`, tangrams generates both server functions and query/mutation options:
+
+**Server functions:**
+
+```typescript
+// Query server function (GET method)
+export const getUserFn = createServerFn({ method: "GET" })
+  .validator((data: GetUserQueryVariables) => data)
+  .handler(async ({ data }) =>
+    (await getClient()).request<GetUserQuery>(GetUserDocument, data)
+  )
+
+// Mutation server function (POST method)
+export const createUserFn = createServerFn({ method: "POST" })
+  .validator((data: CreateUserMutationVariables) => data)
+  .handler(async ({ data }) =>
+    (await getClient()).request<CreateUserMutation>(CreateUserDocument, data)
+  )
+```
+
+**Query/mutation options (using server functions):**
+
+```typescript
+export const getUserQueryOptions = (variables: GetUserQueryVariables) =>
+  queryOptions({
+    queryKey: ["graphql", "GetUser", variables],
+    queryFn: () => getUserFn({ data: variables }),
+  })
+
+export const createUserMutationOptions = () =>
+  mutationOptions({
+    mutationKey: ["graphql", "CreateUser"],
+    mutationFn: (variables: CreateUserMutationVariables) =>
+      createUserFn({ data: variables }),
+  })
+```
+
+### Usage
+
+Use the generated options exactly as before - the server function wrapping is transparent:
+
+```typescript
+import { useQuery, useMutation } from "@tanstack/react-query"
+import {
+  getUserQueryOptions,
+  createUserMutationOptions,
+} from "./generated/query/graphql/operations"
+
+function UserProfile({ userId }: { userId: string }) {
+  // Data fetching happens on the server!
+  const { data } = useQuery(getUserQueryOptions({ id: userId }))
+  return <div>{data?.user?.name}</div>
+}
+```
+
+You can also call server functions directly in loaders or actions:
+
+```typescript
+import { getUserFn } from "./generated/query/graphql/operations"
+
+// In a TanStack Router loader
+export const Route = createFileRoute("/user/$userId")({
+  loader: async ({ params }) => {
+    return getUserFn({ data: { id: params.userId } })
+  },
+})
+```

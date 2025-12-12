@@ -86,3 +86,19 @@ export function toMutationVariablesTypeName(operationName: string): string {
 export function toFragmentTypeName(fragmentName: string): string {
   return `${toPascalCase(fragmentName)}Fragment`;
 }
+
+/**
+ * Convert a GraphQL query operation name to a server function name
+ * e.g., "GetUser" -> "getUserFn"
+ */
+export function toQueryFnName(operationName: string): string {
+  return `${toCamelCase(operationName)}Fn`;
+}
+
+/**
+ * Convert a GraphQL mutation operation name to a server function name
+ * e.g., "CreateUser" -> "createUserFn"
+ */
+export function toMutationFnName(operationName: string): string {
+  return `${toCamelCase(operationName)}Fn`;
+}

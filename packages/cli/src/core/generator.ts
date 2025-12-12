@@ -1,11 +1,35 @@
 import { constants } from "node:fs";
 import { access, mkdir, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { dirname, join, relative } from "node:path";
 
 import consola from "consola";
 
 import { getAdapter } from "@/adapters";
 import { normalizeGenerates } from "./config";
+
+const require = createRequire(import.meta.url);
+
+/**
+ * Validate that TanStack Start dependencies are installed when serverFunctions is enabled
+ */
+function validateServerFunctionsRequirements(
+  sourceName: string,
+  serverFunctions: boolean,
+): void {
+  if (!serverFunctions) return;
+
+  // Check for @tanstack/react-start
+  try {
+    require.resolve("@tanstack/react-start");
+  } catch {
+    throw new Error(
+      `Source "${sourceName}" has serverFunctions enabled but @tanstack/react-start is not installed.\n` +
+        `TanStack Start requires both @tanstack/react-router and @tanstack/react-start.\n` +
+        `Install them with: bun add @tanstack/react-router @tanstack/react-start`,
+    );
+  }
+}
 
 import type { GraphQLAdapter, GraphQLAdapterSchema } from "@/adapters/types";
 import type {
@@ -115,6 +139,7 @@ export async function generate(
         schema,
         force,
         zodSchemaPath,
+        serverFunctions: generates.query.serverFunctions,
       });
       querySourceNames.push(source.name);
     }
@@ -215,6 +240,8 @@ interface GenerateQueryFilesOptions {
   force: boolean;
   /** Path to Zod schema file (for OpenAPI - types come from here) */
   zodSchemaPath?: string;
+  /** Enable TanStack Start server functions wrapping */
+  serverFunctions?: boolean;
 }
 
 /**
@@ -227,8 +254,18 @@ interface GenerateQueryFilesOptions {
 async function generateQueryFiles(
   options: GenerateQueryFilesOptions,
 ): Promise<void> {
-  const { source, baseOutputDir, files, schema, force, zodSchemaPath } =
-    options;
+  const {
+    source,
+    baseOutputDir,
+    files,
+    schema,
+    force,
+    zodSchemaPath,
+    serverFunctions = false,
+  } = options;
+
+  // Validate TanStack Start dependencies if serverFunctions is enabled
+  validateServerFunctionsRequirements(source.name, serverFunctions);
 
   consola.info(`Generating query files for: ${source.name}`);
 
@@ -301,6 +338,7 @@ async function generateQueryFiles(
     clientImportPath,
     typesImportPath,
     sourceName: source.name,
+    serverFunctions,
   });
   await writeFile(operationsPath, operationsResult.content, "utf-8");
   consola.success(`Generated query/${source.name}/${files.operations}`);
