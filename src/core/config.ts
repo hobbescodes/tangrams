@@ -1,7 +1,7 @@
 import { dirname } from "node:path";
 
 import { loadConfig } from "c12";
-import { z } from "zod";
+import * as z from "zod";
 
 import type { DotenvOptions } from "c12";
 
@@ -45,9 +45,9 @@ const sourceNameSchema = z
  */
 export const graphqlSchemaUrlConfig = z.object({
   /** GraphQL endpoint URL for introspection */
-  url: z.string().url(),
+  url: z.url(),
   /** Headers to send with introspection request */
-  headers: z.record(z.string()).optional(),
+  headers: z.record(z.string(), z.string()).optional(),
 });
 
 /**
@@ -83,7 +83,7 @@ export const graphqlSourceSchema = z.object({
   /** Glob pattern(s) for GraphQL document files */
   documents: z.union([z.string(), z.array(z.string())]),
   /** Custom scalar type mappings */
-  scalars: z.record(z.string()).optional(),
+  scalars: z.record(z.string(), z.string()).optional(),
 });
 
 export type GraphQLSourceConfig = z.infer<typeof graphqlSourceSchema>;
@@ -99,7 +99,7 @@ export const openApiSourceSchema = z.object({
   /** OpenAPI spec URL or local file path */
   spec: z.string().min(1, "OpenAPI spec path or URL is required"),
   /** Headers to send when fetching remote spec */
-  headers: z.record(z.string()).optional(),
+  headers: z.record(z.string(), z.string()).optional(),
   /** Glob patterns for paths to include (e.g., ["/users/**", "/posts/*"]) */
   include: z.array(z.string()).optional(),
   /** Glob patterns for paths to exclude */
@@ -157,7 +157,11 @@ export const queryConfigSchema = z.object({
       "Source names must be unique",
     ),
   /** File naming configuration (optional, has defaults) */
-  files: queryFilesSchema.default({}),
+  files: queryFilesSchema.default({
+    client: "client.ts",
+    types: "types.ts",
+    operations: "operations.ts",
+  }),
 });
 
 export type QueryConfig = z.infer<typeof queryConfigSchema>;
@@ -239,7 +243,7 @@ export async function loadTangenConfig(
   // Validate and normalize the config
   const result = configSchema.safeParse(config);
   if (!result.success) {
-    const errors = result.error.errors
+    const errors = result.error.issues
       .map((e) => `  - ${e.path.join(".")}: ${e.message}`)
       .join("\n");
     throw new Error(`Invalid configuration in ${configFile}:\n${errors}`);

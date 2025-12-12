@@ -301,7 +301,7 @@ describe("queryConfigSchema", () => {
     const result = queryConfigSchema.safeParse(config);
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.errors[0]?.message).toContain("unique");
+      expect(result.error.issues[0]?.message).toContain("unique");
     }
   });
 

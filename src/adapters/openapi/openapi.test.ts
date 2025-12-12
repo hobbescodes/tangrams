@@ -41,7 +41,7 @@ describe("OpenAPI Adapter", () => {
       const result = openapiAdapter.generateTypes(schema, testConfig, {});
 
       expect(result.filename).toBe("types.ts");
-      expect(result.content).toContain("import { z } from");
+      expect(result.content).toContain('import * as z from "zod"');
 
       // Check for generated schema types
       expect(result.content).toContain("petSchema");
@@ -659,7 +659,7 @@ describe("OpenAPI Types Generation Edge Cases", () => {
     const result = openapiAdapter.generateTypes(schema, config, {});
 
     // Should still generate valid TypeScript
-    expect(result.content).toContain("import { z }");
+    expect(result.content).toContain('import * as z from "zod"');
     expect(result.filename).toBe("types.ts");
   });
 
@@ -673,11 +673,9 @@ describe("OpenAPI Types Generation Edge Cases", () => {
     const schema = await openapiAdapter.loadSchema(config);
     const result = openapiAdapter.generateTypes(schema, config, {});
 
-    // The petstore fixture has date-time formatted strings
-    expect(result.content).toContain("z.string()");
-    // Should have date format validators
-    expect(result.content).toContain(".datetime()");
-    expect(result.content).toContain(".date()");
+    // The petstore fixture has date-time formatted strings - using Zod v4 top-level APIs
+    expect(result.content).toContain("z.iso.datetime()");
+    expect(result.content).toContain("z.iso.date()");
   });
 
   it("generates enum schemas from OpenAPI enums", async () => {
@@ -712,7 +710,7 @@ describe("OpenAPI Types Generation Edge Cases", () => {
 
     const result = openapiAdapter.generateTypes(emptySchema, config, {});
 
-    expect(result.content).toContain("import { z }");
+    expect(result.content).toContain('import * as z from "zod"');
     expect(result.filename).toBe("types.ts");
   });
 
@@ -823,15 +821,15 @@ describe("OpenAPI Extended Types Generation", () => {
     const schema = await openapiAdapter.loadSchema(extendedConfig);
     const result = openapiAdapter.generateTypes(schema, extendedConfig, {});
 
-    // Various string formats
-    expect(result.content).toContain(".uuid()");
-    expect(result.content).toContain(".email()");
-    expect(result.content).toContain(".url()");
-    expect(result.content).toContain('.ip({ version: "v4" })');
-    expect(result.content).toContain('.ip({ version: "v6" })');
-    expect(result.content).toContain(".datetime()");
-    expect(result.content).toContain(".date()");
-    expect(result.content).toContain(".time()");
+    // Various string formats - using Zod v4 top-level APIs
+    expect(result.content).toContain("z.uuid()");
+    expect(result.content).toContain("z.email()");
+    expect(result.content).toContain("z.url()");
+    expect(result.content).toContain("z.ipv4()");
+    expect(result.content).toContain("z.ipv6()");
+    expect(result.content).toContain("z.iso.datetime()");
+    expect(result.content).toContain("z.iso.date()");
+    expect(result.content).toContain("z.iso.time()");
   });
 
   it("handles nullable types", async () => {

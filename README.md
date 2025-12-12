@@ -486,19 +486,19 @@ export function buildQuery(
 Zod schemas and TypeScript types from OpenAPI components:
 
 ```typescript
-import { z } from "zod";
+import * as z from "zod";
 
 // Zod Schemas
 export const userSchema = z.object({
   id: z.string(),
   name: z.string(),
-  email: z.string().email(),
-  createdAt: z.string().datetime(),
+  email: z.email(),
+  createdAt: z.iso.datetime(),
 });
 
 export const createUserRequestSchema = z.object({
   name: z.string(),
-  email: z.string().email(),
+  email: z.email(),
 });
 
 // TypeScript Types (inferred from Zod schemas)

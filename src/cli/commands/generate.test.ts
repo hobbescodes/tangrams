@@ -83,7 +83,7 @@ describe("generate command logic", () => {
       const result = graphqlSourceSchema.safeParse(source);
       expect(result.success).toBe(false);
       if (!result.success) {
-        const errors = result.error.errors;
+        const errors = result.error.issues;
         expect(errors.length).toBeGreaterThan(0);
         // With union type, error indicates invalid schema config (must have url or file)
         expect(errors.some((e) => e.path.includes("schema"))).toBe(true);
@@ -101,7 +101,7 @@ describe("generate command logic", () => {
       const result = graphqlSourceSchema.safeParse(source);
       expect(result.success).toBe(false);
       if (!result.success) {
-        const errors = result.error.errors;
+        const errors = result.error.issues;
         expect(errors.some((e) => e.path.includes("url"))).toBe(true);
       }
     });
@@ -116,7 +116,7 @@ describe("generate command logic", () => {
       const result = graphqlSourceSchema.safeParse(source);
       expect(result.success).toBe(false);
       if (!result.success) {
-        const errors = result.error.errors;
+        const errors = result.error.issues;
         expect(errors.some((e) => e.path.includes("documents"))).toBe(true);
       }
     });
