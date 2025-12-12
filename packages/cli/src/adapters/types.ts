@@ -34,8 +34,22 @@ export interface OperationGenOptions {
   typesImportPath: string;
   /** The source name to include in query/mutation keys */
   sourceName: string;
-  /** Enable TanStack Start server functions wrapping */
+  /** Enable TanStack Start server functions wrapping (imports from start/) */
   serverFunctions?: boolean;
+  /** Relative import path to the start/functions file (when serverFunctions is true) */
+  startImportPath?: string;
+}
+
+/**
+ * Options for start (server functions) generation
+ */
+export interface StartGenOptions {
+  /** Relative import path to the client file */
+  clientImportPath: string;
+  /** Relative import path to the types/schema file */
+  typesImportPath: string;
+  /** The source name */
+  sourceName: string;
 }
 
 /**
@@ -63,9 +77,10 @@ export interface FormGenOptions {
  * 1. Loading/parsing its schema from the configured source
  * 2. Generating a client for making requests
  * 3. Generating TanStack Query operation helpers
- * 4. Generating Zod schemas for validation (OpenAPI always, GraphQL when form enabled)
- * 5. Generating TanStack Form options for mutations
- * 6. (GraphQL only) Generating TypeScript types for operations
+ * 4. Generating TanStack Start server functions
+ * 5. Generating Zod schemas for validation (OpenAPI always, GraphQL when form/start enabled)
+ * 6. Generating TanStack Form options for mutations
+ * 7. (GraphQL only) Generating TypeScript types for operations
  */
 export interface SourceAdapter<
   TConfig extends SourceConfig = SourceConfig,
@@ -100,6 +115,19 @@ export interface SourceAdapter<
     schema: TSchema,
     config: TConfig,
     options: OperationGenOptions,
+  ): GeneratedFile;
+
+  /**
+   * Generate TanStack Start server functions
+   * @param schema The loaded schema
+   * @param config The source configuration
+   * @param options Start generation options
+   * @returns Generated server functions file
+   */
+  generateStart(
+    schema: TSchema,
+    config: TConfig,
+    options: StartGenOptions,
   ): GeneratedFile;
 
   /**

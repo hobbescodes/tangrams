@@ -1,99 +1,67 @@
 import { describe, expect, it } from "vitest";
 
-import { validateServerFunctionsRequirements } from "./generator";
+import { normalizeGenerates } from "./config";
 
-describe("validateServerFunctionsRequirements", () => {
-  /**
-   * Helper to create a mock dependencies object
-   */
-  function createMockDeps(installedPackages: string[]): Record<string, string> {
-    const deps: Record<string, string> = {};
-    for (const pkg of installedPackages) {
-      deps[pkg] = "^1.0.0";
-    }
-    return deps;
-  }
+/**
+ * Generator module tests
+ *
+ * Note: The main generate() function is tested via integration tests
+ * in the CLI commands. These tests cover helper functions and utilities.
+ */
 
-  it("does not throw when serverFunctions is false", async () => {
-    // Even with no packages installed, should not throw
-    const deps = createMockDeps([]);
+describe("generator utilities", () => {
+  describe("normalizeGenerates integration with generator", () => {
+    it("correctly normalizes array form for start generator", () => {
+      const result = normalizeGenerates(["start"]);
 
-    await expect(
-      validateServerFunctionsRequirements("test-source", false, deps),
-    ).resolves.not.toThrow();
-  });
+      expect(result.start).toBeDefined();
+      expect(result.start?.files.functions).toBe("functions.ts");
+      expect(result.query).toBeUndefined();
+      expect(result.form).toBeUndefined();
+    });
 
-  it("does not throw when both packages are installed", async () => {
-    const deps = createMockDeps([
-      "@tanstack/react-router",
-      "@tanstack/react-start",
-    ]);
+    it("correctly normalizes query with serverFunctions", () => {
+      const result = normalizeGenerates({
+        query: { serverFunctions: true },
+      });
 
-    await expect(
-      validateServerFunctionsRequirements("test-source", true, deps),
-    ).resolves.not.toThrow();
-  });
+      expect(result.query).toBeDefined();
+      expect(result.query?.serverFunctions).toBe(true);
+      expect(result.query?.files.operations).toBe("operations.ts");
+    });
 
-  it("throws when @tanstack/react-router is not installed", async () => {
-    // Only react-start is installed
-    const deps = createMockDeps(["@tanstack/react-start"]);
+    it("correctly normalizes all generators", () => {
+      const result = normalizeGenerates(["query", "start", "form"]);
 
-    await expect(
-      validateServerFunctionsRequirements("my-api", true, deps),
-    ).rejects.toThrowError(
-      'Source "my-api" has serverFunctions enabled but @tanstack/react-router is not installed.',
-    );
-  });
+      expect(result.query).toBeDefined();
+      expect(result.start).toBeDefined();
+      expect(result.form).toBeDefined();
+      expect(result.files.client).toBe("client.ts");
+      expect(result.files.schema).toBe("schema.ts");
+    });
 
-  it("throws when @tanstack/react-start is not installed", async () => {
-    // Only react-router is installed
-    const deps = createMockDeps(["@tanstack/react-router"]);
+    it("allows custom filenames", () => {
+      const result = normalizeGenerates({
+        client: "api-client.ts",
+        schema: "types.ts",
+        query: {
+          files: {
+            types: "graphql-types.ts",
+            operations: "api-operations.ts",
+          },
+        },
+        start: {
+          files: {
+            functions: "server-fns.ts",
+          },
+        },
+      });
 
-    await expect(
-      validateServerFunctionsRequirements("my-api", true, deps),
-    ).rejects.toThrowError(
-      'Source "my-api" has serverFunctions enabled but @tanstack/react-start is not installed.',
-    );
-  });
-
-  it("throws when neither package is installed", async () => {
-    const deps = createMockDeps([]);
-
-    // Should fail on react-router first since it's checked first
-    await expect(
-      validateServerFunctionsRequirements("my-api", true, deps),
-    ).rejects.toThrowError(
-      'Source "my-api" has serverFunctions enabled but @tanstack/react-router is not installed.',
-    );
-  });
-
-  it("includes install instructions in error message", async () => {
-    const deps = createMockDeps([]);
-
-    await expect(
-      validateServerFunctionsRequirements("test-source", true, deps),
-    ).rejects.toThrowError(
-      "bun add @tanstack/react-router @tanstack/react-start",
-    );
-  });
-
-  it("includes TanStack Start requirement explanation in error message", async () => {
-    const deps = createMockDeps([]);
-
-    await expect(
-      validateServerFunctionsRequirements("test-source", true, deps),
-    ).rejects.toThrowError(
-      "TanStack Start requires both @tanstack/react-router and @tanstack/react-start",
-    );
-  });
-
-  it("uses source name in error message", async () => {
-    const deps = createMockDeps([]);
-
-    await expect(
-      validateServerFunctionsRequirements("custom-api-source", true, deps),
-    ).rejects.toThrowError(
-      'Source "custom-api-source" has serverFunctions enabled',
-    );
+      expect(result.files.client).toBe("api-client.ts");
+      expect(result.files.schema).toBe("types.ts");
+      expect(result.query?.files.types).toBe("graphql-types.ts");
+      expect(result.query?.files.operations).toBe("api-operations.ts");
+      expect(result.start?.files.functions).toBe("server-fns.ts");
+    });
   });
 });

@@ -7,6 +7,7 @@
 
 import { loadDocuments } from "@/core/documents";
 import { generateFormOptionsCode } from "@/generators/forms";
+import { generateStartFunctions } from "@/generators/start";
 import { generateGraphQLZodSchemas } from "@/generators/zod/graphql";
 import { toSchemaName } from "@/generators/zod/index";
 import { generateGraphQLClient } from "./client";
@@ -28,6 +29,7 @@ import type {
   GraphQLAdapter as IGraphQLAdapter,
   OperationGenOptions,
   SchemaGenOptions,
+  StartGenOptions,
   TypeGenOptions,
 } from "../types";
 
@@ -98,6 +100,27 @@ class GraphQLAdapterImpl implements IGraphQLAdapter {
     options: OperationGenOptions,
   ): GeneratedFile {
     return generateGraphQLOperations(schema, config, options);
+  }
+
+  /**
+   * Generate TanStack Start server functions
+   */
+  generateStart(
+    schema: GraphQLAdapterSchema,
+    _config: GraphQLSourceConfig,
+    options: StartGenOptions,
+  ): GeneratedFile {
+    const content = generateStartFunctions({
+      documents: schema.documents,
+      clientImportPath: options.clientImportPath,
+      typesImportPath: options.typesImportPath,
+      sourceName: options.sourceName,
+    });
+
+    return {
+      filename: "functions.ts",
+      content,
+    };
   }
 
   /**

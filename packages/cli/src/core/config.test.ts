@@ -611,11 +611,12 @@ describe("normalizeGenerates", () => {
     const result = normalizeGenerates(["query"]);
     expect(result.query).toBeDefined();
     expect(result.query?.files).toEqual({
-      client: "client.ts",
       types: "types.ts",
       operations: "operations.ts",
     });
     expect(result.form).toBeUndefined();
+    expect(result.files.client).toBe("client.ts");
+    expect(result.files.schema).toBe("schema.ts");
   });
 
   it("normalizes array form to object form with form", () => {
@@ -627,28 +628,47 @@ describe("normalizeGenerates", () => {
     expect(result.query).toBeUndefined();
   });
 
-  it("normalizes array form to object form with both", () => {
-    const result = normalizeGenerates(["query", "form"]);
+  it("normalizes array form to object form with start", () => {
+    const result = normalizeGenerates(["start"]);
+    expect(result.start).toBeDefined();
+    expect(result.start?.files).toEqual({
+      functions: "functions.ts",
+    });
+    expect(result.query).toBeUndefined();
+    expect(result.form).toBeUndefined();
+  });
+
+  it("normalizes array form to object form with all generators", () => {
+    const result = normalizeGenerates(["query", "start", "form"]);
     expect(result.query).toBeDefined();
+    expect(result.start).toBeDefined();
     expect(result.form).toBeDefined();
   });
 
   it("normalizes object form with query: true", () => {
     const result = normalizeGenerates({ query: true });
     expect(result.query?.files).toEqual({
-      client: "client.ts",
       types: "types.ts",
       operations: "operations.ts",
     });
   });
 
-  it("normalizes object form with custom files", () => {
+  it("normalizes object form with custom query files", () => {
     const result = normalizeGenerates({
-      query: { files: { client: "custom.ts" } },
+      query: { files: { types: "custom-types.ts" } },
     });
-    expect(result.query?.files.client).toBe("custom.ts");
-    expect(result.query?.files.types).toBe("types.ts");
+    expect(result.query?.files.types).toBe("custom-types.ts");
     expect(result.query?.files.operations).toBe("operations.ts");
+  });
+
+  it("normalizes object form with custom source-level files", () => {
+    const result = normalizeGenerates({
+      client: "api-client.ts",
+      schema: "api-schema.ts",
+      query: true,
+    });
+    expect(result.files.client).toBe("api-client.ts");
+    expect(result.files.schema).toBe("api-schema.ts");
   });
 
   it("normalizes object form with form: true", () => {
@@ -663,6 +683,20 @@ describe("normalizeGenerates", () => {
       form: { files: { forms: "custom-forms.ts" } },
     });
     expect(result.form?.files.forms).toBe("custom-forms.ts");
+  });
+
+  it("normalizes object form with start: true", () => {
+    const result = normalizeGenerates({ start: true });
+    expect(result.start?.files).toEqual({
+      functions: "functions.ts",
+    });
+  });
+
+  it("normalizes object form with custom start files", () => {
+    const result = normalizeGenerates({
+      start: { files: { functions: "server-fns.ts" } },
+    });
+    expect(result.start?.files.functions).toBe("server-fns.ts");
   });
 
   it("normalizes array form with serverFunctions as false by default", () => {
@@ -1018,7 +1052,8 @@ describe("loadTangramsConfig", () => {
 						schema: { url: "http://localhost:4000/graphql" },
 						documents: "./src/graphql/**/*.graphql",
 						generates: {
-							query: { files: { client: "my-client.ts" } },
+							client: "my-client.ts",
+							query: true,
 						},
 					},
 				],
@@ -1029,15 +1064,17 @@ describe("loadTangramsConfig", () => {
     const result = await loadTangramsConfig({ configPath });
 
     const source = result.config.sources[0];
-    // normalizeGenerates fills in defaults for missing files
+    // The raw generates config should match what was provided
     expect(source?.generates).toEqual({
-      query: {
-        files: {
-          client: "my-client.ts",
-          operations: "operations.ts",
-          types: "types.ts",
-        },
-      },
+      client: "my-client.ts",
+      query: true,
+    });
+    // normalizeGenerates fills in defaults for files
+    const normalized = normalizeGenerates(source!.generates);
+    expect(normalized.files.client).toBe("my-client.ts");
+    expect(normalized.query?.files).toEqual({
+      operations: "operations.ts",
+      types: "types.ts",
     });
   });
 });

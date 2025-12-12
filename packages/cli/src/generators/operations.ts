@@ -24,8 +24,10 @@ export interface OperationsGeneratorOptions {
   typesImportPath: string;
   /** The source name to include in query/mutation keys */
   sourceName: string;
-  /** Enable TanStack Start server functions wrapping */
+  /** Enable TanStack Start server functions (imports from start/) */
   serverFunctions?: boolean;
+  /** Relative import path to the start/functions file (required when serverFunctions is true) */
+  startImportPath?: string;
 }
 
 /**
@@ -40,8 +42,16 @@ export function generateOperations(
     typesImportPath,
     sourceName,
     serverFunctions = false,
+    startImportPath,
   } = options;
   const { operations, fragments } = documents;
+
+  // Validate that startImportPath is provided when serverFunctions is enabled
+  if (serverFunctions && !startImportPath) {
+    throw new Error(
+      "startImportPath is required when serverFunctions is enabled",
+    );
+  }
 
   const lines: string[] = [];
   lines.push("/* eslint-disable */");
@@ -62,25 +72,44 @@ export function generateOperations(
     );
   }
 
-  // Add TanStack Start import if server functions are enabled
-  if (serverFunctions) {
-    lines.push(`import { createServerFn } from "@tanstack/react-start"`);
+  // Import server functions from start/ if enabled
+  if (serverFunctions && startImportPath) {
+    const serverFnImports = getServerFunctionImports(operations);
+    if (serverFnImports.length > 0) {
+      lines.push(
+        `import { ${serverFnImports.join(", ")} } from "${startImportPath}"`,
+      );
+    }
   }
 
-  lines.push(`import { getClient } from "${clientImportPath}"`);
+  // Only import client when not using server functions
+  if (!serverFunctions) {
+    lines.push(`import { getClient } from "${clientImportPath}"`);
+  }
   lines.push("");
 
-  // Type imports
-  const typeImports = generateTypeImports(operations);
-  if (typeImports) {
-    lines.push("import type {");
-    lines.push(typeImports);
-    lines.push(`} from "${typesImportPath}"`);
-    lines.push("");
+  // Type imports (only needed when not using server functions)
+  if (!serverFunctions) {
+    const typeImports = generateTypeImports(operations);
+    if (typeImports) {
+      lines.push("import type {");
+      lines.push(typeImports);
+      lines.push(`} from "${typesImportPath}"`);
+      lines.push("");
+    }
+  } else {
+    // When using server functions, only import variable types for function signatures
+    const typeImports = generateVariableTypeImports(operations);
+    if (typeImports) {
+      lines.push("import type {");
+      lines.push(typeImports);
+      lines.push(`} from "${typesImportPath}"`);
+      lines.push("");
+    }
   }
 
-  // Fragment documents
-  if (fragments.length > 0) {
+  // Fragment documents (only needed when not using server functions)
+  if (!serverFunctions && fragments.length > 0) {
     lines.push("// Fragment Documents");
     for (const fragment of fragments) {
       lines.push(generateFragmentDocument(fragment));
@@ -89,37 +118,49 @@ export function generateOperations(
   }
 
   // Operation documents and options
-  lines.push("// Documents & Operations");
-  for (const operation of operations) {
-    const fragmentDeps = getFragmentDependencies(operation, fragments);
-    lines.push(generateOperationDocument(operation, fragmentDeps));
-    lines.push("");
+  if (!serverFunctions) {
+    lines.push("// Documents & Operations");
+    for (const operation of operations) {
+      const fragmentDeps = getFragmentDependencies(operation, fragments);
+      lines.push(generateOperationDocument(operation, fragmentDeps));
+      lines.push("");
 
-    if (operation.operation === "query") {
-      if (serverFunctions) {
-        lines.push(generateQueryServerFn(operation));
-        lines.push("");
-        lines.push(generateQueryOptionsWithServerFn(operation, sourceName));
-      } else {
+      if (operation.operation === "query") {
         lines.push(generateQueryOptions(operation, sourceName));
-      }
-    } else {
-      if (serverFunctions) {
-        lines.push(generateMutationServerFn(operation));
-        lines.push("");
-        lines.push(generateMutationOptionsWithServerFn(operation, sourceName));
       } else {
         lines.push(generateMutationOptions(operation, sourceName));
       }
+      lines.push("");
     }
-    lines.push("");
+  } else {
+    // Generate options that use imported server functions
+    lines.push("// Operations (using server functions)");
+    for (const operation of operations) {
+      if (operation.operation === "query") {
+        lines.push(generateQueryOptionsWithServerFn(operation, sourceName));
+      } else {
+        lines.push(generateMutationOptionsWithServerFn(operation, sourceName));
+      }
+      lines.push("");
+    }
   }
 
   return lines.join("\n");
 }
 
 /**
- * Generate type imports for all operations
+ * Get server function import names for all operations
+ */
+function getServerFunctionImports(operations: ParsedOperation[]): string[] {
+  return operations.map((op) =>
+    op.operation === "query"
+      ? toQueryFnName(op.name)
+      : toMutationFnName(op.name),
+  );
+}
+
+/**
+ * Generate type imports for all operations (response and variable types)
  */
 function generateTypeImports(operations: ParsedOperation[]): string {
   const imports: string[] = [];
@@ -136,6 +177,28 @@ function generateTypeImports(operations: ParsedOperation[]): string {
     } else if (op.operation === "mutation") {
       imports.push(`\t${toMutationTypeName(op.name)},`);
       if (hasVariables) {
+        imports.push(`\t${toMutationVariablesTypeName(op.name)},`);
+      }
+    }
+  }
+
+  return imports.join("\n");
+}
+
+/**
+ * Generate type imports for variable types only (for server function mode)
+ */
+function generateVariableTypeImports(operations: ParsedOperation[]): string {
+  const imports: string[] = [];
+
+  for (const op of operations) {
+    const hasVariables =
+      op.node.variableDefinitions && op.node.variableDefinitions.length > 0;
+
+    if (hasVariables) {
+      if (op.operation === "query") {
+        imports.push(`\t${toQueryVariablesTypeName(op.name)},`);
+      } else if (op.operation === "mutation") {
         imports.push(`\t${toMutationVariablesTypeName(op.name)},`);
       }
     }
@@ -258,38 +321,11 @@ function generateMutationOptions(
 }
 
 // =============================================================================
-// Server Function Generation (TanStack Start)
+// Query/Mutation Options with Server Functions (imports from start/)
 // =============================================================================
 
 /**
- * Generate server function for a query operation
- */
-function generateQueryServerFn(operation: ParsedOperation): string {
-  const fnName = toQueryFnName(operation.name);
-  const docName = toDocumentName(operation.name);
-  const queryType = toQueryTypeName(operation.name);
-  const variablesType = toQueryVariablesTypeName(operation.name);
-
-  const hasVariables =
-    operation.node.variableDefinitions &&
-    operation.node.variableDefinitions.length > 0;
-
-  if (!hasVariables) {
-    return `export const ${fnName} = createServerFn({ method: "GET" })
-	.handler(async () =>
-		(await getClient()).request<${queryType}>(${docName})
-	)`;
-  }
-
-  return `export const ${fnName} = createServerFn({ method: "GET" })
-	.inputValidator((data: ${variablesType}) => data)
-	.handler(async ({ data }) =>
-		(await getClient()).request<${queryType}>(${docName}, data)
-	)`;
-}
-
-/**
- * Generate queryOptions that uses server function
+ * Generate queryOptions that uses imported server function
  */
 function generateQueryOptionsWithServerFn(
   operation: ParsedOperation,
@@ -330,34 +366,7 @@ function generateQueryOptionsWithServerFn(
 }
 
 /**
- * Generate server function for a mutation operation
- */
-function generateMutationServerFn(operation: ParsedOperation): string {
-  const fnName = toMutationFnName(operation.name);
-  const docName = toDocumentName(operation.name);
-  const mutationType = toMutationTypeName(operation.name);
-  const variablesType = toMutationVariablesTypeName(operation.name);
-
-  const hasVariables =
-    operation.node.variableDefinitions &&
-    operation.node.variableDefinitions.length > 0;
-
-  if (!hasVariables) {
-    return `export const ${fnName} = createServerFn({ method: "POST" })
-	.handler(async () =>
-		(await getClient()).request<${mutationType}>(${docName})
-	)`;
-  }
-
-  return `export const ${fnName} = createServerFn({ method: "POST" })
-	.inputValidator((data: ${variablesType}) => data)
-	.handler(async ({ data }) =>
-		(await getClient()).request<${mutationType}>(${docName}, data)
-	)`;
-}
-
-/**
- * Generate mutationOptions that uses server function
+ * Generate mutationOptions that uses imported server function
  */
 function generateMutationOptionsWithServerFn(
   operation: ParsedOperation,

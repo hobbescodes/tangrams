@@ -13,6 +13,7 @@ import { generateOpenAPIZodSchemas } from "@/generators/zod/openapi";
 import { generateOpenAPIClient } from "./client";
 import { generateOpenAPIOperations } from "./operations";
 import { extractOperations, loadOpenAPISpec } from "./schema";
+import { generateOpenAPIStart } from "./start";
 
 import type { OpenAPISourceConfig } from "@/core/config";
 import type {
@@ -22,6 +23,7 @@ import type {
   OpenAPIAdapterSchema,
   OperationGenOptions,
   SchemaGenOptions,
+  StartGenOptions,
 } from "../types";
 
 /**
@@ -59,8 +61,19 @@ class OpenAPIAdapterImpl implements IOpenAPIAdapter {
   }
 
   /**
+   * Generate TanStack Start server functions
+   */
+  generateStart(
+    schema: OpenAPIAdapterSchema,
+    config: OpenAPISourceConfig,
+    options: StartGenOptions,
+  ): GeneratedFile {
+    return generateOpenAPIStart(schema, config, options);
+  }
+
+  /**
    * Generate Zod schemas for validation
-   * This is the primary type generation for OpenAPI - outputs to zod/<source>/schema.ts
+   * This is the primary type generation for OpenAPI - outputs to <source>/schema.ts
    */
   generateSchemas(
     schema: OpenAPIAdapterSchema,

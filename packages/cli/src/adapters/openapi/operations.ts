@@ -24,6 +24,14 @@ export function generateOpenAPIOperations(
   const { document } = schema;
   const operations = extractOperations(document);
   const serverFunctions = options.serverFunctions ?? false;
+  const startImportPath = options.startImportPath;
+
+  // Validate that startImportPath is provided when serverFunctions is enabled
+  if (serverFunctions && !startImportPath) {
+    throw new Error(
+      "startImportPath is required when serverFunctions is enabled",
+    );
+  }
 
   const lines: string[] = [];
   lines.push("/* eslint-disable */");
@@ -47,14 +55,22 @@ export function generateOpenAPIOperations(
     );
   }
 
-  // Add TanStack Start import if server functions are enabled
-  if (serverFunctions) {
-    lines.push(`import { createServerFn } from "@tanstack/react-start"`);
+  // Import server functions from start/ if enabled
+  if (serverFunctions && startImportPath) {
+    const serverFnImports = getServerFunctionImports(operations);
+    if (serverFnImports.length > 0) {
+      lines.push(
+        `import { ${serverFnImports.join(", ")} } from "${startImportPath}"`,
+      );
+    }
   }
 
-  lines.push(
-    `import { $fetch, buildPath, buildQuery } from "${options.clientImportPath}"`,
-  );
+  // Only import client helpers when not using server functions
+  if (!serverFunctions) {
+    lines.push(
+      `import { $fetch, buildPath, buildQuery } from "${options.clientImportPath}"`,
+    );
+  }
   lines.push("");
 
   // Type and schema imports
@@ -82,8 +98,6 @@ export function generateOpenAPIOperations(
     lines.push("");
     for (const op of queries) {
       if (serverFunctions) {
-        lines.push(generateQueryServerFn(op));
-        lines.push("");
         lines.push(generateQueryOptionWithServerFn(op, queryKeyPrefix));
       } else {
         lines.push(generateQueryOption(op, queryKeyPrefix));
@@ -98,8 +112,6 @@ export function generateOpenAPIOperations(
     lines.push("");
     for (const op of mutations) {
       if (serverFunctions) {
-        lines.push(generateMutationServerFn(op));
-        lines.push("");
         lines.push(generateMutationOptionWithServerFn(op, queryKeyPrefix));
       } else {
         lines.push(generateMutationOption(op, queryKeyPrefix));
@@ -112,6 +124,13 @@ export function generateOpenAPIOperations(
     filename: "operations.ts",
     content: lines.join("\n"),
   };
+}
+
+/**
+ * Get server function import names for all operations
+ */
+function getServerFunctionImports(operations: ParsedOperation[]): string[] {
+  return operations.map((op) => `${toCamelCase(op.operationId)}Fn`);
 }
 
 /**
@@ -130,8 +149,8 @@ function generateImports(
     const baseName = toPascalCase(op.operationId);
     const hasParams = op.pathParams.length > 0 || op.queryParams.length > 0;
 
-    // Response type
-    if (op.responseSchema) {
+    // Response type (not needed when using server functions - they return the data directly)
+    if (op.responseSchema && !serverFunctions) {
       const responseName = `${baseName}Response`;
       if (!seenTypes.has(responseName)) {
         seenTypes.add(responseName);
@@ -145,37 +164,21 @@ function generateImports(
       }
     }
 
-    // Request body type
+    // Request body type (always needed for function signatures)
     if (op.requestBody) {
       const requestName = `${baseName}Request`;
       if (!seenTypes.has(requestName)) {
         seenTypes.add(requestName);
         typeImportsList.push(`\ttype ${requestName},`);
       }
-      // Request schema for server function validation
-      if (serverFunctions) {
-        const schemaName = toSchemaName(`${baseName}Request`);
-        if (!seenSchemas.has(schemaName)) {
-          seenSchemas.add(schemaName);
-          schemaImportsList.push(`\t${schemaName},`);
-        }
-      }
     }
 
-    // Params type
+    // Params type (always needed for function signatures)
     if (hasParams) {
       const paramsName = `${baseName}Params`;
       if (!seenTypes.has(paramsName)) {
         seenTypes.add(paramsName);
         typeImportsList.push(`\ttype ${paramsName},`);
-      }
-      // Params schema for server function validation
-      if (serverFunctions) {
-        const schemaName = toSchemaName(`${baseName}Params`);
-        if (!seenSchemas.has(schemaName)) {
-          seenSchemas.add(schemaName);
-          schemaImportsList.push(`\t${schemaName},`);
-        }
       }
     }
   }
@@ -394,45 +397,11 @@ function generateMutationOption(
 }
 
 // =============================================================================
-// Server Function Generation (TanStack Start with Zod validation)
+// Query/Mutation Options with Server Functions (imports from start/)
 // =============================================================================
 
 /**
- * Generate server function for a GET operation
- */
-function generateQueryServerFn(op: ParsedOperation): string {
-  const baseName = toPascalCase(op.operationId);
-  const fnName = `${toCamelCase(op.operationId)}Fn`;
-  const hasPathParams = op.pathParams.length > 0;
-  const hasQueryParams = op.queryParams.length > 0;
-  const hasParams = hasPathParams || hasQueryParams;
-  const hasResponse = !!op.responseSchema;
-
-  const paramsSchema = hasParams ? toSchemaName(`${baseName}Params`) : null;
-  const responseType = hasResponse ? `${baseName}Response` : "unknown";
-  const responseSchema = hasResponse
-    ? toSchemaName(`${baseName}Response`)
-    : null;
-
-  // Build the fetch body
-  const fetchBody = generateFetchBody(op, responseType, responseSchema, "data");
-
-  if (!hasParams) {
-    return `export const ${fnName} = createServerFn({ method: "GET" })
-	.handler(async () => {
-${fetchBody}
-	})`;
-  }
-
-  return `export const ${fnName} = createServerFn({ method: "GET" })
-	.inputValidator(${paramsSchema})
-	.handler(async ({ data }) => {
-${fetchBody}
-	})`;
-}
-
-/**
- * Generate queryOptions that uses server function
+ * Generate queryOptions that uses imported server function
  */
 function generateQueryOptionWithServerFn(
   op: ParsedOperation,
@@ -464,56 +433,7 @@ function generateQueryOptionWithServerFn(
 }
 
 /**
- * Generate server function for a mutation operation
- */
-function generateMutationServerFn(op: ParsedOperation): string {
-  const baseName = toPascalCase(op.operationId);
-  const fnName = `${toCamelCase(op.operationId)}Fn`;
-  const hasPathParams = op.pathParams.length > 0;
-  const hasBody = !!op.requestBody;
-  const hasResponse = !!op.responseSchema;
-
-  const responseType = hasResponse ? `${baseName}Response` : "unknown";
-  const responseSchema = hasResponse
-    ? toSchemaName(`${baseName}Response`)
-    : null;
-
-  // Build the fetch body
-  const fetchBody = generateMutationFetchBody(
-    op,
-    responseType,
-    responseSchema,
-    "data",
-  );
-
-  // Determine validator schema based on what params we have
-  let validatorSchema: string;
-  if (hasPathParams && hasBody) {
-    // Use type-only validation for combined params + body (Zod doesn't have a convenient way to combine)
-    validatorSchema = `(data: { params: ${baseName}Params, body: ${baseName}Request }) => data`;
-  } else if (hasPathParams) {
-    // Use type-only validation for params object wrapper
-    validatorSchema = `(data: { params: ${baseName}Params }) => data`;
-  } else if (hasBody) {
-    // Use Zod schema for request body validation
-    validatorSchema = toSchemaName(`${baseName}Request`);
-  } else {
-    // No params or body
-    return `export const ${fnName} = createServerFn({ method: "POST" })
-	.handler(async () => {
-${fetchBody}
-	})`;
-  }
-
-  return `export const ${fnName} = createServerFn({ method: "POST" })
-	.inputValidator(${validatorSchema})
-	.handler(async ({ data }) => {
-${fetchBody}
-	})`;
-}
-
-/**
- * Generate mutationOptions that uses server function
+ * Generate mutationOptions that uses imported server function
  */
 function generateMutationOptionWithServerFn(
   op: ParsedOperation,
@@ -563,99 +483,6 @@ function generateMutationOptionWithServerFn(
 		mutationKey: ${mutationKey},
 		mutationFn: (body: ${variablesType}) => ${serverFnName}({ data: body }),
 	})`;
-}
-
-/**
- * Generate fetch body for query server functions
- */
-function generateFetchBody(
-  op: ParsedOperation,
-  responseType: string,
-  responseSchema: string | null,
-  dataVar: string,
-): string {
-  const hasPathParams = op.pathParams.length > 0;
-  const hasQueryParams = op.queryParams.length > 0;
-  const fetchOptions = responseSchema ? `, { output: ${responseSchema} }` : "";
-
-  const lines: string[] = [];
-
-  if (hasPathParams) {
-    const pathParamsObj = op.pathParams
-      .map((p) => `${p.name}: ${dataVar}.${p.name}`)
-      .join(", ");
-    lines.push(
-      `\t\tconst path = buildPath("${op.path}", { ${pathParamsObj} })`,
-    );
-  } else {
-    lines.push(`\t\tconst path = "${op.path}"`);
-  }
-
-  if (hasQueryParams) {
-    const queryParamsObj = op.queryParams
-      .map((p) => `${p.name}: ${dataVar}.${p.name}`)
-      .join(", ");
-    lines.push(`\t\tconst query = buildQuery({ ${queryParamsObj} })`);
-    lines.push(`\t\tconst url = query ? \`\${path}?\${query}\` : path`);
-    lines.push(
-      `\t\tconst { data: result, error } = await $fetch<${responseType}>(url${fetchOptions})`,
-    );
-  } else {
-    lines.push(
-      `\t\tconst { data: result, error } = await $fetch<${responseType}>(path${fetchOptions})`,
-    );
-  }
-
-  lines.push(`\t\tif (error) throw error`);
-  lines.push(`\t\treturn result`);
-
-  return lines.join("\n");
-}
-
-/**
- * Generate fetch body for mutation server functions
- */
-function generateMutationFetchBody(
-  op: ParsedOperation,
-  responseType: string,
-  responseSchema: string | null,
-  dataVar: string,
-): string {
-  const hasPathParams = op.pathParams.length > 0;
-  const hasBody = !!op.requestBody;
-
-  const fetchOptionsBase: string[] = [`method: "${op.method.toUpperCase()}"`];
-  if (responseSchema) {
-    fetchOptionsBase.push(`output: ${responseSchema}`);
-  }
-
-  const lines: string[] = [];
-
-  if (hasPathParams) {
-    const pathParamsObj = op.pathParams
-      .map((p) => `${p.name}: ${dataVar}.params.${p.name}`)
-      .join(", ");
-    lines.push(
-      `\t\tconst path = buildPath("${op.path}", { ${pathParamsObj} })`,
-    );
-  } else {
-    lines.push(`\t\tconst path = "${op.path}"`);
-  }
-
-  if (hasBody) {
-    const bodyExpr = hasPathParams ? `${dataVar}.body` : dataVar;
-    fetchOptionsBase.push(`body: ${bodyExpr}`);
-  }
-
-  lines.push(
-    `\t\tconst { data: result, error } = await $fetch<${responseType}>(path, {`,
-  );
-  lines.push(`\t\t\t${fetchOptionsBase.join(",\n\t\t\t")},`);
-  lines.push(`\t\t})`);
-  lines.push(`\t\tif (error) throw error`);
-  lines.push(`\t\treturn result`);
-
-  return lines.join("\n");
 }
 
 /**
