@@ -23,6 +23,7 @@ export function generateGraphQLOperations(
     documents: schema.documents,
     clientImportPath: options.clientImportPath,
     typesImportPath: options.typesImportPath,
+    sourceName: options.sourceName,
   });
 
   return {

@@ -1,8 +1,8 @@
 import type {
   GraphQLSourceConfig,
   OpenAPISourceConfig,
+  QueryConfig,
   SourceConfig,
-  TangenConfig,
 } from "@/core/config";
 
 /**
@@ -33,20 +33,18 @@ export interface OperationGenOptions {
   clientImportPath: string;
   /** Relative import path to the types file */
   typesImportPath: string;
-  /** Whether to include source name in query keys (for multi-source configs) */
-  includeSourceInQueryKey: boolean;
+  /** The source name to include in query/mutation keys */
+  sourceName: string;
 }
 
 /**
  * Context passed to the adapter during generation
  */
 export interface GenerationContext {
-  /** The full tangen config */
-  config: TangenConfig;
+  /** The query config */
+  queryConfig: QueryConfig;
   /** The output directory for this source */
   outputDir: string;
-  /** Whether this is a multi-source config */
-  isMultiSource: boolean;
 }
 
 /**

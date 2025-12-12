@@ -94,15 +94,13 @@ export const sourceSchema = z.discriminatedUnion("type", [
 export type SourceConfig = z.infer<typeof sourceSchema>;
 
 // =============================================================================
-// Output Configuration
+// Query Files Configuration
 // =============================================================================
 
 /**
- * Output configuration schema (with defaults)
+ * Query-specific file naming configuration (with defaults)
  */
-export const outputSchema = z.object({
-  /** Output directory for generated files */
-  dir: z.string(),
+export const queryFilesSchema = z.object({
   /** Filename for the generated client (default: client.ts) */
   client: z.string().default("client.ts"),
   /** Filename for the generated types (default: types.ts) */
@@ -111,20 +109,20 @@ export const outputSchema = z.object({
   operations: z.string().default("operations.ts"),
 });
 
-/** Output config after parsing (defaults applied) */
-export type OutputConfig = z.output<typeof outputSchema>;
+/** Query files config after parsing (defaults applied) */
+export type QueryFilesConfig = z.output<typeof queryFilesSchema>;
 
-/** Output config input (before defaults are applied) */
-export type OutputConfigInput = z.input<typeof outputSchema>;
+/** Query files config input (before defaults are applied) */
+export type QueryFilesConfigInput = z.input<typeof queryFilesSchema>;
 
 // =============================================================================
-// Main Config Schema (New Format)
+// Query Config Schema (TanStack Query)
 // =============================================================================
 
 /**
- * New multi-source configuration schema
+ * Query-specific configuration schema (for TanStack Query)
  */
-export const multiSourceConfigSchema = z.object({
+export const queryConfigSchema = z.object({
   /** Array of data sources to generate from */
   sources: z
     .array(sourceSchema)
@@ -133,11 +131,31 @@ export const multiSourceConfigSchema = z.object({
       (sources) => new Set(sources.map((s) => s.name)).size === sources.length,
       "Source names must be unique",
     ),
-  /** Output configuration */
-  output: outputSchema,
+  /** File naming configuration (optional, has defaults) */
+  files: queryFilesSchema.default({}),
 });
 
-export type MultiSourceConfig = z.infer<typeof multiSourceConfigSchema>;
+export type QueryConfig = z.infer<typeof queryConfigSchema>;
+
+// =============================================================================
+// Main Config Schema
+// =============================================================================
+
+/**
+ * Main tangen configuration schema with library-specific configs
+ */
+export const tangenConfigSchema = z
+  .object({
+    /** Output directory for all generated files (default: ./src/generated) */
+    output: z.string().default("./src/generated"),
+    /** TanStack Query configuration */
+    query: queryConfigSchema.optional(),
+    // Future: router, form, etc.
+  })
+  .refine(
+    (config) => config.query !== undefined,
+    "At least one library must be configured (e.g., query)",
+  );
 
 // =============================================================================
 // Unified Config Type
@@ -146,17 +164,17 @@ export type MultiSourceConfig = z.infer<typeof multiSourceConfigSchema>;
 /**
  * The normalized configuration type used internally (after parsing)
  */
-export type TangenConfig = z.output<typeof multiSourceConfigSchema>;
+export type TangenConfig = z.output<typeof tangenConfigSchema>;
 
 /**
  * Input configuration type (before defaults applied)
  */
-export type TangenConfigInput = z.input<typeof multiSourceConfigSchema>;
+export type TangenConfigInput = z.input<typeof tangenConfigSchema>;
 
 /**
  * Config schema for validation
  */
-export const configSchema = multiSourceConfigSchema;
+export const configSchema = tangenConfigSchema;
 
 // =============================================================================
 // Helper Functions
@@ -219,27 +237,28 @@ export function generateDefaultConfig(): string {
   return `import { defineConfig } from "tangen"
 
 export default defineConfig({
-	sources: [
-		{
-			name: "graphql",
-			type: "graphql",
-			schema: {
-				url: "http://localhost:4000/graphql",
-				// headers: { "x-api-key": process.env.API_KEY },
+	// output: "./src/generated", // default output directory
+	query: {
+		sources: [
+			{
+				name: "graphql",
+				type: "graphql",
+				schema: {
+					url: "http://localhost:4000/graphql",
+					// headers: { "x-api-key": process.env.API_KEY },
+				},
+				// scalars: { DateTime: "Date", JSON: "Record<string, unknown>" },
+				documents: "./src/graphql/**/*.graphql",
 			},
-			// scalars: { DateTime: "Date", JSON: "Record<string, unknown>" },
-			documents: "./src/graphql/**/*.graphql",
-		},
-		// {
-		// 	name: "api",
-		// 	type: "openapi",
-		// 	spec: "./openapi.yaml", // or "https://api.example.com/openapi.json"
-		// 	// include: ["/users/**", "/posts/**"],
-		// 	// exclude: ["/internal/**"],
-		// },
-	],
-	output: {
-		dir: "./src/generated",
+			// {
+			// 	name: "api",
+			// 	type: "openapi",
+			// 	spec: "./openapi.yaml", // or "https://api.example.com/openapi.json"
+			// 	// include: ["/users/**", "/posts/**"],
+			// 	// exclude: ["/internal/**"],
+			// },
+		],
+		// files: { client: "client.ts", types: "types.ts", operations: "operations.ts" },
 	},
 })
 `;
@@ -250,27 +269,27 @@ export default defineConfig({
 // =============================================================================
 
 /**
- * Check if the config has multiple sources
+ * Check if the query config has multiple sources
  */
-export function hasMultipleSources(config: TangenConfig): boolean {
+export function hasMultipleSources(config: QueryConfig): boolean {
   return config.sources.length > 1;
 }
 
 /**
- * Get a source by name
+ * Get a source by name from the query config
  */
 export function getSourceByName(
-  config: TangenConfig,
+  config: QueryConfig,
   name: string,
 ): SourceConfig | undefined {
   return config.sources.find((s) => s.name === name);
 }
 
 /**
- * Get all sources of a specific type
+ * Get all sources of a specific type from the query config
  */
 export function getSourcesByType<T extends SourceConfig["type"]>(
-  config: TangenConfig,
+  config: QueryConfig,
   type: T,
 ): Extract<SourceConfig, { type: T }>[] {
   return config.sources.filter((s) => s.type === type) as Extract<

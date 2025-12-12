@@ -10,16 +10,16 @@ describe("generate command logic", () => {
   describe("config validation", () => {
     it("validates a valid configuration", () => {
       const config = {
-        sources: [
-          {
-            name: "graphql",
-            type: "graphql",
-            schema: { url: "http://localhost:4000/graphql" },
-            documents: "./src/graphql/**/*.graphql",
-          },
-        ],
-        output: {
-          dir: "./src/generated",
+        output: "./src/generated",
+        query: {
+          sources: [
+            {
+              name: "graphql",
+              type: "graphql",
+              schema: { url: "http://localhost:4000/graphql" },
+              documents: "./src/graphql/**/*.graphql",
+            },
+          ],
         },
       };
 
@@ -29,16 +29,16 @@ describe("generate command logic", () => {
 
     it("rejects invalid configuration", () => {
       const config = {
-        sources: [
-          {
-            name: "graphql",
-            type: "graphql",
-            schema: {},
-            documents: "./src/graphql/**/*.graphql",
-          },
-        ],
-        output: {
-          dir: "./src/generated",
+        output: "./src/generated",
+        query: {
+          sources: [
+            {
+              name: "graphql",
+              type: "graphql",
+              schema: {},
+              documents: "./src/graphql/**/*.graphql",
+            },
+          ],
         },
       };
 
@@ -48,25 +48,25 @@ describe("generate command logic", () => {
 
     it("applies default output filenames", () => {
       const config = {
-        sources: [
-          {
-            name: "graphql",
-            type: "graphql",
-            schema: { url: "http://localhost:4000/graphql" },
-            documents: "./src/graphql/**/*.graphql",
-          },
-        ],
-        output: {
-          dir: "./src/generated",
+        output: "./src/generated",
+        query: {
+          sources: [
+            {
+              name: "graphql",
+              type: "graphql",
+              schema: { url: "http://localhost:4000/graphql" },
+              documents: "./src/graphql/**/*.graphql",
+            },
+          ],
         },
       };
 
       const result = configSchema.safeParse(config);
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.output.client).toBe("client.ts");
-        expect(result.data.output.types).toBe("types.ts");
-        expect(result.data.output.operations).toBe("operations.ts");
+        expect(result.data.query?.files.client).toBe("client.ts");
+        expect(result.data.query?.files.types).toBe("types.ts");
+        expect(result.data.query?.files.operations).toBe("operations.ts");
       }
     });
   });
@@ -120,24 +120,24 @@ describe("generate command logic", () => {
       }
     });
 
-    it("provides descriptive error for missing output dir", () => {
+    it("uses default output directory when not specified", () => {
       const config = {
-        sources: [
-          {
-            name: "graphql",
-            type: "graphql",
-            schema: { url: "http://localhost:4000/graphql" },
-            documents: "./src/graphql/**/*.graphql",
-          },
-        ],
-        output: {},
+        query: {
+          sources: [
+            {
+              name: "graphql",
+              type: "graphql",
+              schema: { url: "http://localhost:4000/graphql" },
+              documents: "./src/graphql/**/*.graphql",
+            },
+          ],
+        },
       };
 
       const result = configSchema.safeParse(config);
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        const errors = result.error.errors;
-        expect(errors.some((e) => e.path.includes("dir"))).toBe(true);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.output).toBe("./src/generated");
       }
     });
   });
@@ -145,22 +145,22 @@ describe("generate command logic", () => {
   describe("config options", () => {
     it("accepts headers option", () => {
       const config = {
-        sources: [
-          {
-            name: "graphql",
-            type: "graphql",
-            schema: {
-              url: "http://localhost:4000/graphql",
-              headers: {
-                "x-api-key": "test-key",
-                Authorization: "Bearer token",
+        output: "./src/generated",
+        query: {
+          sources: [
+            {
+              name: "graphql",
+              type: "graphql",
+              schema: {
+                url: "http://localhost:4000/graphql",
+                headers: {
+                  "x-api-key": "test-key",
+                  Authorization: "Bearer token",
+                },
               },
+              documents: "./src/graphql/**/*.graphql",
             },
-            documents: "./src/graphql/**/*.graphql",
-          },
-        ],
-        output: {
-          dir: "./src/generated",
+          ],
         },
       };
 
@@ -170,20 +170,20 @@ describe("generate command logic", () => {
 
     it("accepts scalars option", () => {
       const config = {
-        sources: [
-          {
-            name: "graphql",
-            type: "graphql",
-            schema: { url: "http://localhost:4000/graphql" },
-            scalars: {
-              DateTime: "Date",
-              JSON: "Record<string, unknown>",
+        output: "./src/generated",
+        query: {
+          sources: [
+            {
+              name: "graphql",
+              type: "graphql",
+              schema: { url: "http://localhost:4000/graphql" },
+              scalars: {
+                DateTime: "Date",
+                JSON: "Record<string, unknown>",
+              },
+              documents: "./src/graphql/**/*.graphql",
             },
-            documents: "./src/graphql/**/*.graphql",
-          },
-        ],
-        output: {
-          dir: "./src/generated",
+          ],
         },
       };
 
@@ -193,16 +193,19 @@ describe("generate command logic", () => {
 
     it("accepts array of document patterns", () => {
       const config = {
-        sources: [
-          {
-            name: "graphql",
-            type: "graphql",
-            schema: { url: "http://localhost:4000/graphql" },
-            documents: ["./src/graphql/**/*.graphql", "./src/queries/**/*.gql"],
-          },
-        ],
-        output: {
-          dir: "./src/generated",
+        output: "./src/generated",
+        query: {
+          sources: [
+            {
+              name: "graphql",
+              type: "graphql",
+              schema: { url: "http://localhost:4000/graphql" },
+              documents: [
+                "./src/graphql/**/*.graphql",
+                "./src/queries/**/*.gql",
+              ],
+            },
+          ],
         },
       };
 
@@ -212,28 +215,32 @@ describe("generate command logic", () => {
 
     it("accepts custom output filenames", () => {
       const config = {
-        sources: [
-          {
-            name: "graphql",
-            type: "graphql",
-            schema: { url: "http://localhost:4000/graphql" },
-            documents: "./src/graphql/**/*.graphql",
+        output: "./src/generated",
+        query: {
+          sources: [
+            {
+              name: "graphql",
+              type: "graphql",
+              schema: { url: "http://localhost:4000/graphql" },
+              documents: "./src/graphql/**/*.graphql",
+            },
+          ],
+          files: {
+            client: "graphql-client.ts",
+            types: "graphql-types.ts",
+            operations: "graphql-operations.ts",
           },
-        ],
-        output: {
-          dir: "./src/generated",
-          client: "graphql-client.ts",
-          types: "graphql-types.ts",
-          operations: "graphql-operations.ts",
         },
       };
 
       const result = configSchema.safeParse(config);
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.output.client).toBe("graphql-client.ts");
-        expect(result.data.output.types).toBe("graphql-types.ts");
-        expect(result.data.output.operations).toBe("graphql-operations.ts");
+        expect(result.data.query?.files.client).toBe("graphql-client.ts");
+        expect(result.data.query?.files.types).toBe("graphql-types.ts");
+        expect(result.data.query?.files.operations).toBe(
+          "graphql-operations.ts",
+        );
       }
     });
   });
@@ -241,30 +248,30 @@ describe("generate command logic", () => {
   describe("multi-source config", () => {
     it("validates multi-source config", () => {
       const config = {
-        sources: [
-          {
-            name: "graphql",
-            type: "graphql",
-            schema: { url: "http://localhost:4000/graphql" },
-            documents: "./src/graphql/**/*.graphql",
-          },
-          {
-            name: "api",
-            type: "openapi",
-            spec: "./openapi.yaml",
-          },
-        ],
-        output: {
-          dir: "./src/generated",
+        output: "./src/generated",
+        query: {
+          sources: [
+            {
+              name: "graphql",
+              type: "graphql",
+              schema: { url: "http://localhost:4000/graphql" },
+              documents: "./src/graphql/**/*.graphql",
+            },
+            {
+              name: "api",
+              type: "openapi",
+              spec: "./openapi.yaml",
+            },
+          ],
         },
       };
 
       const result = configSchema.safeParse(config);
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.sources).toHaveLength(2);
-        expect(result.data.sources[0]?.type).toBe("graphql");
-        expect(result.data.sources[1]?.type).toBe("openapi");
+        expect(result.data.query?.sources).toHaveLength(2);
+        expect(result.data.query?.sources[0]?.type).toBe("graphql");
+        expect(result.data.query?.sources[1]?.type).toBe("openapi");
       }
     });
   });

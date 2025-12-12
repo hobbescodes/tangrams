@@ -15,6 +15,7 @@ import type { DotenvOptions } from "c12";
 import type {
   GraphQLSourceConfig,
   OpenAPISourceConfig,
+  QueryConfig,
   TangenConfig,
 } from "../../core/config";
 import type { GenerateResult } from "../../core/generator";
@@ -43,9 +44,9 @@ function getDotenvOptions(args: {
 /**
  * Get all document patterns from GraphQL sources
  */
-function getDocumentPatterns(config: TangenConfig): string[] {
+function getDocumentPatterns(queryConfig: QueryConfig): string[] {
   const patterns: string[] = [];
-  for (const source of config.sources) {
+  for (const source of queryConfig.sources) {
     if (source.type === "graphql") {
       const graphqlSource = source as GraphQLSourceConfig;
       const docs = graphqlSource.documents;
@@ -69,9 +70,9 @@ function isUrl(path: string): boolean {
 /**
  * Get all local OpenAPI spec files from sources
  */
-function getOpenAPISpecFiles(config: TangenConfig): string[] {
+function getOpenAPISpecFiles(queryConfig: QueryConfig): string[] {
   const files: string[] = [];
-  for (const source of config.sources) {
+  for (const source of queryConfig.sources) {
     if (source.type === "openapi") {
       const openApiSource = source as OpenAPISourceConfig;
       // Only watch local files, not URLs
@@ -145,11 +146,11 @@ async function runWatchMode(options: {
   let { configPath, config, dotenv, force } = options;
   let cachedSchemas: Map<string, unknown> | undefined;
 
-  // Get document patterns for GraphQL sources
-  let documentPatterns = getDocumentPatterns(config);
+  // Get document patterns for GraphQL sources (query config is validated to exist)
+  let documentPatterns = config.query ? getDocumentPatterns(config.query) : [];
 
   // Get local OpenAPI spec files to watch
-  let specFiles = getOpenAPISpecFiles(config);
+  let specFiles = config.query ? getOpenAPISpecFiles(config.query) : [];
 
   // Initial generation
   clearConsole();
@@ -189,8 +190,8 @@ async function runWatchMode(options: {
       });
       config = result.config;
       configPath = result.configPath;
-      documentPatterns = getDocumentPatterns(config);
-      specFiles = getOpenAPISpecFiles(config);
+      documentPatterns = config.query ? getDocumentPatterns(config.query) : [];
+      specFiles = config.query ? getOpenAPISpecFiles(config.query) : [];
 
       // Re-introspect schema since config may have changed
       const genResult = await runGeneration({ config, force });
@@ -200,7 +201,7 @@ async function runWatchMode(options: {
         configPath,
         documentPatterns,
         documentCount: watcher.getWatchedDocuments().length,
-        sourceCount: config.sources.length,
+        sourceCount: config.query?.sources.length ?? 0,
         specFiles,
       });
     } catch (error) {
@@ -235,7 +236,7 @@ async function runWatchMode(options: {
         configPath,
         documentPatterns,
         documentCount: watcher.getWatchedDocuments().length,
-        sourceCount: config.sources.length,
+        sourceCount: config.query?.sources.length ?? 0,
         specFiles,
       });
     } catch (error) {
@@ -265,7 +266,7 @@ async function runWatchMode(options: {
         configPath,
         documentPatterns,
         documentCount: watcher.getWatchedDocuments().length,
-        sourceCount: config.sources.length,
+        sourceCount: config.query?.sources.length ?? 0,
         specFiles,
       });
     } catch (error) {
@@ -322,7 +323,7 @@ async function runWatchMode(options: {
     configPath,
     documentPatterns,
     documentCount: watcher.getWatchedDocuments().length,
-    sourceCount: config.sources.length,
+    sourceCount: config.query?.sources.length ?? 0,
     specFiles,
   });
 

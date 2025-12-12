@@ -18,7 +18,7 @@ import type { ParsedOperation } from "./schema";
  */
 export function generateOpenAPIOperations(
   schema: OpenAPIAdapterSchema,
-  config: OpenAPISourceConfig,
+  _config: OpenAPISourceConfig,
   options: OperationGenOptions,
 ): GeneratedFile {
   const { document } = schema;
@@ -60,10 +60,8 @@ export function generateOpenAPIOperations(
     lines.push("");
   }
 
-  // Generate query key prefix based on config
-  const queryKeyPrefix = options.includeSourceInQueryKey
-    ? `"${config.name}", `
-    : "";
+  // Always include source name in query keys for consistency
+  const queryKeyPrefix = `"${options.sourceName}", `;
 
   // Generate query options for GET operations
   if (queries.length > 0) {

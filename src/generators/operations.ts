@@ -20,6 +20,8 @@ export interface OperationsGeneratorOptions {
   documents: ParsedDocuments;
   clientImportPath: string;
   typesImportPath: string;
+  /** The source name to include in query/mutation keys */
+  sourceName: string;
 }
 
 /**
@@ -28,7 +30,7 @@ export interface OperationsGeneratorOptions {
 export function generateOperations(
   options: OperationsGeneratorOptions,
 ): string {
-  const { documents, clientImportPath, typesImportPath } = options;
+  const { documents, clientImportPath, typesImportPath, sourceName } = options;
   const { operations, fragments } = documents;
 
   const lines: string[] = [];
@@ -78,9 +80,9 @@ export function generateOperations(
     lines.push("");
 
     if (operation.operation === "query") {
-      lines.push(generateQueryOptions(operation));
+      lines.push(generateQueryOptions(operation, sourceName));
     } else {
-      lines.push(generateMutationOptions(operation));
+      lines.push(generateMutationOptions(operation, sourceName));
     }
     lines.push("");
   }
@@ -152,7 +154,10 @@ ${operation.document}
 /**
  * Generate queryOptions for a query operation
  */
-function generateQueryOptions(operation: ParsedOperation): string {
+function generateQueryOptions(
+  operation: ParsedOperation,
+  sourceName: string,
+): string {
   const fnName = toQueryOptionsName(operation.name);
   const docName = toDocumentName(operation.name);
   const queryType = toQueryTypeName(operation.name);
@@ -172,7 +177,7 @@ function generateQueryOptions(operation: ParsedOperation): string {
   if (!hasVariables) {
     return `export const ${fnName} = () =>
 	queryOptions({
-		queryKey: ["${operation.name}"],
+		queryKey: ["${sourceName}", "${operation.name}"],
 		queryFn: async () => (await getClient()).request<${queryType}>(${docName}),
 	})`;
   }
@@ -183,7 +188,7 @@ function generateQueryOptions(operation: ParsedOperation): string {
 
   return `export const ${fnName} = (${variableParam}) =>
 	queryOptions({
-		queryKey: ["${operation.name}", variables],
+		queryKey: ["${sourceName}", "${operation.name}", variables],
 		queryFn: async () => (await getClient()).request<${queryType}>(${docName}, variables ?? undefined),
 	})`;
 }
@@ -191,7 +196,10 @@ function generateQueryOptions(operation: ParsedOperation): string {
 /**
  * Generate mutation options for a mutation operation
  */
-function generateMutationOptions(operation: ParsedOperation): string {
+function generateMutationOptions(
+  operation: ParsedOperation,
+  sourceName: string,
+): string {
   const fnName = toMutationOptionsName(operation.name);
   const docName = toDocumentName(operation.name);
   const mutationType = toMutationTypeName(operation.name);
@@ -204,14 +212,14 @@ function generateMutationOptions(operation: ParsedOperation): string {
   if (!hasVariables) {
     return `export const ${fnName} = () =>
 	mutationOptions({
-		mutationKey: ["${operation.name}"],
+		mutationKey: ["${sourceName}", "${operation.name}"],
 		mutationFn: async () => (await getClient()).request<${mutationType}>(${docName}),
 	})`;
   }
 
   return `export const ${fnName} = () =>
 	mutationOptions({
-		mutationKey: ["${operation.name}"],
+		mutationKey: ["${sourceName}", "${operation.name}"],
 		mutationFn: async (variables: ${variablesType}) =>
 			(await getClient()).request<${mutationType}>(${docName}, variables),
 	})`;
