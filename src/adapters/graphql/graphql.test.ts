@@ -54,8 +54,7 @@ describe("GraphQL Adapter", () => {
       const result = graphqlAdapter.generateClient(schema, testConfig, {
         queryConfig: {
           sources: [testConfig],
-          output: {
-            dir: "./generated",
+          files: {
             client: "client.ts",
             types: "types.ts",
             operations: "operations.ts",
@@ -85,8 +84,7 @@ describe("GraphQL Adapter", () => {
       const result = graphqlAdapter.generateClient(schema, customConfig, {
         queryConfig: {
           sources: [customConfig],
-          output: {
-            dir: "./generated",
+          files: {
             client: "client.ts",
             types: "types.ts",
             operations: "operations.ts",

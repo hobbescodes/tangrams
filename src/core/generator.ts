@@ -55,14 +55,15 @@ export async function generate(
 
   // Process query config if present
   if (config.query) {
-    const { sources, output } = config.query;
+    const { sources, files } = config.query;
 
     // Process each source
     for (const source of sources) {
       await generateForSource({
         source,
         queryConfig: config.query,
-        output,
+        outputDir: config.output,
+        files,
         force,
         cachedSchema: cachedSchemas?.get(source.name),
         generatedSchemas,
@@ -73,7 +74,7 @@ export async function generate(
     const sourceNames = sources.map((s) => s.name).join(", ");
     consola.box({
       title: "Generation Complete",
-      message: `Generated code for sources: ${sourceNames}\nOutput directory: ${output.dir}/query`,
+      message: `Generated code for sources: ${sourceNames}\nOutput directory: ${config.output}/query`,
     });
   }
 
@@ -83,7 +84,8 @@ export async function generate(
 interface GenerateForSourceOptions {
   source: SourceConfig;
   queryConfig: QueryConfig;
-  output: QueryConfig["output"];
+  outputDir: string;
+  files: QueryConfig["files"];
   force: boolean;
   cachedSchema?: unknown;
   generatedSchemas: Map<string, unknown>;
@@ -95,8 +97,15 @@ interface GenerateForSourceOptions {
 async function generateForSource(
   options: GenerateForSourceOptions,
 ): Promise<void> {
-  const { source, queryConfig, output, force, cachedSchema, generatedSchemas } =
-    options;
+  const {
+    source,
+    queryConfig,
+    outputDir,
+    files,
+    force,
+    cachedSchema,
+    generatedSchemas,
+  } = options;
 
   consola.info(`\nProcessing source: ${source.name} (${source.type})`);
 
@@ -104,7 +113,7 @@ async function generateForSource(
   const adapter = getAdapter(source.type);
 
   // Always output to query/<source-name>/ for consistency
-  const baseOutputDir = join(process.cwd(), output.dir);
+  const baseOutputDir = join(process.cwd(), outputDir);
   const sourceOutputDir = join(baseOutputDir, "query", source.name);
 
   // Ensure output directory exists
@@ -131,18 +140,18 @@ async function generateForSource(
   };
 
   // Step 2: Generate client (only if it doesn't exist or force is true)
-  const clientPath = join(sourceOutputDir, output.client);
+  const clientPath = join(sourceOutputDir, files.client);
   const clientExists = await fileExists(clientPath);
 
   if (clientExists && !force) {
     consola.info(
-      `Skipping ${output.client} (already exists, use --force to regenerate)`,
+      `Skipping ${files.client} (already exists, use --force to regenerate)`,
     );
   } else {
     consola.info("Generating client...");
     const clientResult = adapter.generateClient(schema, source, context);
     await writeFile(clientPath, clientResult.content, "utf-8");
-    consola.success(`Generated ${output.client}`);
+    consola.success(`Generated ${files.client}`);
   }
 
   // Step 3: Generate types
@@ -159,13 +168,13 @@ async function generateForSource(
     }
   }
 
-  const typesPath = join(sourceOutputDir, output.types);
+  const typesPath = join(sourceOutputDir, files.types);
   await writeFile(typesPath, typesResult.content, "utf-8");
-  consola.success(`Generated ${output.types}`);
+  consola.success(`Generated ${files.types}`);
 
   // Step 4: Generate operations
   consola.info("Generating operations...");
-  const operationsPath = join(sourceOutputDir, output.operations);
+  const operationsPath = join(sourceOutputDir, files.operations);
 
   // Calculate relative import paths
   const operationsDir = dirname(operationsPath);
@@ -178,7 +187,7 @@ async function generateForSource(
     sourceName: source.name,
   });
   await writeFile(operationsPath, operationsResult.content, "utf-8");
-  consola.success(`Generated ${output.operations}`);
+  consola.success(`Generated ${files.operations}`);
 
   // Log source generation complete
   consola.success(`Source "${source.name}" complete`);

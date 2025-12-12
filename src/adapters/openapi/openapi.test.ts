@@ -67,8 +67,7 @@ describe("OpenAPI Adapter", () => {
       const result = openapiAdapter.generateClient(schema, testConfig, {
         queryConfig: {
           sources: [testConfig],
-          output: {
-            dir: "./generated",
+          files: {
             client: "client.ts",
             types: "types.ts",
             operations: "operations.ts",

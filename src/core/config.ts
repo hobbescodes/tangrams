@@ -94,15 +94,13 @@ export const sourceSchema = z.discriminatedUnion("type", [
 export type SourceConfig = z.infer<typeof sourceSchema>;
 
 // =============================================================================
-// Output Configuration
+// Query Files Configuration
 // =============================================================================
 
 /**
- * Output configuration schema (with defaults)
+ * Query-specific file naming configuration (with defaults)
  */
-export const outputSchema = z.object({
-  /** Output directory for generated files */
-  dir: z.string(),
+export const queryFilesSchema = z.object({
   /** Filename for the generated client (default: client.ts) */
   client: z.string().default("client.ts"),
   /** Filename for the generated types (default: types.ts) */
@@ -111,11 +109,11 @@ export const outputSchema = z.object({
   operations: z.string().default("operations.ts"),
 });
 
-/** Output config after parsing (defaults applied) */
-export type OutputConfig = z.output<typeof outputSchema>;
+/** Query files config after parsing (defaults applied) */
+export type QueryFilesConfig = z.output<typeof queryFilesSchema>;
 
-/** Output config input (before defaults are applied) */
-export type OutputConfigInput = z.input<typeof outputSchema>;
+/** Query files config input (before defaults are applied) */
+export type QueryFilesConfigInput = z.input<typeof queryFilesSchema>;
 
 // =============================================================================
 // Query Config Schema (TanStack Query)
@@ -133,8 +131,8 @@ export const queryConfigSchema = z.object({
       (sources) => new Set(sources.map((s) => s.name)).size === sources.length,
       "Source names must be unique",
     ),
-  /** Output configuration */
-  output: outputSchema,
+  /** File naming configuration (optional, has defaults) */
+  files: queryFilesSchema.default({}),
 });
 
 export type QueryConfig = z.infer<typeof queryConfigSchema>;
@@ -148,6 +146,8 @@ export type QueryConfig = z.infer<typeof queryConfigSchema>;
  */
 export const tangenConfigSchema = z
   .object({
+    /** Output directory for all generated files (default: ./src/generated) */
+    output: z.string().default("./src/generated"),
     /** TanStack Query configuration */
     query: queryConfigSchema.optional(),
     // Future: router, form, etc.
@@ -237,6 +237,7 @@ export function generateDefaultConfig(): string {
   return `import { defineConfig } from "tangen"
 
 export default defineConfig({
+	// output: "./src/generated", // default output directory
 	query: {
 		sources: [
 			{
@@ -257,9 +258,7 @@ export default defineConfig({
 			// 	// exclude: ["/internal/**"],
 			// },
 		],
-		output: {
-			dir: "./src/generated",
-		},
+		// files: { client: "client.ts", types: "types.ts", operations: "operations.ts" },
 	},
 })
 `;

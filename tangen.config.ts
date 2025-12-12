@@ -1,6 +1,7 @@
 import { defineConfig } from "./src";
 
 export default defineConfig({
+  output: "./src/test/generated",
   query: {
     sources: [
       {
@@ -12,11 +13,5 @@ export default defineConfig({
         documents: "./src/test/fixtures/graphql/**/*.graphql",
       },
     ],
-    output: {
-      dir: "./src/test/generated",
-      client: "client.ts",
-      types: "types.ts",
-      operations: "operations.ts",
-    },
   },
 });

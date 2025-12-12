@@ -6,25 +6,26 @@ Restructure config to support multiple TanStack libraries.
 
 **Breaking Changes:**
 
-1. **Config structure changed** - All existing config options are now nested under a `query` key:
+1. **Config structure changed** - All existing config options are now nested under a `query` key, and output directory is now a top-level option:
 
    ```typescript
    // Before
    defineConfig({
      sources: [...],
-     output: { dir: "./src/generated" }
+     output: { dir: "./src/generated", client: "client.ts", ... }
    })
 
    // After
    defineConfig({
+     output: "./src/generated", // optional, defaults to "./src/generated"
      query: {
        sources: [...],
-       output: { dir: "./src/generated" }
+       files: { client: "client.ts", types: "types.ts", operations: "operations.ts" }, // optional
      }
    })
    ```
 
-2. **Output directory structure changed** - Generated files are now always placed in `<output.dir>/query/<source-name>/`:
+2. **Output directory structure changed** - Generated files are now always placed in `<output>/query/<source-name>/`:
 
    ```
    # Before (single source)

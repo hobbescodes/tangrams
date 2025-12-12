@@ -89,11 +89,11 @@ describe("init command logic", () => {
       expect(config).toContain(".graphql");
     });
 
-    it("includes output configuration", () => {
+    it("includes output configuration comment", () => {
       const config = generateDefaultConfig();
 
-      expect(config).toContain("output:");
-      expect(config).toContain("dir:");
+      expect(config).toContain("// output:");
+      expect(config).toContain("./src/generated");
     });
 
     it("includes commented OpenAPI source example", () => {

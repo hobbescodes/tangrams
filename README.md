@@ -87,9 +87,6 @@ bun add @tanstack/react-query @better-fetch/fetch zod
            documents: "./src/graphql/**/*.graphql",
          },
        ],
-       output: {
-         dir: "./src/generated",
-       },
      },
    });
    ```
@@ -182,9 +179,6 @@ bun add @tanstack/react-query @better-fetch/fetch zod
            // exclude: ["/internal/**"],
          },
        ],
-       output: {
-         dir: "./src/generated",
-       },
      },
    });
    ```
@@ -229,6 +223,7 @@ tangen uses a multi-source configuration that supports multiple data sources:
 import { defineConfig } from "tangen";
 
 export default defineConfig({
+  output: "./src/generated", // optional, defaults to "./src/generated"
   query: {
     sources: [
       {
@@ -256,9 +251,7 @@ export default defineConfig({
         exclude: ["/internal/**"],
       },
     ],
-    output: {
-      dir: "./src/generated",
-    },
+    // files: { client: "client.ts", types: "types.ts", operations: "operations.ts" },
   },
 });
 ```
@@ -285,11 +278,18 @@ export default defineConfig({
 | `include` | `string[]`               | No       | Glob patterns for paths to include         |
 | `exclude` | `string[]`               | No       | Glob patterns for paths to exclude         |
 
-### Output Options
+### Global Options
+
+| Option   | Type     | Required | Description                                                  |
+| -------- | -------- | -------- | ------------------------------------------------------------ |
+| `output` | `string` | No       | Output directory for generated files (default: `./src/generated`) |
+
+### Query Files Options
+
+The `query.files` object allows customizing generated filenames:
 
 | Option       | Type     | Required | Description                                    |
 | ------------ | -------- | -------- | ---------------------------------------------- |
-| `dir`        | `string` | Yes      | Output directory for generated files           |
 | `client`     | `string` | No       | Client filename (default: `client.ts`)         |
 | `types`      | `string` | No       | Types filename (default: `types.ts`)           |
 | `operations` | `string` | No       | Operations filename (default: `operations.ts`) |

@@ -10,6 +10,7 @@ describe("generate command logic", () => {
   describe("config validation", () => {
     it("validates a valid configuration", () => {
       const config = {
+        output: "./src/generated",
         query: {
           sources: [
             {
@@ -19,9 +20,6 @@ describe("generate command logic", () => {
               documents: "./src/graphql/**/*.graphql",
             },
           ],
-          output: {
-            dir: "./src/generated",
-          },
         },
       };
 
@@ -31,6 +29,7 @@ describe("generate command logic", () => {
 
     it("rejects invalid configuration", () => {
       const config = {
+        output: "./src/generated",
         query: {
           sources: [
             {
@@ -40,9 +39,6 @@ describe("generate command logic", () => {
               documents: "./src/graphql/**/*.graphql",
             },
           ],
-          output: {
-            dir: "./src/generated",
-          },
         },
       };
 
@@ -52,6 +48,7 @@ describe("generate command logic", () => {
 
     it("applies default output filenames", () => {
       const config = {
+        output: "./src/generated",
         query: {
           sources: [
             {
@@ -61,18 +58,15 @@ describe("generate command logic", () => {
               documents: "./src/graphql/**/*.graphql",
             },
           ],
-          output: {
-            dir: "./src/generated",
-          },
         },
       };
 
       const result = configSchema.safeParse(config);
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.query?.output.client).toBe("client.ts");
-        expect(result.data.query?.output.types).toBe("types.ts");
-        expect(result.data.query?.output.operations).toBe("operations.ts");
+        expect(result.data.query?.files.client).toBe("client.ts");
+        expect(result.data.query?.files.types).toBe("types.ts");
+        expect(result.data.query?.files.operations).toBe("operations.ts");
       }
     });
   });
@@ -126,7 +120,7 @@ describe("generate command logic", () => {
       }
     });
 
-    it("provides descriptive error for missing output dir", () => {
+    it("uses default output directory when not specified", () => {
       const config = {
         query: {
           sources: [
@@ -137,15 +131,13 @@ describe("generate command logic", () => {
               documents: "./src/graphql/**/*.graphql",
             },
           ],
-          output: {},
         },
       };
 
       const result = configSchema.safeParse(config);
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        const errors = result.error.errors;
-        expect(errors.some((e) => e.path.includes("dir"))).toBe(true);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.output).toBe("./src/generated");
       }
     });
   });
@@ -153,6 +145,7 @@ describe("generate command logic", () => {
   describe("config options", () => {
     it("accepts headers option", () => {
       const config = {
+        output: "./src/generated",
         query: {
           sources: [
             {
@@ -168,9 +161,6 @@ describe("generate command logic", () => {
               documents: "./src/graphql/**/*.graphql",
             },
           ],
-          output: {
-            dir: "./src/generated",
-          },
         },
       };
 
@@ -180,6 +170,7 @@ describe("generate command logic", () => {
 
     it("accepts scalars option", () => {
       const config = {
+        output: "./src/generated",
         query: {
           sources: [
             {
@@ -193,9 +184,6 @@ describe("generate command logic", () => {
               documents: "./src/graphql/**/*.graphql",
             },
           ],
-          output: {
-            dir: "./src/generated",
-          },
         },
       };
 
@@ -205,6 +193,7 @@ describe("generate command logic", () => {
 
     it("accepts array of document patterns", () => {
       const config = {
+        output: "./src/generated",
         query: {
           sources: [
             {
@@ -217,9 +206,6 @@ describe("generate command logic", () => {
               ],
             },
           ],
-          output: {
-            dir: "./src/generated",
-          },
         },
       };
 
@@ -229,6 +215,7 @@ describe("generate command logic", () => {
 
     it("accepts custom output filenames", () => {
       const config = {
+        output: "./src/generated",
         query: {
           sources: [
             {
@@ -238,8 +225,7 @@ describe("generate command logic", () => {
               documents: "./src/graphql/**/*.graphql",
             },
           ],
-          output: {
-            dir: "./src/generated",
+          files: {
             client: "graphql-client.ts",
             types: "graphql-types.ts",
             operations: "graphql-operations.ts",
@@ -250,9 +236,9 @@ describe("generate command logic", () => {
       const result = configSchema.safeParse(config);
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.query?.output.client).toBe("graphql-client.ts");
-        expect(result.data.query?.output.types).toBe("graphql-types.ts");
-        expect(result.data.query?.output.operations).toBe(
+        expect(result.data.query?.files.client).toBe("graphql-client.ts");
+        expect(result.data.query?.files.types).toBe("graphql-types.ts");
+        expect(result.data.query?.files.operations).toBe(
           "graphql-operations.ts",
         );
       }
@@ -262,6 +248,7 @@ describe("generate command logic", () => {
   describe("multi-source config", () => {
     it("validates multi-source config", () => {
       const config = {
+        output: "./src/generated",
         query: {
           sources: [
             {
@@ -276,9 +263,6 @@ describe("generate command logic", () => {
               spec: "./openapi.yaml",
             },
           ],
-          output: {
-            dir: "./src/generated",
-          },
         },
       };
 
