@@ -425,7 +425,7 @@ ${fetchBody}
   }
 
   return `export const ${fnName} = createServerFn({ method: "GET" })
-	.validator(${paramsSchema})
+	.inputValidator(${paramsSchema})
 	.handler(async ({ data }) => {
 ${fetchBody}
 	})`;
@@ -506,7 +506,7 @@ ${fetchBody}
   }
 
   return `export const ${fnName} = createServerFn({ method: "POST" })
-	.validator(${validatorSchema})
+	.inputValidator(${validatorSchema})
 	.handler(async ({ data }) => {
 ${fetchBody}
 	})`;

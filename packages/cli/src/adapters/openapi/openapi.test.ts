@@ -1412,8 +1412,8 @@ describe("generateOperations with serverFunctions", () => {
     });
 
     // Should use Zod schemas for validation
-    expect(result.content).toContain(".validator(listPetsParamsSchema)");
-    expect(result.content).toContain(".validator(getPetParamsSchema)");
+    expect(result.content).toContain(".inputValidator(listPetsParamsSchema)");
+    expect(result.content).toContain(".inputValidator(getPetParamsSchema)");
   });
 
   it("imports Zod schemas when serverFunctions is enabled", async () => {

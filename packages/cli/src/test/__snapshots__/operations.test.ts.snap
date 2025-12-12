@@ -378,7 +378,7 @@ mutation CreateNewUser($input: CreateUserInput!) {
 \`
 
 export const createNewUserFn = createServerFn({ method: "POST" })
-	.validator((data: CreateNewUserMutationVariables) => data)
+	.inputValidator((data: CreateNewUserMutationVariables) => data)
 	.handler(async ({ data }) =>
 		(await getClient()).request<CreateNewUserMutation>(CreateNewUserDocument, data)
 	)
@@ -433,7 +433,7 @@ query GetUserById($id: ID!) {
 \`
 
 export const getUserByIdFn = createServerFn({ method: "GET" })
-	.validator((data: GetUserByIdQueryVariables) => data)
+	.inputValidator((data: GetUserByIdQueryVariables) => data)
 	.handler(async ({ data }) =>
 		(await getClient()).request<GetUserByIdQuery>(GetUserByIdDocument, data)
 	)
@@ -508,7 +508,7 @@ query GetUser($id: ID!) {
 \` + UserFieldsFragmentDoc
 
 export const getUserFn = createServerFn({ method: "GET" })
-	.validator((data: GetUserQueryVariables) => data)
+	.inputValidator((data: GetUserQueryVariables) => data)
 	.handler(async ({ data }) =>
 		(await getClient()).request<GetUserQuery>(GetUserDocument, data)
 	)
@@ -528,7 +528,7 @@ query ListUsers($limit: Int, $offset: Int) {
 \` + UserFieldsFragmentDoc
 
 export const listUsersFn = createServerFn({ method: "GET" })
-	.validator((data: ListUsersQueryVariables) => data)
+	.inputValidator((data: ListUsersQueryVariables) => data)
 	.handler(async ({ data }) =>
 		(await getClient()).request<ListUsersQuery>(ListUsersDocument, data)
 	)
@@ -548,7 +548,7 @@ mutation CreateUser($input: CreateUserInput!) {
 \` + UserFieldsFragmentDoc
 
 export const createUserFn = createServerFn({ method: "POST" })
-	.validator((data: CreateUserMutationVariables) => data)
+	.inputValidator((data: CreateUserMutationVariables) => data)
 	.handler(async ({ data }) =>
 		(await getClient()).request<CreateUserMutation>(CreateUserDocument, data)
 	)
@@ -568,7 +568,7 @@ mutation UpdateUser($id: ID!, $input: UpdateUserInput!) {
 \` + UserFieldsFragmentDoc
 
 export const updateUserFn = createServerFn({ method: "POST" })
-	.validator((data: UpdateUserMutationVariables) => data)
+	.inputValidator((data: UpdateUserMutationVariables) => data)
 	.handler(async ({ data }) =>
 		(await getClient()).request<UpdateUserMutation>(UpdateUserDocument, data)
 	)
@@ -586,7 +586,7 @@ mutation DeleteUser($id: ID!) {
 \`
 
 export const deleteUserFn = createServerFn({ method: "POST" })
-	.validator((data: DeleteUserMutationVariables) => data)
+	.inputValidator((data: DeleteUserMutationVariables) => data)
 	.handler(async ({ data }) =>
 		(await getClient()).request<DeleteUserMutation>(DeleteUserDocument, data)
 	)

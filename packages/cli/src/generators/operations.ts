@@ -282,7 +282,7 @@ function generateQueryServerFn(operation: ParsedOperation): string {
   }
 
   return `export const ${fnName} = createServerFn({ method: "GET" })
-	.validator((data: ${variablesType}) => data)
+	.inputValidator((data: ${variablesType}) => data)
 	.handler(async ({ data }) =>
 		(await getClient()).request<${queryType}>(${docName}, data)
 	)`;
@@ -350,7 +350,7 @@ function generateMutationServerFn(operation: ParsedOperation): string {
   }
 
   return `export const ${fnName} = createServerFn({ method: "POST" })
-	.validator((data: ${variablesType}) => data)
+	.inputValidator((data: ${variablesType}) => data)
 	.handler(async ({ data }) =>
 		(await getClient()).request<${mutationType}>(${docName}, data)
 	)`;

@@ -57,3 +57,7 @@ This is a Bun workspaces monorepo with the following structure:
 ## Documentation
 - Always verify and update documentation (README.md, docs site) after making breaking changes or changes that affect user-facing APIs, config structure, or CLI behavior
 - Docs content lives in `apps/docs/content/docs/`
+
+## TanStack Start Server Functions
+- Use `.inputValidator()` not `.validator()` when generating server functions with `createServerFn`
+- Always verify against current TanStack Start documentation when making changes to server function generation

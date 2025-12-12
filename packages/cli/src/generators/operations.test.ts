@@ -362,7 +362,7 @@ describe("generateOperations", () => {
 
       // GetUser has required variables
       expect(result).toContain(
-        ".validator((data: GetUserQueryVariables) => data)",
+        ".inputValidator((data: GetUserQueryVariables) => data)",
       );
     });
 
