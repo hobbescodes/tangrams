@@ -38,3 +38,6 @@
   Description of the change.
   ```
 - Use `patch` for bug fixes, `minor` for new features, `major` for breaking changes
+
+## Documentation
+- Always verify and update documentation (README.md) after making breaking changes or changes that affect user-facing APIs, config structure, or CLI behavior

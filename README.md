@@ -76,18 +76,20 @@ bun add @tanstack/react-query @better-fetch/fetch zod
    import { defineConfig } from "tangen";
 
    export default defineConfig({
-     sources: [
-       {
-         name: "graphql",
-         type: "graphql",
-         schema: {
-           url: "http://localhost:4000/graphql",
+     query: {
+       sources: [
+         {
+           name: "graphql",
+           type: "graphql",
+           schema: {
+             url: "http://localhost:4000/graphql",
+           },
+           documents: "./src/graphql/**/*.graphql",
          },
-         documents: "./src/graphql/**/*.graphql",
+       ],
+       output: {
+         dir: "./src/generated",
        },
-     ],
-     output: {
-       dir: "./src/generated",
      },
    });
    ```
@@ -131,7 +133,7 @@ bun add @tanstack/react-query @better-fetch/fetch zod
    import {
      getUserQueryOptions,
      createUserMutationOptions,
-   } from "./generated/operations";
+   } from "./generated/query/graphql/operations";
 
    // In your component
    function UserProfile({ userId }: { userId: string }) {
@@ -169,18 +171,20 @@ bun add @tanstack/react-query @better-fetch/fetch zod
    import { defineConfig } from "tangen";
 
    export default defineConfig({
-     sources: [
-       {
-         name: "api",
-         type: "openapi",
-         spec: "./openapi.yaml", // or a remote URL
-         // Optional: filter paths
-         // include: ["/users/**", "/posts/**"],
-         // exclude: ["/internal/**"],
+     query: {
+       sources: [
+         {
+           name: "api",
+           type: "openapi",
+           spec: "./openapi.yaml", // or a remote URL
+           // Optional: filter paths
+           // include: ["/users/**", "/posts/**"],
+           // exclude: ["/internal/**"],
+         },
+       ],
+       output: {
+         dir: "./src/generated",
        },
-     ],
-     output: {
-       dir: "./src/generated",
      },
    });
    ```
@@ -198,7 +202,7 @@ bun add @tanstack/react-query @better-fetch/fetch zod
    import {
      listUsersQueryOptions,
      createUserMutationOptions,
-   } from "./generated/api/operations";
+   } from "./generated/query/api/operations";
 
    function UserList() {
      const { data, isLoading } = useQuery(
@@ -225,34 +229,36 @@ tangen uses a multi-source configuration that supports multiple data sources:
 import { defineConfig } from "tangen";
 
 export default defineConfig({
-  sources: [
-    {
-      name: "graphql",
-      type: "graphql",
-      schema: {
-        url: "http://localhost:4000/graphql",
-        headers: {
-          "x-api-key": process.env.API_KEY,
+  query: {
+    sources: [
+      {
+        name: "graphql",
+        type: "graphql",
+        schema: {
+          url: "http://localhost:4000/graphql",
+          headers: {
+            "x-api-key": process.env.API_KEY,
+          },
+        },
+        documents: "./src/graphql/**/*.graphql",
+        scalars: {
+          DateTime: "Date",
         },
       },
-      documents: "./src/graphql/**/*.graphql",
-      scalars: {
-        DateTime: "Date",
+      {
+        name: "rest-api",
+        type: "openapi",
+        spec: "https://api.example.com/openapi.json",
+        headers: {
+          Authorization: `Bearer ${process.env.API_TOKEN}`,
+        },
+        include: ["/users/**", "/posts/**"],
+        exclude: ["/internal/**"],
       },
+    ],
+    output: {
+      dir: "./src/generated",
     },
-    {
-      name: "rest-api",
-      type: "openapi",
-      spec: "https://api.example.com/openapi.json",
-      headers: {
-        Authorization: `Bearer ${process.env.API_TOKEN}`,
-      },
-      include: ["/users/**", "/posts/**"],
-      exclude: ["/internal/**"],
-    },
-  ],
-  output: {
-    dir: "./src/generated",
   },
 });
 ```
@@ -290,10 +296,10 @@ export default defineConfig({
 
 ### Output Directory Structure
 
-With multiple sources, files are organized by source name:
+Generated files are organized by library and source name:
 
 ```
-src/generated/
+src/generated/query/
 ├── graphql/           # GraphQL source output
 │   ├── client.ts      # graphql-request client
 │   ├── types.ts       # TypeScript types
@@ -303,8 +309,6 @@ src/generated/
     ├── types.ts       # Zod schemas + TypeScript types
     └── operations.ts  # TanStack Query helpers
 ```
-
-With a single source, files are placed directly in the output directory without nesting.
 
 ### Default Scalar Mappings (GraphQL)
 
@@ -382,14 +386,14 @@ Ready-to-use `queryOptions` and `mutationOptions`:
 ```typescript
 export const getUserQueryOptions = (variables: GetUserQueryVariables) =>
   queryOptions({
-    queryKey: ["GetUser", variables],
+    queryKey: ["graphql", "GetUser", variables],
     queryFn: async () =>
       (await getClient()).request<GetUserQuery>(GetUserDocument, variables),
   });
 
 export const createUserMutationOptions = () =>
   mutationOptions({
-    mutationKey: ["CreateUser"],
+    mutationKey: ["graphql", "CreateUser"],
     mutationFn: async (variables: CreateUserMutationVariables) =>
       (await getClient()).request<CreateUserMutation>(
         CreateUserDocument,
@@ -466,7 +470,7 @@ TanStack Query helpers using better-fetch:
 ```typescript
 export const listUsersQueryOptions = (params: ListUsersParams) =>
   queryOptions({
-    queryKey: ["listUsers", params],
+    queryKey: ["api", "listUsers", params],
     queryFn: async () => {
       const query = buildQuery({ limit: params.limit, offset: params.offset });
       const url = query ? `/users?${query}` : "/users";
@@ -480,7 +484,7 @@ export const listUsersQueryOptions = (params: ListUsersParams) =>
 
 export const createUserMutationOptions = () =>
   mutationOptions({
-    mutationKey: ["createUser"],
+    mutationKey: ["api", "createUser"],
     mutationFn: async (body: CreateUserRequest) => {
       const { data, error } = await $fetch<CreateUserResponse>("/users", {
         method: "POST",
