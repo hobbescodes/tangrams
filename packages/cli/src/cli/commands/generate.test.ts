@@ -50,7 +50,8 @@ describe("generate command logic", () => {
 
     it("normalizeGenerates applies default output filenames", () => {
       const generates = normalizeGenerates(["query"]);
-      expect(generates.query?.files.client).toBe("client.ts");
+      expect(generates.files.client).toBe("client.ts");
+      expect(generates.files.schema).toBe("schema.ts");
       expect(generates.query?.files.types).toBe("types.ts");
       expect(generates.query?.files.operations).toBe("operations.ts");
     });
@@ -205,9 +206,9 @@ describe("generate command logic", () => {
             schema: { url: "http://localhost:4000/graphql" },
             documents: "./src/graphql/**/*.graphql",
             generates: {
+              client: "graphql-client.ts",
               query: {
                 files: {
-                  client: "graphql-client.ts",
                   types: "graphql-types.ts",
                   operations: "graphql-operations.ts",
                 },
@@ -224,7 +225,7 @@ describe("generate command logic", () => {
         expect(source).toBeDefined();
         if (source) {
           const generates = normalizeGenerates(source.generates);
-          expect(generates.query?.files.client).toBe("graphql-client.ts");
+          expect(generates.files.client).toBe("graphql-client.ts");
           expect(generates.query?.files.types).toBe("graphql-types.ts");
           expect(generates.query?.files.operations).toBe(
             "graphql-operations.ts",

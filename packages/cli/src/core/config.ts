@@ -33,8 +33,6 @@ export interface LoadConfigResult {
  * Query-specific file naming configuration (with defaults)
  */
 export const queryFilesSchema = z.object({
-  /** Filename for the generated client (default: client.ts) */
-  client: z.string().default("client.ts"),
   /** Filename for the generated types (default: types.ts) */
   types: z.string().default("types.ts"),
   /** Filename for the generated operations (default: operations.ts) */
@@ -46,6 +44,20 @@ export type QueryFilesConfig = z.output<typeof queryFilesSchema>;
 
 /** Query files config input (before defaults are applied) */
 export type QueryFilesConfigInput = z.input<typeof queryFilesSchema>;
+
+/**
+ * Start-specific file naming configuration (with defaults)
+ */
+export const startFilesSchema = z.object({
+  /** Filename for the generated server functions (default: functions.ts) */
+  functions: z.string().default("functions.ts"),
+});
+
+/** Start files config after parsing (defaults applied) */
+export type StartFilesConfig = z.output<typeof startFilesSchema>;
+
+/** Start files config input (before defaults are applied) */
+export type StartFilesConfigInput = z.input<typeof startFilesSchema>;
 
 /**
  * Form-specific file naming configuration (with defaults)
@@ -85,8 +97,16 @@ export type ZodFilesConfigInput = z.input<typeof zodFilesSchema>;
 export const queryGenerateOptionsSchema = z.object({
   /** File naming configuration */
   files: queryFilesSchema.optional(),
-  /** Enable TanStack Start server functions wrapping */
+  /** Enable TanStack Start server functions wrapping (implies start generator) */
   serverFunctions: z.boolean().optional(),
+});
+
+/**
+ * Start generation options (per-source)
+ */
+export const startGenerateOptionsSchema = z.object({
+  /** File naming configuration */
+  files: startFilesSchema.optional(),
 });
 
 /**
@@ -102,21 +122,30 @@ export const formGenerateOptionsSchema = z.object({
  */
 export const generatesObjectSchema = z
   .object({
+    /** Filename for the generated client at source root (default: client.ts) */
+    client: z.string().optional(),
+    /** Filename for the generated Zod schemas at source root (default: schema.ts) */
+    schema: z.string().optional(),
     /** TanStack Query generation options */
     query: z.union([z.literal(true), queryGenerateOptionsSchema]).optional(),
+    /** TanStack Start generation options */
+    start: z.union([z.literal(true), startGenerateOptionsSchema]).optional(),
     /** TanStack Form generation options */
     form: z.union([z.literal(true), formGenerateOptionsSchema]).optional(),
   })
   .refine(
-    (obj) => obj.query !== undefined || obj.form !== undefined,
-    "At least one generator must be specified (query or form)",
+    (obj) =>
+      obj.query !== undefined ||
+      obj.start !== undefined ||
+      obj.form !== undefined,
+    "At least one generator must be specified (query, start, or form)",
   );
 
 /**
  * Generates config as array (simple form)
  */
 export const generatesArraySchema = z
-  .array(z.enum(["query", "form"]))
+  .array(z.enum(["query", "start", "form"]))
   .min(1, "At least one generator must be specified");
 
 /**
@@ -370,33 +399,39 @@ export default defineConfig({
  * Normalized generates config result
  */
 export interface NormalizedGenerates {
+  /** Source-level files */
+  files: { client: string; schema: string };
   query?: { files: QueryFilesConfig; serverFunctions?: boolean };
+  start?: { files: StartFilesConfig };
   form?: { files: FormFilesConfig };
-  zod: { files: ZodFilesConfig };
 }
 
 /**
  * Normalize generates config to object form
- * Converts array form ["query", "form"] to object form { query: {}, form: {}, zod: {} }
- * Zod config is always present with defaults
+ * Converts array form ["query", "start", "form"] to object form with defaults
  */
 export function normalizeGenerates(
   generates: GeneratesConfig | GeneratesConfigInput,
 ): NormalizedGenerates {
-  // Array form: ["query", "form"]
+  // Array form: ["query", "start", "form"]
   if (Array.isArray(generates)) {
     const result: NormalizedGenerates = {
-      zod: { files: { schema: "schema.ts" } },
+      files: { client: "client.ts", schema: "schema.ts" },
     };
 
     if (generates.includes("query")) {
       result.query = {
         files: {
-          client: "client.ts",
           types: "types.ts",
           operations: "operations.ts",
         },
         serverFunctions: false,
+      };
+    }
+
+    if (generates.includes("start")) {
+      result.start = {
+        files: { functions: "functions.ts" },
       };
     }
 
@@ -409,9 +444,12 @@ export function normalizeGenerates(
     return result;
   }
 
-  // Object form: { query: { files: ... }, form: true }
+  // Object form: { client: "...", query: { files: ... }, start: true, form: true }
   const result: NormalizedGenerates = {
-    zod: { files: { schema: "schema.ts" } },
+    files: {
+      client: generates.client ?? "client.ts",
+      schema: generates.schema ?? "schema.ts",
+    },
   };
 
   if (generates.query) {
@@ -422,11 +460,21 @@ export function normalizeGenerates(
     const filesInput = queryConfig.files as QueryFilesConfigInput | undefined;
     result.query = {
       files: {
-        client: filesInput?.client ?? "client.ts",
         types: filesInput?.types ?? "types.ts",
         operations: filesInput?.operations ?? "operations.ts",
       },
       serverFunctions: queryConfig.serverFunctions ?? false,
+    };
+  }
+
+  if (generates.start) {
+    const startConfig =
+      generates.start === true ? {} : (generates.start as { files?: unknown });
+    const filesInput = startConfig.files as StartFilesConfigInput | undefined;
+    result.start = {
+      files: {
+        functions: filesInput?.functions ?? "functions.ts",
+      },
     };
   }
 
@@ -462,6 +510,16 @@ export function sourceGeneratesForm(source: SourceConfig): boolean {
     return source.generates.includes("form");
   }
   return source.generates.form !== undefined;
+}
+
+/**
+ * Check if a source generates start code (server functions)
+ */
+export function sourceGeneratesStart(source: SourceConfig): boolean {
+  if (Array.isArray(source.generates)) {
+    return source.generates.includes("start");
+  }
+  return source.generates.start !== undefined;
 }
 
 /**
@@ -509,9 +567,18 @@ export function getFormSources(config: TangramsConfig): SourceConfig[] {
 }
 
 /**
- * Check if a source uses server functions (TanStack Start)
+ * Check if a source's query operations use server functions (TanStack Start)
+ * This is different from sourceGeneratesStart - this checks if query options
+ * should call server functions from the start/ directory
  */
 export function sourceUsesServerFunctions(source: SourceConfig): boolean {
   const generates = normalizeGenerates(source.generates);
   return generates.query?.serverFunctions === true;
+}
+
+/**
+ * Get all sources that generate start code (server functions)
+ */
+export function getStartSources(config: TangramsConfig): SourceConfig[] {
+  return config.sources.filter(sourceGeneratesStart);
 }

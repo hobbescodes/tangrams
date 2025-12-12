@@ -1,0 +1,283 @@
+---
+title: TanStack Start
+description: Generate server functions for TanStack Start.
+---
+
+# TanStack Start
+
+Tangrams generates `createServerFn` wrappers for TanStack Start, enabling server-side data fetching with full type safety. Server functions run on the server and can be called from both components and route loaders.
+
+## Peer Dependencies
+
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+<Tabs items={['bun', 'npm', 'pnpm']}>
+  <Tab value="bun">
+```bash
+bun add @tanstack/react-router @tanstack/react-start
+```
+  </Tab>
+  <Tab value="npm">
+```bash
+npm install @tanstack/react-router @tanstack/react-start
+```
+  </Tab>
+  <Tab value="pnpm">
+```bash
+pnpm add @tanstack/react-router @tanstack/react-start
+```
+  </Tab>
+</Tabs>
+
+## Setup
+
+### Basic Configuration
+
+Add `"start"` to your `generates` array to generate server functions:
+
+```typescript
+import { defineConfig } from "tangrams"
+
+export default defineConfig({
+  sources: [
+    {
+      name: "graphql",
+      type: "graphql",
+      schema: { url: "http://localhost:4000/graphql" },
+      documents: "./src/graphql/**/*.graphql",
+      generates: ["query", "start"], // Generate both query options and server functions
+    },
+  ],
+})
+```
+
+### With TanStack Query Integration
+
+To have your query options automatically use the generated server functions, enable `serverFunctions: true` on the query generator:
+
+```typescript
+generates: {
+  query: { serverFunctions: true },
+  start: true,
+}
+```
+
+With this configuration:
+- `start/functions.ts` contains the server functions
+- `query/operations.ts` imports and uses those server functions
+
+### Standalone Server Functions
+
+You can also generate server functions without query options:
+
+```typescript
+generates: ["start"] // Only generate server functions
+```
+
+This is useful if you want to call server functions directly without TanStack Query.
+
+## Generated Output
+
+### Output Directory Structure
+
+```
+src/generated/
+└── <source>/
+    ├── client.ts             # API client (shared)
+    ├── query/                # When query generator is enabled
+    │   ├── types.ts
+    │   └── operations.ts
+    └── start/
+        └── functions.ts      # Server functions
+```
+
+### GraphQL Server Functions
+
+**`<source>/start/functions.ts`:**
+
+```typescript
+import { createServerFn } from "@tanstack/react-start"
+import { getClient } from "../client"
+import type {
+  GetUserQuery,
+  GetUserQueryVariables,
+  CreateUserMutation,
+  CreateUserMutationVariables,
+} from "../query/types"
+
+const GetUserDocument = /* GraphQL */ `
+  query GetUser($id: ID!) {
+    user(id: $id) { id name email }
+  }
+`
+
+// Query operations use GET method
+export const getUserFn = createServerFn({ method: "GET" })
+  .inputValidator((data: GetUserQueryVariables) => data)
+  .handler(async ({ data }) =>
+    (await getClient()).request<GetUserQuery>(GetUserDocument, data)
+  )
+
+// Mutations use POST method
+export const createUserFn = createServerFn({ method: "POST" })
+  .inputValidator((data: CreateUserMutationVariables) => data)
+  .handler(async ({ data }) =>
+    (await getClient()).request<CreateUserMutation>(CreateUserDocument, data)
+  )
+```
+
+### OpenAPI Server Functions
+
+**`<source>/start/functions.ts`:**
+
+```typescript
+import { createServerFn } from "@tanstack/react-start"
+import { $fetch, buildPath, buildQuery } from "../client"
+import { userSchema, type ListUsersParams, type CreateUserRequest } from "../schema"
+
+// GET operations
+export const listUsersFn = createServerFn({ method: "GET" })
+  .inputValidator((data: ListUsersParams) => data)
+  .handler(async ({ data }) => {
+    const query = buildQuery({ limit: data?.limit, offset: data?.offset })
+    const url = query ? `/users?${query}` : "/users"
+    const { data: result, error } = await $fetch(url, { output: z.array(userSchema) })
+    if (error) throw error
+    return result
+  })
+
+// POST/PUT/DELETE operations
+export const createUserFn = createServerFn({ method: "POST" })
+  .inputValidator((data: CreateUserRequest) => data)
+  .handler(async ({ data }) => {
+    const { data: result, error } = await $fetch("/users", {
+      method: "POST",
+      output: userSchema,
+      body: data,
+    })
+    if (error) throw error
+    return result
+  })
+```
+
+## Usage
+
+### With TanStack Query
+
+When `serverFunctions: true` is enabled, your query options automatically use server functions:
+
+```typescript
+import { useQuery, useMutation } from "@tanstack/react-query"
+import {
+  getUserQueryOptions,
+  createUserMutationOptions,
+} from "./generated/graphql/query/operations"
+
+function UserProfile({ userId }: { userId: string }) {
+  // Data fetching happens on the server!
+  const { data } = useQuery(getUserQueryOptions({ id: userId }))
+  return <div>{data?.user?.name}</div>
+}
+
+function CreateUserButton() {
+  const { mutate } = useMutation(createUserMutationOptions())
+  
+  return (
+    <button onClick={() => mutate({ input: { name: "Jane", email: "jane@example.com" } })}>
+      Create User
+    </button>
+  )
+}
+```
+
+### Direct Server Function Calls
+
+Call server functions directly in route loaders, actions, or anywhere on the server:
+
+```typescript
+import { getUserFn, createUserFn } from "./generated/graphql/start/functions"
+import { createFileRoute } from "@tanstack/react-router"
+
+// In a route loader
+export const Route = createFileRoute("/user/$userId")({
+  loader: async ({ params }) => {
+    return getUserFn({ data: { id: params.userId } })
+  },
+  component: UserPage,
+})
+
+function UserPage() {
+  const user = Route.useLoaderData()
+  return <div>{user?.name}</div>
+}
+```
+
+## Configuration Reference
+
+### Start Generator Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `start` | `true \| object` | - | Enable start generator |
+| `start.files.functions` | `string` | `"functions.ts"` | Filename for generated server functions |
+
+### Query Generator Options (for server function integration)
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `query.serverFunctions` | `boolean` | `false` | Import server functions instead of calling client directly |
+
+### Full Configuration Example
+
+```typescript
+import { defineConfig } from "tangrams"
+
+export default defineConfig({
+  sources: [
+    {
+      name: "graphql",
+      type: "graphql",
+      schema: { url: "http://localhost:4000/graphql" },
+      documents: "./src/graphql/**/*.graphql",
+      generates: {
+        client: "gql-client.ts",
+        query: {
+          serverFunctions: true,
+          files: {
+            types: "gql-types.ts",
+            operations: "gql-operations.ts",
+          },
+        },
+        start: {
+          files: {
+            functions: "gql-server-fns.ts",
+          },
+        },
+      },
+    },
+  ],
+})
+```
+
+## HTTP Methods
+
+Server functions use appropriate HTTP methods based on the operation type:
+
+| Operation Type | HTTP Method |
+|----------------|-------------|
+| GraphQL Query | `GET` |
+| GraphQL Mutation | `POST` |
+| OpenAPI GET | `GET` |
+| OpenAPI POST | `POST` |
+| OpenAPI PUT | `POST` |
+| OpenAPI PATCH | `POST` |
+| OpenAPI DELETE | `POST` |
+
+Note: For OpenAPI, all non-GET operations use `POST` for the server function wrapper, while the actual HTTP method is used when calling the underlying API.
+
+## Server Function Naming
+
+Server functions follow a consistent naming pattern:
+
+- GraphQL: `{operationName}Fn` (e.g., `getUserFn`, `createUserFn`)
+- OpenAPI: `{operationId}Fn` (e.g., `listUsersFn`, `createUserFn`)

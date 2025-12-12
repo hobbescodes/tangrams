@@ -294,137 +294,102 @@ describe("generateOperations", () => {
 
   // Server Functions Tests
   describe("with serverFunctions enabled", () => {
-    it("imports createServerFn from @tanstack/react-start", async () => {
+    it("imports server functions from start path", async () => {
       const documents = await loadDocuments(`${fixturesDir}/user.graphql`);
       const result = generateOperations({
         documents,
-        clientImportPath: "./client",
+        clientImportPath: "../client",
         typesImportPath: "./types",
         sourceName: "test",
         serverFunctions: true,
+        startImportPath: "../start/functions",
       });
 
+      // Should import server functions from start path
       expect(result).toContain(
-        'import { createServerFn } from "@tanstack/react-start"',
+        'import { getUserFn, listUsersFn, createUserFn, updateUserFn, deleteUserFn } from "../start/functions"',
       );
+      // Should NOT import createServerFn (that's in start.ts now)
+      expect(result).not.toContain("@tanstack/react-start");
     });
 
-    it("generates server function for query operations", async () => {
+    it("does not import client when using server functions", async () => {
       const documents = await loadDocuments(`${fixturesDir}/user.graphql`);
       const result = generateOperations({
         documents,
-        clientImportPath: "./client",
+        clientImportPath: "../client",
         typesImportPath: "./types",
         sourceName: "test",
         serverFunctions: true,
+        startImportPath: "../start/functions",
       });
 
-      // Should generate server function with GET method for queries
-      expect(result).toContain(
-        'export const getUserFn = createServerFn({ method: "GET" })',
-      );
-      expect(result).toContain(
-        'export const listUsersFn = createServerFn({ method: "GET" })',
-      );
+      // Should not import getClient - that's used in start.ts
+      expect(result).not.toContain("getClient");
     });
 
-    it("generates server function for mutation operations", async () => {
+    it("only imports variable types when using server functions", async () => {
       const documents = await loadDocuments(`${fixturesDir}/user.graphql`);
       const result = generateOperations({
         documents,
-        clientImportPath: "./client",
+        clientImportPath: "../client",
         typesImportPath: "./types",
         sourceName: "test",
         serverFunctions: true,
+        startImportPath: "../start/functions",
       });
 
-      // Should generate server function with POST method for mutations
-      expect(result).toContain(
-        'export const createUserFn = createServerFn({ method: "POST" })',
-      );
-      expect(result).toContain(
-        'export const updateUserFn = createServerFn({ method: "POST" })',
-      );
-      expect(result).toContain(
-        'export const deleteUserFn = createServerFn({ method: "POST" })',
-      );
+      // Should import variable types for function signatures
+      expect(result).toContain("GetUserQueryVariables");
+      expect(result).toContain("CreateUserMutationVariables");
+      // Should NOT import response types (those are handled by server functions)
+      expect(result).not.toContain("GetUserQuery,");
+      expect(result).not.toContain("CreateUserMutation,");
     });
 
-    it("uses validator for operations with variables", async () => {
+    it("generates queryOptions that use imported server functions", async () => {
       const documents = await loadDocuments(`${fixturesDir}/user.graphql`);
       const result = generateOperations({
         documents,
-        clientImportPath: "./client",
+        clientImportPath: "../client",
         typesImportPath: "./types",
         sourceName: "test",
         serverFunctions: true,
+        startImportPath: "../start/functions",
       });
 
-      // GetUser has required variables
-      expect(result).toContain(
-        ".inputValidator((data: GetUserQueryVariables) => data)",
-      );
-    });
-
-    it("does not use validator for operations without variables", async () => {
-      const documents = await loadDocuments(
-        `${fixturesDir}/query-only.graphql`,
-      );
-      const result = generateOperations({
-        documents,
-        clientImportPath: "./client",
-        typesImportPath: "./types",
-        sourceName: "test",
-        serverFunctions: true,
-      });
-
-      // GetAllUsers has no variables, should use handler directly
-      expect(result).toContain(
-        'export const getAllUsersFn = createServerFn({ method: "GET" })',
-      );
-      expect(result).toContain(".handler(async () =>");
-    });
-
-    it("generates queryOptions that use server functions", async () => {
-      const documents = await loadDocuments(`${fixturesDir}/user.graphql`);
-      const result = generateOperations({
-        documents,
-        clientImportPath: "./client",
-        typesImportPath: "./types",
-        sourceName: "test",
-        serverFunctions: true,
-      });
-
-      // queryOptions should call the server function
+      // queryOptions should call the imported server function
       expect(result).toContain(
         "queryFn: () => getUserFn({ data: variables ?? undefined })",
       );
     });
 
-    it("generates mutationOptions that use server functions", async () => {
+    it("generates mutationOptions that use imported server functions", async () => {
       const documents = await loadDocuments(`${fixturesDir}/user.graphql`);
       const result = generateOperations({
         documents,
-        clientImportPath: "./client",
+        clientImportPath: "../client",
         typesImportPath: "./types",
         sourceName: "test",
         serverFunctions: true,
+        startImportPath: "../start/functions",
       });
 
-      // mutationOptions should call the server function
+      // mutationOptions should call the imported server function
       expect(result).toContain(
         "mutationFn: (variables: CreateUserMutationVariables) => createUserFn({ data: variables })",
       );
     });
 
-    it("handles optional variables correctly in server functions", async () => {
+    it("handles optional variables correctly", async () => {
       const documents = await loadDocuments(`${fixturesDir}/user.graphql`);
       const result = generateOperations({
         documents,
-        clientImportPath: "./client",
+        clientImportPath: "../client",
         typesImportPath: "./types",
         sourceName: "test",
         serverFunctions: true,
+        startImportPath: "../start/functions",
       });
 
       // ListUsers has all optional variables
@@ -433,44 +398,30 @@ describe("generateOperations", () => {
       );
     });
 
+    it("throws error when startImportPath is not provided", async () => {
+      const documents = await loadDocuments(`${fixturesDir}/user.graphql`);
+
+      expect(() =>
+        generateOperations({
+          documents,
+          clientImportPath: "../client",
+          typesImportPath: "./types",
+          sourceName: "test",
+          serverFunctions: true,
+          // startImportPath missing
+        }),
+      ).toThrow("startImportPath is required when serverFunctions is enabled");
+    });
+
     it("matches snapshot for user operations with server functions", async () => {
       const documents = await loadDocuments(`${fixturesDir}/user.graphql`);
       const result = generateOperations({
         documents,
-        clientImportPath: "./client",
+        clientImportPath: "../client",
         typesImportPath: "./types",
         sourceName: "test",
         serverFunctions: true,
-      });
-
-      expect(result).toMatchSnapshot();
-    });
-
-    it("matches snapshot for query-only operations with server functions", async () => {
-      const documents = await loadDocuments(
-        `${fixturesDir}/query-only.graphql`,
-      );
-      const result = generateOperations({
-        documents,
-        clientImportPath: "./client",
-        typesImportPath: "./types",
-        sourceName: "test",
-        serverFunctions: true,
-      });
-
-      expect(result).toMatchSnapshot();
-    });
-
-    it("matches snapshot for mutation-only operations with server functions", async () => {
-      const documents = await loadDocuments(
-        `${fixturesDir}/mutation-only.graphql`,
-      );
-      const result = generateOperations({
-        documents,
-        clientImportPath: "./client",
-        typesImportPath: "./types",
-        sourceName: "test",
-        serverFunctions: true,
+        startImportPath: "../start/functions",
       });
 
       expect(result).toMatchSnapshot();

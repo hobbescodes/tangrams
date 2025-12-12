@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 
 import consola from "consola";
@@ -7,62 +7,14 @@ import consola from "consola";
 import { getAdapter } from "@/adapters";
 import { normalizeGenerates } from "./config";
 
-/**
- * Read and merge dependencies from the project's package.json
- */
-async function getProjectDependencies(): Promise<Record<string, string>> {
-  const pkgPath = join(process.cwd(), "package.json");
-  const pkgContent = await readFile(pkgPath, "utf-8");
-  const pkg = JSON.parse(pkgContent);
-  return {
-    ...pkg.dependencies,
-    ...pkg.devDependencies,
-  };
-}
-
-/**
- * Validate that TanStack Start dependencies are installed when serverFunctions is enabled
- * @internal Exported for testing
- * @param sourceName - Name of the source being validated
- * @param serverFunctions - Whether serverFunctions is enabled
- * @param dependencies - Optional dependencies object (for testing)
- */
-export async function validateServerFunctionsRequirements(
-  sourceName: string,
-  serverFunctions: boolean,
-  dependencies?: Record<string, string>,
-): Promise<void> {
-  if (!serverFunctions) return;
-
-  const deps = dependencies ?? (await getProjectDependencies());
-
-  // Check for @tanstack/react-router
-  if (!deps["@tanstack/react-router"]) {
-    throw new Error(
-      `Source "${sourceName}" has serverFunctions enabled but @tanstack/react-router is not installed.\n` +
-        `TanStack Start requires both @tanstack/react-router and @tanstack/react-start.\n` +
-        `Install them with: bun add @tanstack/react-router @tanstack/react-start`,
-    );
-  }
-
-  // Check for @tanstack/react-start
-  if (!deps["@tanstack/react-start"]) {
-    throw new Error(
-      `Source "${sourceName}" has serverFunctions enabled but @tanstack/react-start is not installed.\n` +
-        `TanStack Start requires both @tanstack/react-router and @tanstack/react-start.\n` +
-        `Install them with: bun add @tanstack/react-router @tanstack/react-start`,
-    );
-  }
-}
-
 import type { GraphQLAdapter, GraphQLAdapterSchema } from "@/adapters/types";
 import type {
   FormFilesConfig,
   GraphQLSourceConfig,
   QueryFilesConfig,
   SourceConfig,
+  StartFilesConfig,
   TangramsConfig,
-  ZodFilesConfig,
 } from "./config";
 
 export interface GenerateOptions {
@@ -98,6 +50,18 @@ async function fileExists(path: string): Promise<boolean> {
 /**
  * Main generation orchestrator
  * Processes all configured sources and generates code for each
+ *
+ * New output structure:
+ *   <output>/<source-name>/
+ *     ├── client.ts          # shared client (always)
+ *     ├── schema.ts          # zod schemas (when needed)
+ *     ├── query/
+ *     │   ├── types.ts       # GraphQL only
+ *     │   └── operations.ts
+ *     ├── start/
+ *     │   └── functions.ts   # server functions
+ *     └── form/
+ *         └── forms.ts
  */
 export async function generate(
   options: GenerateOptions,
@@ -106,15 +70,19 @@ export async function generate(
   const generatedSchemas = new Map<string, unknown>();
   const generatedOutputs: string[] = [];
 
-  // Track what was generated
-  const zodSourceNames: string[] = [];
+  // Track what was generated per source
   const querySourceNames: string[] = [];
+  const startSourceNames: string[] = [];
   const formSourceNames: string[] = [];
 
   // Process each source
   for (const source of config.sources) {
     const generates = normalizeGenerates(source.generates);
     const baseOutputDir = join(process.cwd(), config.output);
+    const sourceOutputDir = join(baseOutputDir, source.name);
+
+    // Ensure source directory exists
+    await mkdir(sourceOutputDir, { recursive: true });
 
     // Load schema once per source
     const adapter = getAdapter(source.type);
@@ -135,58 +103,90 @@ export async function generate(
 
     // Determine if we need to generate Zod schemas
     // - OpenAPI: Always (Zod is the primary type system)
-    // - GraphQL: Only when form generation is enabled
+    // - GraphQL: When form or start generation is enabled
     const needsZodSchemas =
       source.type === "openapi" ||
-      (source.type === "graphql" && generates.form);
+      (source.type === "graphql" &&
+        (generates.form ||
+          generates.start ||
+          generates.query?.serverFunctions));
 
     // Track paths for import resolution
-    let zodSchemaPath: string | undefined;
+    let schemaPath: string | undefined;
+    const clientPath = join(sourceOutputDir, generates.files.client);
 
-    // Step 1: Generate Zod schemas if needed
+    // Step 1: Generate client (always, at source root)
+    await generateClientFile({
+      source,
+      sourceOutputDir,
+      clientFilename: generates.files.client,
+      schema,
+      force,
+    });
+
+    // Step 2: Generate Zod schemas if needed (at source root)
     if (needsZodSchemas) {
-      zodSchemaPath = await generateZodSchemas({
+      schemaPath = await generateSchemaFile({
         source,
-        baseOutputDir,
-        files: generates.zod.files,
+        sourceOutputDir,
+        schemaFilename: generates.files.schema,
         schema,
       });
-      zodSourceNames.push(source.name);
     }
 
-    // Step 2: Generate query files if enabled
+    // Step 3: Generate start files if enabled OR if query.serverFunctions is true
+    // We need to generate start files BEFORE query files when serverFunctions is enabled
+    // because query operations will import from start
+    const shouldGenerateStart =
+      generates.start || generates.query?.serverFunctions;
+    let startFunctionsPath: string | undefined;
+
+    if (shouldGenerateStart) {
+      startFunctionsPath = await generateStartFiles({
+        source,
+        sourceOutputDir,
+        files: generates.start?.files ?? { functions: "functions.ts" },
+        schema,
+        clientPath,
+        schemaPath,
+      });
+      startSourceNames.push(source.name);
+    }
+
+    // Step 4: Generate query files if enabled
     if (generates.query) {
       await generateQueryFiles({
         source,
-        baseOutputDir,
+        sourceOutputDir,
         files: generates.query.files,
         schema,
-        force,
-        zodSchemaPath,
+        clientPath,
+        schemaPath,
         serverFunctions: generates.query.serverFunctions,
+        startFunctionsPath,
       });
       querySourceNames.push(source.name);
     }
 
-    // Step 3: Generate form files if enabled
-    if (generates.form && zodSchemaPath) {
+    // Step 5: Generate form files if enabled
+    if (generates.form && schemaPath) {
       await generateFormFiles({
         source,
-        baseOutputDir,
+        sourceOutputDir,
         files: generates.form.files,
         schema,
-        zodSchemaPath,
+        schemaPath,
       });
       formSourceNames.push(source.name);
     }
   }
 
   // Build output summary
-  if (zodSourceNames.length > 0) {
-    generatedOutputs.push(`zod (${zodSourceNames.join(", ")})`);
-  }
   if (querySourceNames.length > 0) {
     generatedOutputs.push(`query (${querySourceNames.join(", ")})`);
+  }
+  if (startSourceNames.length > 0) {
+    generatedOutputs.push(`start (${startSourceNames.join(", ")})`);
   }
   if (formSourceNames.length > 0) {
     generatedOutputs.push(`form (${formSourceNames.join(", ")})`);
@@ -204,35 +204,66 @@ export async function generate(
 }
 
 // =============================================================================
-// Zod Schema Generation
+// Client Generation
 // =============================================================================
 
-interface GenerateZodSchemasOptions {
+interface GenerateClientFileOptions {
   source: SourceConfig;
-  baseOutputDir: string;
-  files: ZodFilesConfig;
+  sourceOutputDir: string;
+  clientFilename: string;
+  schema: unknown;
+  force: boolean;
+}
+
+/**
+ * Generate client file for a source
+ * Outputs to: <source-name>/client.ts
+ */
+async function generateClientFile(
+  options: GenerateClientFileOptions,
+): Promise<void> {
+  const { source, sourceOutputDir, clientFilename, schema, force } = options;
+
+  const clientPath = join(sourceOutputDir, clientFilename);
+  const clientExists = await fileExists(clientPath);
+
+  if (clientExists && !force) {
+    consola.info(
+      `Skipping ${clientFilename} (already exists, use --force to regenerate)`,
+    );
+    return;
+  }
+
+  const adapter = getAdapter(source.type);
+  const clientResult = adapter.generateClient(schema, source);
+  await writeFile(clientPath, clientResult.content, "utf-8");
+  consola.success(`Generated ${source.name}/${clientFilename}`);
+}
+
+// =============================================================================
+// Schema Generation
+// =============================================================================
+
+interface GenerateSchemaFileOptions {
+  source: SourceConfig;
+  sourceOutputDir: string;
+  schemaFilename: string;
   schema: unknown;
 }
 
 /**
- * Generate Zod schemas for a source
- * Outputs to: zod/<source-name>/schema.ts
+ * Generate Zod schema file for a source
+ * Outputs to: <source-name>/schema.ts
  * Returns the absolute path to the generated schema file
  */
-async function generateZodSchemas(
-  options: GenerateZodSchemasOptions,
+async function generateSchemaFile(
+  options: GenerateSchemaFileOptions,
 ): Promise<string> {
-  const { source, baseOutputDir, files, schema } = options;
+  const { source, sourceOutputDir, schemaFilename, schema } = options;
 
   consola.info(`Generating Zod schemas for: ${source.name}`);
 
   const adapter = getAdapter(source.type);
-  const zodOutputDir = join(baseOutputDir, "zod", source.name);
-
-  // Ensure output directory exists
-  await mkdir(zodOutputDir, { recursive: true });
-
-  // Generate Zod schemas
   const schemaGenOptions = {
     scalars: getScalarsFromSource(source),
   };
@@ -245,11 +276,78 @@ async function generateZodSchemas(
     }
   }
 
-  const schemaPath = join(zodOutputDir, files.schema);
+  const schemaPath = join(sourceOutputDir, schemaFilename);
   await writeFile(schemaPath, result.content, "utf-8");
-  consola.success(`Generated zod/${source.name}/${files.schema}`);
+  consola.success(`Generated ${source.name}/${schemaFilename}`);
 
   return schemaPath;
+}
+
+// =============================================================================
+// Start (Server Functions) Generation
+// =============================================================================
+
+interface GenerateStartFilesOptions {
+  source: SourceConfig;
+  sourceOutputDir: string;
+  files: StartFilesConfig;
+  schema: unknown;
+  clientPath: string;
+  schemaPath?: string;
+}
+
+/**
+ * Generate start (server functions) files for a source
+ * Outputs to: <source-name>/start/functions.ts
+ * Returns the absolute path to the generated functions file
+ */
+async function generateStartFiles(
+  options: GenerateStartFilesOptions,
+): Promise<string> {
+  const { source, sourceOutputDir, files, schema, clientPath, schemaPath } =
+    options;
+
+  consola.info(`Generating start files for: ${source.name}`);
+
+  const adapter = getAdapter(source.type);
+  const startOutputDir = join(sourceOutputDir, "start");
+
+  // Ensure output directory exists
+  await mkdir(startOutputDir, { recursive: true });
+
+  // Calculate relative import paths
+  const functionsPath = join(startOutputDir, files.functions);
+  const functionsDir = dirname(functionsPath);
+  const clientImportPath = `./${relative(functionsDir, clientPath).replace(/\.ts$/, "")}`;
+
+  // For types, GraphQL uses query/types.ts, OpenAPI uses schema.ts
+  let typesImportPath: string;
+  if (source.type === "graphql") {
+    // GraphQL types will be at ../query/types (sibling directory)
+    // But for start, we need to generate a types path that will exist
+    // Since we generate start before query, we use a predictable path
+    const typesPath = join(sourceOutputDir, "query", "types.ts");
+    typesImportPath = `./${relative(functionsDir, typesPath).replace(/\.ts$/, "")}`;
+  } else {
+    // OpenAPI uses schema.ts at source root
+    if (!schemaPath) {
+      throw new Error(
+        `OpenAPI source "${source.name}" requires schema file for start generation`,
+      );
+    }
+    typesImportPath = `./${relative(functionsDir, schemaPath).replace(/\.ts$/, "")}`;
+  }
+
+  const startResult = adapter.generateStart(schema, source, {
+    clientImportPath,
+    typesImportPath,
+    sourceName: source.name,
+  });
+
+  await writeFile(functionsPath, startResult.content, "utf-8");
+  consola.success(`Generated ${source.name}/start/${files.functions}`);
+
+  return functionsPath;
 }
 
 // =============================================================================
@@ -258,21 +356,22 @@ async function generateZodSchemas(
 
 interface GenerateQueryFilesOptions {
   source: SourceConfig;
-  baseOutputDir: string;
+  sourceOutputDir: string;
   files: QueryFilesConfig;
   schema: unknown;
-  force: boolean;
-  /** Path to Zod schema file (for OpenAPI - types come from here) */
-  zodSchemaPath?: string;
-  /** Enable TanStack Start server functions wrapping */
+  clientPath: string;
+  /** Path to schema file (for OpenAPI - types come from here) */
+  schemaPath?: string;
+  /** Enable TanStack Start server functions (imports from start/) */
   serverFunctions?: boolean;
+  /** Path to start/functions.ts (required when serverFunctions is true) */
+  startFunctionsPath?: string;
 }
 
 /**
  * Generate query files for a source
- * Outputs to: query/<source-name>/
- *   - client.ts
- *   - types.ts (GraphQL only - OpenAPI uses zod schemas)
+ * Outputs to: <source-name>/query/
+ *   - types.ts (GraphQL only - OpenAPI uses schema.ts at source root)
  *   - operations.ts
  */
 async function generateQueryFiles(
@@ -280,42 +379,33 @@ async function generateQueryFiles(
 ): Promise<void> {
   const {
     source,
-    baseOutputDir,
+    sourceOutputDir,
     files,
     schema,
-    force,
-    zodSchemaPath,
+    clientPath,
+    schemaPath,
     serverFunctions = false,
+    startFunctionsPath,
   } = options;
 
-  // Validate TanStack Start dependencies if serverFunctions is enabled
-  await validateServerFunctionsRequirements(source.name, serverFunctions);
+  // Validate that startFunctionsPath is provided when serverFunctions is enabled
+  if (serverFunctions && !startFunctionsPath) {
+    throw new Error(
+      `Source "${source.name}" has serverFunctions enabled but start files were not generated`,
+    );
+  }
 
   consola.info(`Generating query files for: ${source.name}`);
 
   const adapter = getAdapter(source.type);
-  const queryOutputDir = join(baseOutputDir, "query", source.name);
+  const queryOutputDir = join(sourceOutputDir, "query");
 
   // Ensure output directory exists
   await mkdir(queryOutputDir, { recursive: true });
 
-  // Step 1: Generate client (only if it doesn't exist or force is true)
-  const clientPath = join(queryOutputDir, files.client);
-  const clientExists = await fileExists(clientPath);
-
-  if (clientExists && !force) {
-    consola.info(
-      `Skipping ${files.client} (already exists, use --force to regenerate)`,
-    );
-  } else {
-    const clientResult = adapter.generateClient(schema, source);
-    await writeFile(clientPath, clientResult.content, "utf-8");
-    consola.success(`Generated query/${source.name}/${files.client}`);
-  }
-
-  // Step 2: Determine types path
-  // - GraphQL: Generate types.ts in query/<source>/
-  // - OpenAPI: Use zod/<source>/schema.ts
+  // Step 1: Determine types path
+  // - GraphQL: Generate types.ts in query/
+  // - OpenAPI: Use schema.ts at source root
   let typesPath: string;
 
   if (source.type === "graphql") {
@@ -326,7 +416,7 @@ async function generateQueryFiles(
     };
     const typesResult = graphqlAdapter.generateTypes(
       schema as GraphQLAdapterSchema,
-      source,
+      source as GraphQLSourceConfig,
       typeGenOptions,
     );
 
@@ -339,18 +429,18 @@ async function generateQueryFiles(
 
     typesPath = join(queryOutputDir, files.types);
     await writeFile(typesPath, typesResult.content, "utf-8");
-    consola.success(`Generated query/${source.name}/${files.types}`);
+    consola.success(`Generated ${source.name}/query/${files.types}`);
   } else {
-    // OpenAPI uses Zod schemas from zod/<source>/schema.ts
-    if (!zodSchemaPath) {
+    // OpenAPI uses schema.ts at source root
+    if (!schemaPath) {
       throw new Error(
-        `OpenAPI source "${source.name}" requires Zod schemas but none were generated`,
+        `OpenAPI source "${source.name}" requires schema file but none was generated`,
       );
     }
-    typesPath = zodSchemaPath;
+    typesPath = schemaPath;
   }
 
-  // Step 3: Generate operations
+  // Step 2: Generate operations
   const operationsPath = join(queryOutputDir, files.operations);
 
   // Calculate relative import paths
@@ -358,14 +448,21 @@ async function generateQueryFiles(
   const clientImportPath = `./${relative(operationsDir, clientPath).replace(/\.ts$/, "")}`;
   const typesImportPath = `./${relative(operationsDir, typesPath).replace(/\.ts$/, "")}`;
 
+  // Calculate start import path if needed
+  let startImportPath: string | undefined;
+  if (serverFunctions && startFunctionsPath) {
+    startImportPath = `./${relative(operationsDir, startFunctionsPath).replace(/\.ts$/, "")}`;
+  }
+
   const operationsResult = adapter.generateOperations(schema, source, {
     clientImportPath,
     typesImportPath,
     sourceName: source.name,
     serverFunctions,
+    startImportPath,
   });
   await writeFile(operationsPath, operationsResult.content, "utf-8");
-  consola.success(`Generated query/${source.name}/${files.operations}`);
+  consola.success(`Generated ${source.name}/query/${files.operations}`);
 }
 
 // =============================================================================
@@ -374,25 +471,25 @@ async function generateQueryFiles(
 
 interface GenerateFormFilesOptions {
   source: SourceConfig;
-  baseOutputDir: string;
+  sourceOutputDir: string;
   files: FormFilesConfig;
   schema: unknown;
-  zodSchemaPath: string;
+  schemaPath: string;
 }
 
 /**
  * Generate form files for a source
- * Outputs to: form/<source-name>/forms.ts
+ * Outputs to: <source-name>/form/forms.ts
  */
 async function generateFormFiles(
   options: GenerateFormFilesOptions,
 ): Promise<void> {
-  const { source, baseOutputDir, files, schema, zodSchemaPath } = options;
+  const { source, sourceOutputDir, files, schema, schemaPath } = options;
 
   consola.info(`Generating form files for: ${source.name}`);
 
   const adapter = getAdapter(source.type);
-  const formOutputDir = join(baseOutputDir, "form", source.name);
+  const formOutputDir = join(sourceOutputDir, "form");
 
   // Ensure output directory exists
   await mkdir(formOutputDir, { recursive: true });
@@ -400,9 +497,9 @@ async function generateFormFiles(
   // Generate form options
   const formsPath = join(formOutputDir, files.forms);
 
-  // Calculate relative import path from forms to zod schema
+  // Calculate relative import path from forms to schema
   const formsDir = dirname(formsPath);
-  const schemaImportPath = `./${relative(formsDir, zodSchemaPath).replace(/\.ts$/, "")}`;
+  const schemaImportPath = `./${relative(formsDir, schemaPath).replace(/\.ts$/, "")}`;
 
   const formResult = adapter.generateFormOptions(schema, source, {
     schemaImportPath,
@@ -417,7 +514,7 @@ async function generateFormFiles(
   }
 
   await writeFile(formsPath, formResult.content, "utf-8");
-  consola.success(`Generated form/${source.name}/${files.forms}`);
+  consola.success(`Generated ${source.name}/form/${files.forms}`);
 }
 
 // =============================================================================
