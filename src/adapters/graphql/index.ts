@@ -101,7 +101,8 @@ class GraphQLAdapterImpl implements IGraphQLAdapter {
   }
 
   /**
-   * Generate Zod schemas for validation (input types from mutations)
+   * Generate Zod schemas for validation (input types from operations)
+   * This outputs to zod/<source>/schema.ts
    */
   generateSchemas(
     schema: GraphQLAdapterSchema,
@@ -110,11 +111,10 @@ class GraphQLAdapterImpl implements IGraphQLAdapter {
   ): GeneratedFile {
     const result = generateGraphQLZodSchemas(schema.schema, schema.documents, {
       scalars: options.scalars,
-      mutationsOnly: options.mutationsOnly,
     });
 
     return {
-      filename: "types.ts",
+      filename: "schema.ts",
       content: result.content,
       warnings: result.warnings,
     };
@@ -139,7 +139,6 @@ class GraphQLAdapterImpl implements IGraphQLAdapter {
       { ...schema.documents, operations: mutations },
       {
         scalars: config.scalars,
-        mutationsOnly: true,
       },
     );
 

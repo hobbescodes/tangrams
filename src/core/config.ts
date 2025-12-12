@@ -61,6 +61,20 @@ export type FormFilesConfig = z.output<typeof formFilesSchema>;
 /** Form files config input (before defaults are applied) */
 export type FormFilesConfigInput = z.input<typeof formFilesSchema>;
 
+/**
+ * Zod-specific file naming configuration (with defaults)
+ */
+export const zodFilesSchema = z.object({
+  /** Filename for the generated Zod schemas (default: schema.ts) */
+  schema: z.string().default("schema.ts"),
+});
+
+/** Zod files config after parsing (defaults applied) */
+export type ZodFilesConfig = z.output<typeof zodFilesSchema>;
+
+/** Zod files config input (before defaults are applied) */
+export type ZodFilesConfigInput = z.input<typeof zodFilesSchema>;
+
 // =============================================================================
 // Generates Configuration Schemas
 // =============================================================================
@@ -351,21 +365,27 @@ export default defineConfig({
 // =============================================================================
 
 /**
+ * Normalized generates config result
+ */
+export interface NormalizedGenerates {
+  query?: { files: QueryFilesConfig };
+  form?: { files: FormFilesConfig };
+  zod: { files: ZodFilesConfig };
+}
+
+/**
  * Normalize generates config to object form
- * Converts array form ["query", "form"] to object form { query: {}, form: {} }
+ * Converts array form ["query", "form"] to object form { query: {}, form: {}, zod: {} }
+ * Zod config is always present with defaults
  */
 export function normalizeGenerates(
   generates: GeneratesConfig | GeneratesConfigInput,
-): {
-  query?: { files: QueryFilesConfig };
-  form?: { files: FormFilesConfig };
-} {
+): NormalizedGenerates {
   // Array form: ["query", "form"]
   if (Array.isArray(generates)) {
-    const result: {
-      query?: { files: QueryFilesConfig };
-      form?: { files: FormFilesConfig };
-    } = {};
+    const result: NormalizedGenerates = {
+      zod: { files: { schema: "schema.ts" } },
+    };
 
     if (generates.includes("query")) {
       result.query = {
@@ -387,10 +407,9 @@ export function normalizeGenerates(
   }
 
   // Object form: { query: { files: ... }, form: true }
-  const result: {
-    query?: { files: QueryFilesConfig };
-    form?: { files: FormFilesConfig };
-  } = {};
+  const result: NormalizedGenerates = {
+    zod: { files: { schema: "schema.ts" } },
+  };
 
   if (generates.query) {
     const queryConfig =

@@ -17,10 +17,10 @@ export interface GeneratedFile {
 }
 
 /**
- * Options for type generation
+ * Options for type generation (GraphQL only - generates TypeScript types)
  */
 export interface TypeGenOptions {
-  /** Custom scalar type mappings (GraphQL-specific but may apply to other sources) */
+  /** Custom scalar type mappings */
   scalars?: Record<string, string>;
 }
 
@@ -30,7 +30,7 @@ export interface TypeGenOptions {
 export interface OperationGenOptions {
   /** Relative import path to the client file */
   clientImportPath: string;
-  /** Relative import path to the types file */
+  /** Relative import path to the types/schema file */
   typesImportPath: string;
   /** The source name to include in query/mutation keys */
   sourceName: string;
@@ -42,8 +42,6 @@ export interface OperationGenOptions {
 export interface SchemaGenOptions {
   /** Custom scalar type mappings (for GraphQL) */
   scalars?: Record<string, string>;
-  /** Only generate schemas for mutations (for form usage) */
-  mutationsOnly?: boolean;
 }
 
 /**
@@ -61,11 +59,11 @@ export interface FormGenOptions {
  *
  * Each adapter is responsible for:
  * 1. Loading/parsing its schema from the configured source
- * 2. Generating TypeScript types from the schema
- * 3. Generating a client for making requests
- * 4. Generating TanStack Query operation helpers
- * 5. Generating Zod schemas for validation
- * 6. Generating TanStack Form options for mutations
+ * 2. Generating a client for making requests
+ * 3. Generating TanStack Query operation helpers
+ * 4. Generating Zod schemas for validation (OpenAPI always, GraphQL when form enabled)
+ * 5. Generating TanStack Form options for mutations
+ * 6. (GraphQL only) Generating TypeScript types for operations
  */
 export interface SourceAdapter<
   TConfig extends SourceConfig = SourceConfig,
@@ -88,19 +86,6 @@ export interface SourceAdapter<
    * @returns Generated client file
    */
   generateClient(schema: TSchema, config: TConfig): GeneratedFile;
-
-  /**
-   * Generate TypeScript types from the schema
-   * @param schema The loaded schema
-   * @param config The source configuration
-   * @param options Type generation options
-   * @returns Generated types file
-   */
-  generateTypes(
-    schema: TSchema,
-    config: TConfig,
-    options: TypeGenOptions,
-  ): GeneratedFile;
 
   /**
    * Generate TanStack Query operation helpers
@@ -148,6 +133,19 @@ export interface SourceAdapter<
 export interface GraphQLAdapter
   extends SourceAdapter<GraphQLSourceConfig, GraphQLAdapterSchema> {
   readonly type: "graphql";
+
+  /**
+   * Generate TypeScript types from the schema (GraphQL only)
+   * @param schema The loaded schema
+   * @param config The source configuration
+   * @param options Type generation options
+   * @returns Generated types file
+   */
+  generateTypes(
+    schema: GraphQLAdapterSchema,
+    config: GraphQLSourceConfig,
+    options: TypeGenOptions,
+  ): GeneratedFile;
 }
 
 /**

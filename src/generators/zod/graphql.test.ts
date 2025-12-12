@@ -219,31 +219,6 @@ describe("GraphQL Zod Generator", () => {
       expect(result.content).toContain("z.array(addressInputSchema)");
     });
 
-    it("generates only mutation-related schemas when mutationsOnly is true", () => {
-      const mutationOp = createMutationOperation("CreateUser", [
-        createVariableDef("input", "CreateUserInput"),
-      ]);
-      const queryOp: ParsedOperation = {
-        name: "GetUsers",
-        operation: "query",
-        node: {
-          kind: Kind.OPERATION_DEFINITION,
-          operation: OperationTypeNode.QUERY,
-          name: { kind: Kind.NAME, value: "GetUsers" },
-          selectionSet: { kind: Kind.SELECTION_SET, selections: [] },
-        },
-        document: "query GetUsers { users { id } }",
-      };
-
-      const documents = createDocuments([mutationOp, queryOp]);
-      const result = generateGraphQLZodSchemas(testSchema, documents, {
-        mutationsOnly: true,
-      });
-
-      // Should only generate schemas for mutation inputs
-      expect(result.content).toContain("createUserInputSchema");
-    });
-
     it("generates empty output when no operations provided", () => {
       const documents = createDocuments([]);
 

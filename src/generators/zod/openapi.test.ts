@@ -29,21 +29,6 @@ describe("OpenAPI Zod Generator", () => {
       expect(result.content).toContain("petStatusSchema");
     });
 
-    it("generates only request body schemas when requestBodiesOnly is true", async () => {
-      const document = (await SwaggerParser.dereference(
-        "src/test/fixtures/openapi/petstore.json",
-      )) as OpenAPIV3.Document;
-      const operations = extractOperations(document);
-
-      const result = generateOpenAPIZodSchemas(document, operations, {
-        requestBodiesOnly: true,
-      });
-
-      // Should not generate response schemas
-      expect(result.content).not.toContain("ResponseSchema");
-      expect(result.content).not.toContain("ParamsSchema");
-    });
-
     it("generates correct Zod types for enums", async () => {
       const document = (await SwaggerParser.dereference(
         "src/test/fixtures/openapi/petstore.json",

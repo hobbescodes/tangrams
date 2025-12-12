@@ -64,8 +64,6 @@ interface GraphQLZodContext extends ZodGenContext {
 export interface GraphQLZodOptions {
   /** Custom scalar to Zod mappings (e.g., { DateTime: "z.string()" }) */
   scalars?: Record<string, string>;
-  /** Only generate schemas for mutations (for form usage) */
-  mutationsOnly?: boolean;
 }
 
 /**
@@ -97,10 +95,8 @@ export function generateGraphQLZodSchemas(
     visited: new Set(),
   };
 
-  // Filter to mutations if requested
-  const operations = options.mutationsOnly
-    ? documents.operations.filter((op) => op.operation === "mutation")
-    : documents.operations;
+  // Process all operations
+  const operations = documents.operations;
 
   // Collect all input types used by operation variables
   const inputTypes = collectInputTypesFromOperations(operations, schema, ctx);

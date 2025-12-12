@@ -13,7 +13,6 @@ import { generateOpenAPIZodSchemas } from "@/generators/zod/openapi";
 import { generateOpenAPIClient } from "./client";
 import { generateOpenAPIOperations } from "./operations";
 import { extractOperations, loadOpenAPISpec } from "./schema";
-import { generateOpenAPITypes } from "./types";
 
 import type { OpenAPISourceConfig } from "@/core/config";
 import type {
@@ -23,7 +22,6 @@ import type {
   OpenAPIAdapterSchema,
   OperationGenOptions,
   SchemaGenOptions,
-  TypeGenOptions,
 } from "../types";
 
 /**
@@ -50,17 +48,6 @@ class OpenAPIAdapterImpl implements IOpenAPIAdapter {
   }
 
   /**
-   * Generate Zod schemas and TypeScript types from the OpenAPI spec
-   */
-  generateTypes(
-    schema: OpenAPIAdapterSchema,
-    config: OpenAPISourceConfig,
-    options: TypeGenOptions,
-  ): GeneratedFile {
-    return generateOpenAPITypes(schema, config, options);
-  }
-
-  /**
    * Generate TanStack Query operation helpers
    */
   generateOperations(
@@ -73,21 +60,21 @@ class OpenAPIAdapterImpl implements IOpenAPIAdapter {
 
   /**
    * Generate Zod schemas for validation
+   * This is the primary type generation for OpenAPI - outputs to zod/<source>/schema.ts
    */
   generateSchemas(
     schema: OpenAPIAdapterSchema,
     _config: OpenAPISourceConfig,
-    options: SchemaGenOptions,
+    _options: SchemaGenOptions,
   ): GeneratedFile {
     const { document } = schema;
     const operations = extractOperations(document);
 
-    const result = generateOpenAPIZodSchemas(document, operations, {
-      requestBodiesOnly: options.mutationsOnly,
-    });
+    // Always generate full schemas (not just request bodies)
+    const result = generateOpenAPIZodSchemas(document, operations);
 
     return {
-      filename: "types.ts",
+      filename: "schema.ts",
       content: result.content,
       warnings: result.warnings,
     };
@@ -111,9 +98,7 @@ class OpenAPIAdapterImpl implements IOpenAPIAdapter {
     );
 
     // Generate schemas to get the schema strings for default value generation
-    const schemasResult = generateOpenAPIZodSchemas(document, mutations, {
-      requestBodiesOnly: true,
-    });
+    const schemasResult = generateOpenAPIZodSchemas(document, mutations);
 
     // Build mutation info for form generation
     const mutationOps = mutations.map((op) => {

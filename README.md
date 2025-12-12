@@ -298,7 +298,7 @@ generates: {
   query: {
     files: {
       client: "api-client.ts",      // default: "client.ts"
-      types: "api-types.ts",        // default: "types.ts"
+      types: "api-types.ts",        // default: "types.ts" (GraphQL only)
       operations: "api-ops.ts",     // default: "operations.ts"
     },
   },
@@ -307,8 +307,15 @@ generates: {
       forms: "user-forms.ts",       // default: "forms.ts"
     },
   },
+  zod: {
+    files: {
+      schema: "types.ts",           // default: "schema.ts"
+    },
+  },
 }
 ```
+
+**Note:** The `zod.files.schema` option controls the Zod schema filename in `zod/<source>/`. This is generated automatically for OpenAPI sources and for GraphQL sources when form generation is enabled.
 
 ### GraphQL Source Options
 
@@ -360,19 +367,23 @@ Generated files are organized by generator type and source name:
 
 ```
 src/generated/
+├── zod/
+│   └── rest-api/          # Zod schemas (OpenAPI always, GraphQL when form enabled)
+│       └── schema.ts      # Zod schemas + inferred TypeScript types
 ├── query/
 │   ├── graphql/           # GraphQL source output
 │   │   ├── client.ts      # graphql-request client
-│   │   ├── types.ts       # TypeScript types
+│   │   ├── types.ts       # TypeScript types (from schema)
 │   │   └── operations.ts  # TanStack Query helpers
 │   └── rest-api/          # OpenAPI source output
 │       ├── client.ts      # better-fetch client
-│       ├── types.ts       # Zod schemas + TypeScript types
-│       └── operations.ts  # TanStack Query helpers
+│       └── operations.ts  # TanStack Query helpers (imports from zod/)
 └── form/
-    └── rest-api/          # OpenAPI source with form generation
-        └── forms.ts       # TanStack Form helpers
+    └── rest-api/          # Source with form generation
+        └── forms.ts       # TanStack Form helpers (imports from zod/)
 ```
+
+**Note:** OpenAPI sources generate Zod schemas in `zod/<source>/schema.ts` which are used by both query operations and form options. GraphQL sources only generate Zod schemas when form generation is enabled.
 
 ### Default Scalar Mappings (GraphQL)
 
@@ -468,35 +479,7 @@ export const createUserMutationOptions = () =>
 
 ### OpenAPI Output
 
-#### `client.ts`
-
-A configured `better-fetch` client with path/query helpers:
-
-```typescript
-import { createFetch } from "@better-fetch/fetch";
-
-const baseURL = "https://api.example.com/v1";
-
-export const $fetch = createFetch({
-  baseURL,
-  // Customize headers, retry logic, etc.
-});
-
-export function buildPath(
-  template: string,
-  params: Record<string, string | number>
-): string {
-  // Substitutes {param} placeholders in URL templates
-}
-
-export function buildQuery(
-  params: Record<string, string | number | boolean | undefined>
-): string {
-  // Builds query strings from params objects
-}
-```
-
-#### `types.ts`
+#### `zod/<source>/schema.ts`
 
 Zod schemas and TypeScript types from OpenAPI components:
 
@@ -527,9 +510,37 @@ export type ListUsersParams = {
 };
 ```
 
-#### `operations.ts`
+#### `query/<source>/client.ts`
 
-TanStack Query helpers using better-fetch:
+A configured `better-fetch` client with path/query helpers:
+
+```typescript
+import { createFetch } from "@better-fetch/fetch";
+
+const baseURL = "https://api.example.com/v1";
+
+export const $fetch = createFetch({
+  baseURL,
+  // Customize headers, retry logic, etc.
+});
+
+export function buildPath(
+  template: string,
+  params: Record<string, string | number>
+): string {
+  // Substitutes {param} placeholders in URL templates
+}
+
+export function buildQuery(
+  params: Record<string, string | number | boolean | undefined>
+): string {
+  // Builds query strings from params objects
+}
+```
+
+#### `query/<source>/operations.ts`
+
+TanStack Query helpers using better-fetch (imports from `zod/<source>/schema.ts`):
 
 ```typescript
 export const listUsersQueryOptions = (params: ListUsersParams) =>
@@ -657,21 +668,22 @@ When you run `tangen generate`, it creates:
 
 ```
 src/generated/
+├── zod/api/
+│   └── schema.ts      # Zod schemas for all types
 ├── query/api/
 │   ├── client.ts
-│   ├── types.ts       # Zod schemas for all types
-│   └── operations.ts
+│   └── operations.ts  # imports from zod/api/schema
 └── form/api/
-    └── forms.ts       # formOptions for each mutation
+    └── forms.ts       # formOptions (imports from zod/api/schema)
 ```
 
-#### `form/{source}/forms.ts`
+#### `form/<source>/forms.ts`
 
 Ready-to-use `formOptions` with validation and default values:
 
 ```typescript
 import { formOptions } from "@tanstack/react-form";
-import { createUserRequestSchema } from "../../query/api/types";
+import { createUserRequestSchema } from "../../zod/api/schema";
 
 export const createUserFormOptions = formOptions({
   defaultValues: {

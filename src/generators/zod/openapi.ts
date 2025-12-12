@@ -34,8 +34,6 @@ interface OpenAPIZodContext extends ZodGenContext {
 export interface OpenAPIZodOptions {
   /** Only generate schemas for these operations (by operationId) */
   operationIds?: string[];
-  /** Only generate request body schemas (for form usage) */
-  requestBodiesOnly?: boolean;
 }
 
 /**
@@ -81,7 +79,7 @@ export function generateOpenAPIZodSchemas(
   }
 
   // Collect all schemas used by operations
-  const usedSchemas = collectUsedSchemas(targetOperations, ctx, options);
+  const usedSchemas = collectUsedSchemas(targetOperations, ctx);
 
   // Generate Zod schemas for used component schemas (in dependency order)
   for (const schemaName of usedSchemas) {
@@ -94,7 +92,7 @@ export function generateOpenAPIZodSchemas(
   processPendingSchemas(ctx);
 
   // Generate inline schemas for request/response types
-  generateOperationSchemas(targetOperations, ctx, options);
+  generateOperationSchemas(targetOperations, ctx);
 
   return {
     content: buildZodOutput(ctx),
@@ -108,7 +106,6 @@ export function generateOpenAPIZodSchemas(
 function collectUsedSchemas(
   operations: ParsedOperation[],
   ctx: OpenAPIZodContext,
-  options: OpenAPIZodOptions,
 ): Set<string> {
   const usedSchemas = new Set<string>();
 
@@ -118,17 +115,15 @@ function collectUsedSchemas(
       collectSchemaRefs(op.requestBody, usedSchemas, ctx.namedSchemas);
     }
 
-    // Collect from response (unless requestBodiesOnly)
-    if (op.responseSchema && !options.requestBodiesOnly) {
+    // Collect from response
+    if (op.responseSchema) {
       collectSchemaRefs(op.responseSchema, usedSchemas, ctx.namedSchemas);
     }
 
-    // Collect from parameters (unless requestBodiesOnly)
-    if (!options.requestBodiesOnly) {
-      for (const param of [...op.pathParams, ...op.queryParams]) {
-        if (param.schema && !("$ref" in param.schema)) {
-          collectSchemaRefs(param.schema, usedSchemas, ctx.namedSchemas);
-        }
+    // Collect from parameters
+    for (const param of [...op.pathParams, ...op.queryParams]) {
+      if (param.schema && !("$ref" in param.schema)) {
+        collectSchemaRefs(param.schema, usedSchemas, ctx.namedSchemas);
       }
     }
   }
@@ -223,7 +218,6 @@ function generateZodSchema(
 function generateOperationSchemas(
   operations: ParsedOperation[],
   ctx: OpenAPIZodContext,
-  options: OpenAPIZodOptions,
 ): void {
   for (const op of operations) {
     const baseName = toPascalCase(op.operationId);
@@ -241,8 +235,8 @@ function generateOperationSchemas(
       }
     }
 
-    // Generate response schema if present (unless requestBodiesOnly)
-    if (op.responseSchema && !options.requestBodiesOnly) {
+    // Generate response schema if present
+    if (op.responseSchema) {
       const responseName = `${baseName}Response`;
       if (!ctx.generatedSchemas.has(responseName)) {
         const zodType = schemaToZod(op.responseSchema, ctx, responseName);
@@ -254,15 +248,13 @@ function generateOperationSchemas(
       }
     }
 
-    // Generate params schema if there are path/query params (unless requestBodiesOnly)
-    if (!options.requestBodiesOnly) {
-      const allParams = [...op.pathParams, ...op.queryParams];
-      if (allParams.length > 0) {
-        const paramsName = `${baseName}Params`;
-        if (!ctx.generatedSchemas.has(paramsName)) {
-          const paramsZod = generateParamsSchema(allParams, ctx);
-          addSchemaToContext(ctx, paramsName, paramsZod);
-        }
+    // Generate params schema if there are path/query params
+    const allParams = [...op.pathParams, ...op.queryParams];
+    if (allParams.length > 0) {
+      const paramsName = `${baseName}Params`;
+      if (!ctx.generatedSchemas.has(paramsName)) {
+        const paramsZod = generateParamsSchema(allParams, ctx);
+        addSchemaToContext(ctx, paramsName, paramsZod);
       }
     }
   }

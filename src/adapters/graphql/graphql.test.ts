@@ -369,11 +369,9 @@ describe("generateSchemas", () => {
       },
     };
 
-    const result = graphqlAdapter.generateSchemas(schema, testConfig, {
-      mutationsOnly: true,
-    });
+    const result = graphqlAdapter.generateSchemas(schema, testConfig, {});
 
-    expect(result.filename).toBe("types.ts");
+    expect(result.filename).toBe("schema.ts");
     expect(result.content).toContain("import * as z from");
     expect(result.content).toContain("createUserInputSchema");
     expect(result.content).toContain("z.object({");

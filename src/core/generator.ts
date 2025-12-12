@@ -7,12 +7,14 @@ import consola from "consola";
 import { getAdapter } from "@/adapters";
 import { normalizeGenerates } from "./config";
 
+import type { GraphQLAdapter, GraphQLAdapterSchema } from "@/adapters/types";
 import type {
   FormFilesConfig,
   GraphQLSourceConfig,
   QueryFilesConfig,
   SourceConfig,
   TangenConfig,
+  ZodFilesConfig,
 } from "./config";
 
 export interface GenerateOptions {
@@ -57,42 +59,83 @@ export async function generate(
   const generatedOutputs: string[] = [];
 
   // Track what was generated
+  const zodSourceNames: string[] = [];
   const querySourceNames: string[] = [];
   const formSourceNames: string[] = [];
 
   // Process each source
   for (const source of config.sources) {
     const generates = normalizeGenerates(source.generates);
+    const baseOutputDir = join(process.cwd(), config.output);
 
-    // Generate query code if enabled
-    if (generates.query) {
-      await generateQueryForSource({
+    // Load schema once per source
+    const adapter = getAdapter(source.type);
+    let schema: unknown;
+    const cacheKey = `source:${source.name}`;
+
+    if (cachedSchemas?.has(cacheKey)) {
+      consola.info(`\nUsing cached schema for: ${source.name}`);
+      schema = cachedSchemas.get(cacheKey);
+    } else {
+      consola.info(`\nLoading schema for: ${source.name} (${source.type})`);
+      schema = await adapter.loadSchema(source);
+      consola.success("Schema loaded");
+    }
+
+    // Cache the schema
+    generatedSchemas.set(cacheKey, schema);
+
+    // Determine if we need to generate Zod schemas
+    // - OpenAPI: Always (Zod is the primary type system)
+    // - GraphQL: Only when form generation is enabled
+    const needsZodSchemas =
+      source.type === "openapi" ||
+      (source.type === "graphql" && generates.form);
+
+    // Track paths for import resolution
+    let zodSchemaPath: string | undefined;
+
+    // Step 1: Generate Zod schemas if needed
+    if (needsZodSchemas) {
+      zodSchemaPath = await generateZodSchemas({
         source,
-        outputDir: config.output,
+        baseOutputDir,
+        files: generates.zod.files,
+        schema,
+      });
+      zodSourceNames.push(source.name);
+    }
+
+    // Step 2: Generate query files if enabled
+    if (generates.query) {
+      await generateQueryFiles({
+        source,
+        baseOutputDir,
         files: generates.query.files,
+        schema,
         force,
-        cachedSchema: cachedSchemas?.get(`query:${source.name}`),
-        generatedSchemas,
-        cacheKeyPrefix: "query:",
+        zodSchemaPath,
       });
       querySourceNames.push(source.name);
     }
 
-    // Generate form code if enabled
-    if (generates.form) {
-      await generateFormForSource({
+    // Step 3: Generate form files if enabled
+    if (generates.form && zodSchemaPath) {
+      await generateFormFiles({
         source,
-        outputDir: config.output,
+        baseOutputDir,
         files: generates.form.files,
-        cachedSchema: cachedSchemas?.get(`form:${source.name}`),
-        generatedSchemas,
-        cacheKeyPrefix: "form:",
+        schema,
+        zodSchemaPath,
       });
       formSourceNames.push(source.name);
     }
   }
 
   // Build output summary
+  if (zodSourceNames.length > 0) {
+    generatedOutputs.push(`zod (${zodSourceNames.join(", ")})`);
+  }
   if (querySourceNames.length > 0) {
     generatedOutputs.push(`query (${querySourceNames.join(", ")})`);
   }
@@ -111,60 +154,92 @@ export async function generate(
   return { schemas: generatedSchemas };
 }
 
-interface GenerateQueryForSourceOptions {
+// =============================================================================
+// Zod Schema Generation
+// =============================================================================
+
+interface GenerateZodSchemasOptions {
   source: SourceConfig;
-  outputDir: string;
-  files: QueryFilesConfig;
-  force: boolean;
-  cachedSchema?: unknown;
-  generatedSchemas: Map<string, unknown>;
-  cacheKeyPrefix: string;
+  baseOutputDir: string;
+  files: ZodFilesConfig;
+  schema: unknown;
 }
 
 /**
- * Generate query code for a single source
+ * Generate Zod schemas for a source
+ * Outputs to: zod/<source-name>/schema.ts
+ * Returns the absolute path to the generated schema file
  */
-async function generateQueryForSource(
-  options: GenerateQueryForSourceOptions,
-): Promise<void> {
-  const {
-    source,
-    outputDir,
-    files,
-    force,
-    cachedSchema,
-    generatedSchemas,
-    cacheKeyPrefix,
-  } = options;
+async function generateZodSchemas(
+  options: GenerateZodSchemasOptions,
+): Promise<string> {
+  const { source, baseOutputDir, files, schema } = options;
 
-  consola.info(`\nProcessing query source: ${source.name} (${source.type})`);
+  consola.info(`Generating Zod schemas for: ${source.name}`);
 
-  // Get the adapter for this source type
   const adapter = getAdapter(source.type);
-
-  // Always output to query/<source-name>/ for consistency
-  const baseOutputDir = join(process.cwd(), outputDir);
-  const sourceOutputDir = join(baseOutputDir, "query", source.name);
+  const zodOutputDir = join(baseOutputDir, "zod", source.name);
 
   // Ensure output directory exists
-  await mkdir(sourceOutputDir, { recursive: true });
+  await mkdir(zodOutputDir, { recursive: true });
 
-  // Step 1: Load schema (or use cached)
-  let schema: unknown;
-  if (cachedSchema) {
-    consola.info("Using cached schema...");
-    schema = cachedSchema;
-  } else {
-    consola.info("Loading schema...");
-    schema = await adapter.loadSchema(source);
-    consola.success("Schema loaded");
+  // Generate Zod schemas
+  const schemaGenOptions = {
+    scalars: getScalarsFromSource(source),
+  };
+  const result = adapter.generateSchemas(schema, source, schemaGenOptions);
+
+  // Log any warnings
+  if (result.warnings) {
+    for (const warning of result.warnings) {
+      consola.warn(warning);
+    }
   }
 
-  // Store schema for caching
-  generatedSchemas.set(`${cacheKeyPrefix}${source.name}`, schema);
+  const schemaPath = join(zodOutputDir, files.schema);
+  await writeFile(schemaPath, result.content, "utf-8");
+  consola.success(`Generated zod/${source.name}/${files.schema}`);
 
-  // Step 2: Generate client (only if it doesn't exist or force is true)
-  const clientPath = join(sourceOutputDir, files.client);
+  return schemaPath;
+}
+
+// =============================================================================
+// Query Generation
+// =============================================================================
+
+interface GenerateQueryFilesOptions {
+  source: SourceConfig;
+  baseOutputDir: string;
+  files: QueryFilesConfig;
+  schema: unknown;
+  force: boolean;
+  /** Path to Zod schema file (for OpenAPI - types come from here) */
+  zodSchemaPath?: string;
+}
+
+/**
+ * Generate query files for a source
+ * Outputs to: query/<source-name>/
+ *   - client.ts
+ *   - types.ts (GraphQL only - OpenAPI uses zod schemas)
+ *   - operations.ts
+ */
+async function generateQueryFiles(
+  options: GenerateQueryFilesOptions,
+): Promise<void> {
+  const { source, baseOutputDir, files, schema, force, zodSchemaPath } =
+    options;
+
+  consola.info(`Generating query files for: ${source.name}`);
+
+  const adapter = getAdapter(source.type);
+  const queryOutputDir = join(baseOutputDir, "query", source.name);
+
+  // Ensure output directory exists
+  await mkdir(queryOutputDir, { recursive: true });
+
+  // Step 1: Generate client (only if it doesn't exist or force is true)
+  const clientPath = join(queryOutputDir, files.client);
   const clientExists = await fileExists(clientPath);
 
   if (clientExists && !force) {
@@ -172,33 +247,50 @@ async function generateQueryForSource(
       `Skipping ${files.client} (already exists, use --force to regenerate)`,
     );
   } else {
-    consola.info("Generating client...");
     const clientResult = adapter.generateClient(schema, source);
     await writeFile(clientPath, clientResult.content, "utf-8");
-    consola.success(`Generated ${files.client}`);
+    consola.success(`Generated query/${source.name}/${files.client}`);
   }
 
-  // Step 3: Generate types
-  consola.info("Generating types...");
-  const typeGenOptions = {
-    scalars: getScalarsFromSource(source),
-  };
-  const typesResult = adapter.generateTypes(schema, source, typeGenOptions);
+  // Step 2: Determine types path
+  // - GraphQL: Generate types.ts in query/<source>/
+  // - OpenAPI: Use zod/<source>/schema.ts
+  let typesPath: string;
 
-  // Log any warnings
-  if (typesResult.warnings) {
-    for (const warning of typesResult.warnings) {
-      consola.warn(warning);
+  if (source.type === "graphql") {
+    // GraphQL generates TypeScript types
+    const graphqlAdapter = adapter as GraphQLAdapter;
+    const typeGenOptions = {
+      scalars: getScalarsFromSource(source),
+    };
+    const typesResult = graphqlAdapter.generateTypes(
+      schema as GraphQLAdapterSchema,
+      source,
+      typeGenOptions,
+    );
+
+    // Log any warnings
+    if (typesResult.warnings) {
+      for (const warning of typesResult.warnings) {
+        consola.warn(warning);
+      }
     }
+
+    typesPath = join(queryOutputDir, files.types);
+    await writeFile(typesPath, typesResult.content, "utf-8");
+    consola.success(`Generated query/${source.name}/${files.types}`);
+  } else {
+    // OpenAPI uses Zod schemas from zod/<source>/schema.ts
+    if (!zodSchemaPath) {
+      throw new Error(
+        `OpenAPI source "${source.name}" requires Zod schemas but none were generated`,
+      );
+    }
+    typesPath = zodSchemaPath;
   }
 
-  const typesPath = join(sourceOutputDir, files.types);
-  await writeFile(typesPath, typesResult.content, "utf-8");
-  consola.success(`Generated ${files.types}`);
-
-  // Step 4: Generate operations
-  consola.info("Generating operations...");
-  const operationsPath = join(sourceOutputDir, files.operations);
+  // Step 3: Generate operations
+  const operationsPath = join(queryOutputDir, files.operations);
 
   // Calculate relative import paths
   const operationsDir = dirname(operationsPath);
@@ -211,96 +303,44 @@ async function generateQueryForSource(
     sourceName: source.name,
   });
   await writeFile(operationsPath, operationsResult.content, "utf-8");
-  consola.success(`Generated ${files.operations}`);
-
-  // Log source generation complete
-  consola.success(`Query source "${source.name}" complete`);
+  consola.success(`Generated query/${source.name}/${files.operations}`);
 }
 
-interface GenerateFormForSourceOptions {
+// =============================================================================
+// Form Generation
+// =============================================================================
+
+interface GenerateFormFilesOptions {
   source: SourceConfig;
-  outputDir: string;
+  baseOutputDir: string;
   files: FormFilesConfig;
-  cachedSchema?: unknown;
-  generatedSchemas: Map<string, unknown>;
-  cacheKeyPrefix: string;
+  schema: unknown;
+  zodSchemaPath: string;
 }
 
 /**
- * Generate form code for a single source
+ * Generate form files for a source
+ * Outputs to: form/<source-name>/forms.ts
  */
-async function generateFormForSource(
-  options: GenerateFormForSourceOptions,
+async function generateFormFiles(
+  options: GenerateFormFilesOptions,
 ): Promise<void> {
-  const {
-    source,
-    outputDir,
-    files,
-    cachedSchema,
-    generatedSchemas,
-    cacheKeyPrefix,
-  } = options;
+  const { source, baseOutputDir, files, schema, zodSchemaPath } = options;
 
-  consola.info(`\nProcessing form source: ${source.name} (${source.type})`);
+  consola.info(`Generating form files for: ${source.name}`);
 
-  // Get the adapter for this source type
   const adapter = getAdapter(source.type);
-
-  // Output structure:
-  // - schema/<source-name>/types.ts (Zod schemas)
-  // - form/<source-name>/forms.ts (form options)
-  const baseOutputDir = join(process.cwd(), outputDir);
-  const schemaOutputDir = join(baseOutputDir, "schema", source.name);
   const formOutputDir = join(baseOutputDir, "form", source.name);
 
-  // Ensure output directories exist
-  await mkdir(schemaOutputDir, { recursive: true });
+  // Ensure output directory exists
   await mkdir(formOutputDir, { recursive: true });
 
-  // Step 1: Load schema (or use cached)
-  let schema: unknown;
-  if (cachedSchema) {
-    consola.info("Using cached schema...");
-    schema = cachedSchema;
-  } else {
-    consola.info("Loading schema...");
-    schema = await adapter.loadSchema(source);
-    consola.success("Schema loaded");
-  }
-
-  // Store schema for caching
-  generatedSchemas.set(`${cacheKeyPrefix}${source.name}`, schema);
-
-  // Step 2: Generate Zod schemas (for mutations only)
-  consola.info("Generating Zod schemas...");
-  const schemaGenOptions = {
-    scalars: getScalarsFromSource(source),
-    mutationsOnly: true,
-  };
-  const schemasResult = adapter.generateSchemas(
-    schema,
-    source,
-    schemaGenOptions,
-  );
-
-  // Log any warnings
-  if (schemasResult.warnings) {
-    for (const warning of schemasResult.warnings) {
-      consola.warn(warning);
-    }
-  }
-
-  const schemaPath = join(schemaOutputDir, "types.ts");
-  await writeFile(schemaPath, schemasResult.content, "utf-8");
-  consola.success("Generated schema/types.ts");
-
-  // Step 3: Generate form options
-  consola.info("Generating form options...");
+  // Generate form options
   const formsPath = join(formOutputDir, files.forms);
 
-  // Calculate relative import path from forms to schema
+  // Calculate relative import path from forms to zod schema
   const formsDir = dirname(formsPath);
-  const schemaImportPath = `./${relative(formsDir, schemaPath).replace(/\.ts$/, "")}`;
+  const schemaImportPath = `./${relative(formsDir, zodSchemaPath).replace(/\.ts$/, "")}`;
 
   const formResult = adapter.generateFormOptions(schema, source, {
     schemaImportPath,
@@ -315,11 +355,12 @@ async function generateFormForSource(
   }
 
   await writeFile(formsPath, formResult.content, "utf-8");
-  consola.success(`Generated form/${files.forms}`);
-
-  // Log source generation complete
-  consola.success(`Form source "${source.name}" complete`);
+  consola.success(`Generated form/${source.name}/${files.forms}`);
 }
+
+// =============================================================================
+// Utilities
+// =============================================================================
 
 /**
  * Extract scalars configuration from a source (if applicable)
