@@ -3,7 +3,7 @@ import { basename } from "node:path";
 import { defineCommand } from "citty";
 import consola from "consola";
 
-import { loadTangenConfig } from "../../core/config";
+import { loadTangenConfig, sourceGeneratesQuery } from "../../core/config";
 import { generate } from "../../core/generator";
 import {
   clearConsole,
@@ -15,7 +15,6 @@ import type { DotenvOptions } from "c12";
 import type {
   GraphQLSourceConfig,
   OpenAPISourceConfig,
-  QueryConfig,
   TangenConfig,
 } from "../../core/config";
 import type { GenerateResult } from "../../core/generator";
@@ -42,12 +41,13 @@ function getDotenvOptions(args: {
 }
 
 /**
- * Get all document patterns from GraphQL sources
+ * Get all document patterns from GraphQL sources that generate query code
  */
-function getDocumentPatterns(queryConfig: QueryConfig): string[] {
+function getDocumentPatterns(config: TangenConfig): string[] {
   const patterns: string[] = [];
-  for (const source of queryConfig.sources) {
-    if (source.type === "graphql") {
+  for (const source of config.sources) {
+    // Only watch GraphQL sources that generate query code
+    if (source.type === "graphql" && sourceGeneratesQuery(source)) {
       const graphqlSource = source as GraphQLSourceConfig;
       const docs = graphqlSource.documents;
       if (Array.isArray(docs)) {
@@ -70,9 +70,9 @@ function isUrl(path: string): boolean {
 /**
  * Get all local OpenAPI spec files from sources
  */
-function getOpenAPISpecFiles(queryConfig: QueryConfig): string[] {
+function getOpenAPISpecFiles(config: TangenConfig): string[] {
   const files: string[] = [];
-  for (const source of queryConfig.sources) {
+  for (const source of config.sources) {
     if (source.type === "openapi") {
       const openApiSource = source as OpenAPISourceConfig;
       // Only watch local files, not URLs
@@ -146,11 +146,11 @@ async function runWatchMode(options: {
   let { configPath, config, dotenv, force } = options;
   let cachedSchemas: Map<string, unknown> | undefined;
 
-  // Get document patterns for GraphQL sources (query config is validated to exist)
-  let documentPatterns = config.query ? getDocumentPatterns(config.query) : [];
+  // Get document patterns for GraphQL sources
+  let documentPatterns = getDocumentPatterns(config);
 
   // Get local OpenAPI spec files to watch
-  let specFiles = config.query ? getOpenAPISpecFiles(config.query) : [];
+  let specFiles = getOpenAPISpecFiles(config);
 
   // Initial generation
   clearConsole();
@@ -190,8 +190,8 @@ async function runWatchMode(options: {
       });
       config = result.config;
       configPath = result.configPath;
-      documentPatterns = config.query ? getDocumentPatterns(config.query) : [];
-      specFiles = config.query ? getOpenAPISpecFiles(config.query) : [];
+      documentPatterns = getDocumentPatterns(config);
+      specFiles = getOpenAPISpecFiles(config);
 
       // Re-introspect schema since config may have changed
       const genResult = await runGeneration({ config, force });
@@ -201,7 +201,7 @@ async function runWatchMode(options: {
         configPath,
         documentPatterns,
         documentCount: watcher.getWatchedDocuments().length,
-        sourceCount: config.query?.sources.length ?? 0,
+        sourceCount: config.sources.length,
         specFiles,
       });
     } catch (error) {
@@ -236,7 +236,7 @@ async function runWatchMode(options: {
         configPath,
         documentPatterns,
         documentCount: watcher.getWatchedDocuments().length,
-        sourceCount: config.query?.sources.length ?? 0,
+        sourceCount: config.sources.length,
         specFiles,
       });
     } catch (error) {
@@ -266,7 +266,7 @@ async function runWatchMode(options: {
         configPath,
         documentPatterns,
         documentCount: watcher.getWatchedDocuments().length,
-        sourceCount: config.query?.sources.length ?? 0,
+        sourceCount: config.sources.length,
         specFiles,
       });
     } catch (error) {
@@ -323,7 +323,7 @@ async function runWatchMode(options: {
     configPath,
     documentPatterns,
     documentCount: watcher.getWatchedDocuments().length,
-    sourceCount: config.query?.sources.length ?? 0,
+    sourceCount: config.sources.length,
     specFiles,
   });
 

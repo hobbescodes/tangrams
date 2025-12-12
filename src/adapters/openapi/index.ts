@@ -5,18 +5,24 @@
  * Handles spec loading, Zod schema generation, and code generation.
  */
 
+import {
+  generateFormOptionsCode,
+  getOpenAPIRequestSchemaName,
+} from "@/generators/forms";
+import { generateOpenAPIZodSchemas } from "@/generators/zod/openapi";
 import { generateOpenAPIClient } from "./client";
 import { generateOpenAPIOperations } from "./operations";
-import { loadOpenAPISpec } from "./schema";
+import { extractOperations, loadOpenAPISpec } from "./schema";
 import { generateOpenAPITypes } from "./types";
 
 import type { OpenAPISourceConfig } from "@/core/config";
 import type {
+  FormGenOptions,
   GeneratedFile,
-  GenerationContext,
   OpenAPIAdapter as IOpenAPIAdapter,
   OpenAPIAdapterSchema,
   OperationGenOptions,
+  SchemaGenOptions,
   TypeGenOptions,
 } from "../types";
 
@@ -39,9 +45,8 @@ class OpenAPIAdapterImpl implements IOpenAPIAdapter {
   generateClient(
     schema: OpenAPIAdapterSchema,
     config: OpenAPISourceConfig,
-    context: GenerationContext,
   ): GeneratedFile {
-    return generateOpenAPIClient(schema, config, context);
+    return generateOpenAPIClient(schema, config);
   }
 
   /**
@@ -64,6 +69,82 @@ class OpenAPIAdapterImpl implements IOpenAPIAdapter {
     options: OperationGenOptions,
   ): GeneratedFile {
     return generateOpenAPIOperations(schema, config, options);
+  }
+
+  /**
+   * Generate Zod schemas for validation
+   */
+  generateSchemas(
+    schema: OpenAPIAdapterSchema,
+    _config: OpenAPISourceConfig,
+    options: SchemaGenOptions,
+  ): GeneratedFile {
+    const { document } = schema;
+    const operations = extractOperations(document);
+
+    const result = generateOpenAPIZodSchemas(document, operations, {
+      requestBodiesOnly: options.mutationsOnly,
+    });
+
+    return {
+      filename: "types.ts",
+      content: result.content,
+      warnings: result.warnings,
+    };
+  }
+
+  /**
+   * Generate TanStack Form options for mutations
+   */
+  generateFormOptions(
+    schema: OpenAPIAdapterSchema,
+    _config: OpenAPISourceConfig,
+    options: FormGenOptions,
+  ): GeneratedFile {
+    const { document } = schema;
+    const operations = extractOperations(document);
+
+    // Filter to mutations (POST, PUT, PATCH) with request bodies
+    const mutationMethods = new Set(["post", "put", "patch"]);
+    const mutations = operations.filter(
+      (op) => mutationMethods.has(op.method) && op.requestBody,
+    );
+
+    // Generate schemas to get the schema strings for default value generation
+    const schemasResult = generateOpenAPIZodSchemas(document, mutations, {
+      requestBodiesOnly: true,
+    });
+
+    // Build mutation info for form generation
+    const mutationOps = mutations.map((op) => {
+      const schemaName = getOpenAPIRequestSchemaName(op.operationId);
+      // Find the schema code - look for the schema definition in the generated schemas
+      const schemaMatch = schemasResult.content.match(
+        new RegExp(`export const ${schemaName} = ([^;]+)`),
+      );
+      const schemaCode = schemaMatch
+        ? schemaMatch[1] || "z.object({})"
+        : "z.object({})";
+
+      return {
+        operationId: op.operationId,
+        requestSchemaName: schemaName,
+        requestSchemaCode: schemaCode,
+      };
+    });
+
+    const result = generateFormOptionsCode(mutationOps, {
+      schemaImportPath: options.schemaImportPath,
+      allSchemas: schemasResult.content
+        .split("\n")
+        .filter((l) => l.startsWith("export const")),
+    });
+
+    return {
+      filename: "forms.ts",
+      content: result.content,
+      warnings: result.warnings,
+    };
   }
 }
 

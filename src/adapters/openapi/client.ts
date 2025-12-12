@@ -3,11 +3,7 @@
  * Generates a better-fetch client for OpenAPI endpoints
  */
 import type { OpenAPISourceConfig } from "@/core/config";
-import type {
-  GeneratedFile,
-  GenerationContext,
-  OpenAPIAdapterSchema,
-} from "../types";
+import type { GeneratedFile, OpenAPIAdapterSchema } from "../types";
 
 /**
  * Generate the OpenAPI client file using better-fetch
@@ -15,7 +11,6 @@ import type {
 export function generateOpenAPIClient(
   schema: OpenAPIAdapterSchema,
   _config: OpenAPISourceConfig,
-  _context: GenerationContext,
 ): GeneratedFile {
   const { baseUrl } = schema;
 

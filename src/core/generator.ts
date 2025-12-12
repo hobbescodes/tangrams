@@ -5,10 +5,12 @@ import { dirname, join, relative } from "node:path";
 import consola from "consola";
 
 import { getAdapter } from "@/adapters";
+import { normalizeGenerates } from "./config";
 
 import type {
+  FormFilesConfig,
   GraphQLSourceConfig,
-  QueryConfig,
+  QueryFilesConfig,
   SourceConfig,
   TangenConfig,
 } from "./config";
@@ -52,62 +54,90 @@ export async function generate(
 ): Promise<GenerateResult> {
   const { config, force = false, cachedSchemas } = options;
   const generatedSchemas = new Map<string, unknown>();
+  const generatedOutputs: string[] = [];
 
-  // Process query config if present
-  if (config.query) {
-    const { sources, files } = config.query;
+  // Track what was generated
+  const querySourceNames: string[] = [];
+  const formSourceNames: string[] = [];
 
-    // Process each source
-    for (const source of sources) {
-      await generateForSource({
+  // Process each source
+  for (const source of config.sources) {
+    const generates = normalizeGenerates(source.generates);
+
+    // Generate query code if enabled
+    if (generates.query) {
+      await generateQueryForSource({
         source,
-        queryConfig: config.query,
         outputDir: config.output,
-        files,
+        files: generates.query.files,
         force,
-        cachedSchema: cachedSchemas?.get(source.name),
+        cachedSchema: cachedSchemas?.get(`query:${source.name}`),
         generatedSchemas,
+        cacheKeyPrefix: "query:",
       });
+      querySourceNames.push(source.name);
     }
 
-    // Final success message
-    const sourceNames = sources.map((s) => s.name).join(", ");
+    // Generate form code if enabled
+    if (generates.form) {
+      await generateFormForSource({
+        source,
+        outputDir: config.output,
+        files: generates.form.files,
+        cachedSchema: cachedSchemas?.get(`form:${source.name}`),
+        generatedSchemas,
+        cacheKeyPrefix: "form:",
+      });
+      formSourceNames.push(source.name);
+    }
+  }
+
+  // Build output summary
+  if (querySourceNames.length > 0) {
+    generatedOutputs.push(`query (${querySourceNames.join(", ")})`);
+  }
+  if (formSourceNames.length > 0) {
+    generatedOutputs.push(`form (${formSourceNames.join(", ")})`);
+  }
+
+  // Final success message
+  if (generatedOutputs.length > 0) {
     consola.box({
       title: "Generation Complete",
-      message: `Generated code for sources: ${sourceNames}\nOutput directory: ${config.output}/query`,
+      message: `Generated: ${generatedOutputs.join(", ")}\nOutput directory: ${config.output}`,
     });
   }
 
   return { schemas: generatedSchemas };
 }
 
-interface GenerateForSourceOptions {
+interface GenerateQueryForSourceOptions {
   source: SourceConfig;
-  queryConfig: QueryConfig;
   outputDir: string;
-  files: QueryConfig["files"];
+  files: QueryFilesConfig;
   force: boolean;
   cachedSchema?: unknown;
   generatedSchemas: Map<string, unknown>;
+  cacheKeyPrefix: string;
 }
 
 /**
- * Generate code for a single source
+ * Generate query code for a single source
  */
-async function generateForSource(
-  options: GenerateForSourceOptions,
+async function generateQueryForSource(
+  options: GenerateQueryForSourceOptions,
 ): Promise<void> {
   const {
     source,
-    queryConfig,
     outputDir,
     files,
     force,
     cachedSchema,
     generatedSchemas,
+    cacheKeyPrefix,
   } = options;
 
-  consola.info(`\nProcessing source: ${source.name} (${source.type})`);
+  consola.info(`\nProcessing query source: ${source.name} (${source.type})`);
 
   // Get the adapter for this source type
   const adapter = getAdapter(source.type);
@@ -131,13 +161,7 @@ async function generateForSource(
   }
 
   // Store schema for caching
-  generatedSchemas.set(source.name, schema);
-
-  // Create generation context
-  const context = {
-    queryConfig,
-    outputDir: sourceOutputDir,
-  };
+  generatedSchemas.set(`${cacheKeyPrefix}${source.name}`, schema);
 
   // Step 2: Generate client (only if it doesn't exist or force is true)
   const clientPath = join(sourceOutputDir, files.client);
@@ -149,7 +173,7 @@ async function generateForSource(
     );
   } else {
     consola.info("Generating client...");
-    const clientResult = adapter.generateClient(schema, source, context);
+    const clientResult = adapter.generateClient(schema, source);
     await writeFile(clientPath, clientResult.content, "utf-8");
     consola.success(`Generated ${files.client}`);
   }
@@ -190,7 +214,111 @@ async function generateForSource(
   consola.success(`Generated ${files.operations}`);
 
   // Log source generation complete
-  consola.success(`Source "${source.name}" complete`);
+  consola.success(`Query source "${source.name}" complete`);
+}
+
+interface GenerateFormForSourceOptions {
+  source: SourceConfig;
+  outputDir: string;
+  files: FormFilesConfig;
+  cachedSchema?: unknown;
+  generatedSchemas: Map<string, unknown>;
+  cacheKeyPrefix: string;
+}
+
+/**
+ * Generate form code for a single source
+ */
+async function generateFormForSource(
+  options: GenerateFormForSourceOptions,
+): Promise<void> {
+  const {
+    source,
+    outputDir,
+    files,
+    cachedSchema,
+    generatedSchemas,
+    cacheKeyPrefix,
+  } = options;
+
+  consola.info(`\nProcessing form source: ${source.name} (${source.type})`);
+
+  // Get the adapter for this source type
+  const adapter = getAdapter(source.type);
+
+  // Output structure:
+  // - schema/<source-name>/types.ts (Zod schemas)
+  // - form/<source-name>/forms.ts (form options)
+  const baseOutputDir = join(process.cwd(), outputDir);
+  const schemaOutputDir = join(baseOutputDir, "schema", source.name);
+  const formOutputDir = join(baseOutputDir, "form", source.name);
+
+  // Ensure output directories exist
+  await mkdir(schemaOutputDir, { recursive: true });
+  await mkdir(formOutputDir, { recursive: true });
+
+  // Step 1: Load schema (or use cached)
+  let schema: unknown;
+  if (cachedSchema) {
+    consola.info("Using cached schema...");
+    schema = cachedSchema;
+  } else {
+    consola.info("Loading schema...");
+    schema = await adapter.loadSchema(source);
+    consola.success("Schema loaded");
+  }
+
+  // Store schema for caching
+  generatedSchemas.set(`${cacheKeyPrefix}${source.name}`, schema);
+
+  // Step 2: Generate Zod schemas (for mutations only)
+  consola.info("Generating Zod schemas...");
+  const schemaGenOptions = {
+    scalars: getScalarsFromSource(source),
+    mutationsOnly: true,
+  };
+  const schemasResult = adapter.generateSchemas(
+    schema,
+    source,
+    schemaGenOptions,
+  );
+
+  // Log any warnings
+  if (schemasResult.warnings) {
+    for (const warning of schemasResult.warnings) {
+      consola.warn(warning);
+    }
+  }
+
+  const schemaPath = join(schemaOutputDir, "types.ts");
+  await writeFile(schemaPath, schemasResult.content, "utf-8");
+  consola.success("Generated schema/types.ts");
+
+  // Step 3: Generate form options
+  consola.info("Generating form options...");
+  const formsPath = join(formOutputDir, files.forms);
+
+  // Calculate relative import path from forms to schema
+  const formsDir = dirname(formsPath);
+  const schemaImportPath = `./${relative(formsDir, schemaPath).replace(/\.ts$/, "")}`;
+
+  const formResult = adapter.generateFormOptions(schema, source, {
+    schemaImportPath,
+    sourceName: source.name,
+  });
+
+  // Log any warnings
+  if (formResult.warnings) {
+    for (const warning of formResult.warnings) {
+      consola.warn(warning);
+    }
+  }
+
+  await writeFile(formsPath, formResult.content, "utf-8");
+  consola.success(`Generated form/${files.forms}`);
+
+  // Log source generation complete
+  consola.success(`Form source "${source.name}" complete`);
 }
 
 /**

@@ -15,6 +15,7 @@ describe("OpenAPI Adapter", () => {
     name: "petstore",
     type: "openapi",
     spec: join(fixturesDir, "petstore.json"),
+    generates: ["query"],
   };
 
   describe("loadSchema", () => {
@@ -64,17 +65,7 @@ describe("OpenAPI Adapter", () => {
   describe("generateClient", () => {
     it("generates a better-fetch client", async () => {
       const schema = await openapiAdapter.loadSchema(testConfig);
-      const result = openapiAdapter.generateClient(schema, testConfig, {
-        queryConfig: {
-          sources: [testConfig],
-          files: {
-            client: "client.ts",
-            types: "types.ts",
-            operations: "operations.ts",
-          },
-        },
-        outputDir: "./generated/petstore",
-      });
+      const result = openapiAdapter.generateClient(schema, testConfig);
 
       expect(result.filename).toBe("client.ts");
       expect(result.content).toContain("@better-fetch/fetch");
@@ -150,6 +141,7 @@ describe("OpenAPI Schema Loading", () => {
       const config: OpenAPISourceConfig = {
         name: "petstore",
         type: "openapi",
+        generates: ["query"],
         spec: join(fixturesDir, "petstore.json"),
         include: ["/pets"],
       };
@@ -164,6 +156,7 @@ describe("OpenAPI Schema Loading", () => {
       const config: OpenAPISourceConfig = {
         name: "petstore",
         type: "openapi",
+        generates: ["query"],
         spec: join(fixturesDir, "petstore.json"),
         exclude: ["/pets/{petId}/vaccinations"],
       };
@@ -185,12 +178,14 @@ describe("Remote OpenAPI Spec Loading", () => {
       const httpConfig: OpenAPISourceConfig = {
         name: "remote-api",
         type: "openapi",
+        generates: ["query"],
         spec: "http://api.example.com/openapi.json",
       };
 
       const httpsConfig: OpenAPISourceConfig = {
         name: "remote-api",
         type: "openapi",
+        generates: ["query"],
         spec: "https://api.example.com/openapi.json",
       };
 
@@ -203,12 +198,14 @@ describe("Remote OpenAPI Spec Loading", () => {
       const localConfig: OpenAPISourceConfig = {
         name: "local-api",
         type: "openapi",
+        generates: ["query"],
         spec: "./openapi.yaml",
       };
 
       const absoluteConfig: OpenAPISourceConfig = {
         name: "local-api",
         type: "openapi",
+        generates: ["query"],
         spec: "/path/to/openapi.json",
       };
 
@@ -225,6 +222,7 @@ describe("Remote OpenAPI Spec Loading", () => {
       const config: OpenAPISourceConfig = {
         name: "petstore",
         type: "openapi",
+        generates: ["query"],
         spec: join(fixturesDir, "petstore.json"),
       };
 
@@ -257,6 +255,7 @@ describe("Remote OpenAPI Spec Loading", () => {
       const config: OpenAPISourceConfig = {
         name: "petstore",
         type: "openapi",
+        generates: ["query"],
         spec: join(fixturesDir, "petstore.json"),
       };
 
@@ -291,6 +290,7 @@ describe("Remote OpenAPI Spec Loading", () => {
       const config: OpenAPISourceConfig = {
         name: "petstore",
         type: "openapi",
+        generates: ["query"],
         spec: join(fixturesDir, "petstore.json"),
       };
 
@@ -321,6 +321,7 @@ describe("Remote OpenAPI Spec Loading", () => {
       const configWithHeaders: OpenAPISourceConfig = {
         name: "authenticated-api",
         type: "openapi",
+        generates: ["query"],
         spec: "https://api.example.com/openapi.json",
         headers: {
           Authorization: "Bearer secret-token",
@@ -343,6 +344,7 @@ describe("extractOperations", () => {
     const config: OpenAPISourceConfig = {
       name: "petstore",
       type: "openapi",
+      generates: ["query"],
       spec: join(fixturesDir, "petstore.json"),
     };
 
@@ -363,6 +365,7 @@ describe("extractOperations", () => {
     const config: OpenAPISourceConfig = {
       name: "petstore",
       type: "openapi",
+      generates: ["query"],
       spec: join(fixturesDir, "petstore.json"),
     };
 
@@ -385,6 +388,7 @@ describe("extractOperations", () => {
     const config: OpenAPISourceConfig = {
       name: "petstore",
       type: "openapi",
+      generates: ["query"],
       spec: join(fixturesDir, "petstore.json"),
     };
 
@@ -401,6 +405,7 @@ describe("extractOperations", () => {
     const config: OpenAPISourceConfig = {
       name: "petstore",
       type: "openapi",
+      generates: ["query"],
       spec: join(fixturesDir, "petstore.json"),
     };
 
@@ -652,6 +657,7 @@ describe("OpenAPI Types Generation Edge Cases", () => {
     const config: OpenAPISourceConfig = {
       name: "petstore",
       type: "openapi",
+      generates: ["query"],
       spec: join(fixturesDir, "petstore.json"),
     };
 
@@ -667,6 +673,7 @@ describe("OpenAPI Types Generation Edge Cases", () => {
     const config: OpenAPISourceConfig = {
       name: "petstore",
       type: "openapi",
+      generates: ["query"],
       spec: join(fixturesDir, "petstore.json"),
     };
 
@@ -682,6 +689,7 @@ describe("OpenAPI Types Generation Edge Cases", () => {
     const config: OpenAPISourceConfig = {
       name: "petstore",
       type: "openapi",
+      generates: ["query"],
       spec: join(fixturesDir, "petstore.json"),
     };
 
@@ -705,6 +713,7 @@ describe("OpenAPI Types Generation Edge Cases", () => {
     const config: OpenAPISourceConfig = {
       name: "empty",
       type: "openapi",
+      generates: ["query"],
       spec: "./empty.json",
     };
 
@@ -718,6 +727,7 @@ describe("OpenAPI Types Generation Edge Cases", () => {
     const config: OpenAPISourceConfig = {
       name: "petstore",
       type: "openapi",
+      generates: ["query"],
       spec: join(fixturesDir, "petstore.json"),
     };
 
@@ -732,6 +742,7 @@ describe("OpenAPI Types Generation Edge Cases", () => {
     const config: OpenAPISourceConfig = {
       name: "petstore",
       type: "openapi",
+      generates: ["query"],
       spec: join(fixturesDir, "petstore.json"),
     };
 
@@ -746,6 +757,7 @@ describe("OpenAPI Types Generation Edge Cases", () => {
     const config: OpenAPISourceConfig = {
       name: "petstore",
       type: "openapi",
+      generates: ["query"],
       spec: join(fixturesDir, "petstore.json"),
     };
 
@@ -760,6 +772,7 @@ describe("OpenAPI Types Generation Edge Cases", () => {
     const config: OpenAPISourceConfig = {
       name: "petstore",
       type: "openapi",
+      generates: ["query"],
       spec: join(fixturesDir, "petstore.json"),
     };
 
@@ -802,6 +815,7 @@ describe("OpenAPI Types Generation Edge Cases", () => {
     const config: OpenAPISourceConfig = {
       name: "test",
       type: "openapi",
+      generates: ["query"],
       spec: "./test.json",
     };
 
@@ -814,6 +828,7 @@ describe("OpenAPI Extended Types Generation", () => {
   const extendedConfig: OpenAPISourceConfig = {
     name: "petstore-extended",
     type: "openapi",
+    generates: ["query"],
     spec: join(fixturesDir, "petstore-extended.json"),
   };
 
@@ -910,6 +925,7 @@ describe("OpenAPI Extended Types Generation", () => {
     const config: OpenAPISourceConfig = {
       name: "record",
       type: "openapi",
+      generates: ["query"],
       spec: "./record.json",
     };
 
@@ -957,6 +973,7 @@ describe("OpenAPI Extended Types Generation", () => {
     const config: OpenAPISourceConfig = {
       name: "inferred",
       type: "openapi",
+      generates: ["query"],
       spec: "./inferred.json",
     };
 
@@ -993,6 +1010,7 @@ describe("OpenAPI Extended Types Generation", () => {
     const config: OpenAPISourceConfig = {
       name: "record",
       type: "openapi",
+      generates: ["query"],
       spec: "./record.json",
     };
 
@@ -1029,6 +1047,7 @@ describe("OpenAPI Extended Types Generation", () => {
     const config: OpenAPISourceConfig = {
       name: "passthrough",
       type: "openapi",
+      generates: ["query"],
       spec: "./passthrough.json",
     };
 
@@ -1072,6 +1091,7 @@ describe("OpenAPI Extended Types Generation", () => {
     const config: OpenAPISourceConfig = {
       name: "singleAllOf",
       type: "openapi",
+      generates: ["query"],
       spec: "./singleAllOf.json",
     };
 
@@ -1110,6 +1130,7 @@ describe("OpenAPI Extended Types Generation", () => {
     const config: OpenAPISourceConfig = {
       name: "singleOneOf",
       type: "openapi",
+      generates: ["query"],
       spec: "./singleOneOf.json",
     };
 
@@ -1148,6 +1169,7 @@ describe("OpenAPI Extended Types Generation", () => {
     const config: OpenAPISourceConfig = {
       name: "singleAnyOf",
       type: "openapi",
+      generates: ["query"],
       spec: "./singleAnyOf.json",
     };
 
@@ -1189,6 +1211,7 @@ describe("OpenAPI Operations Generation Edge Cases", () => {
     const config: OpenAPISourceConfig = {
       name: "petstore",
       type: "openapi",
+      generates: ["query"],
       spec: join(fixturesDir, "petstore.json"),
     };
 
@@ -1208,6 +1231,7 @@ describe("OpenAPI Operations Generation Edge Cases", () => {
     const config: OpenAPISourceConfig = {
       name: "petstore",
       type: "openapi",
+      generates: ["query"],
       spec: join(fixturesDir, "petstore.json"),
     };
 
@@ -1227,6 +1251,7 @@ describe("OpenAPI Operations Generation Edge Cases", () => {
     const config: OpenAPISourceConfig = {
       name: "petstore",
       type: "openapi",
+      generates: ["query"],
       spec: join(fixturesDir, "petstore.json"),
     };
 

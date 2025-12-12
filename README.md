@@ -18,7 +18,7 @@ Currently supporting **TanStack Query** with more integrations on the way.
 ## Features
 
 - **TanStack Query** - Generate type-safe `queryOptions` and `mutationOptions` from your GraphQL operations or OpenAPI specs
-- **TanStack Form** - Generate type-safe form hooks and validation from your schema's input types _(coming soon)_
+- **TanStack Form** - Generate type-safe `formOptions` with Zod validation schemas from your mutations
 - **TanStack DB** - Generate collection definitions from your schema _(coming soon)_
 - **TanStack Pacer** - Generate rate-limited operation wrappers _(coming soon)_
 
@@ -78,18 +78,17 @@ bun add @tanstack/react-query @better-fetch/fetch zod
    import { defineConfig } from "tangen";
 
    export default defineConfig({
-     query: {
-       sources: [
-         {
-           name: "graphql",
-           type: "graphql",
-           schema: {
-             url: "http://localhost:4000/graphql",
-           },
-           documents: "./src/graphql/**/*.graphql",
+     sources: [
+       {
+         name: "graphql",
+         type: "graphql",
+         schema: {
+           url: "http://localhost:4000/graphql",
          },
-       ],
-     },
+         documents: "./src/graphql/**/*.graphql",
+         generates: ["query"],
+       },
+     ],
    });
    ```
 
@@ -99,20 +98,19 @@ bun add @tanstack/react-query @better-fetch/fetch zod
    import { defineConfig } from "tangen";
 
    export default defineConfig({
-     query: {
-       sources: [
-         {
-           name: "graphql",
-           type: "graphql",
-           schema: {
-             file: "./schema.graphql",
-             // Or use glob patterns for multiple files:
-             // file: ["./schema.graphql", "./extensions/**/*.graphql"],
-           },
-           documents: "./src/graphql/**/*.graphql",
+     sources: [
+       {
+         name: "graphql",
+         type: "graphql",
+         schema: {
+           file: "./schema.graphql",
+           // Or use glob patterns for multiple files:
+           // file: ["./schema.graphql", "./extensions/**/*.graphql"],
          },
-       ],
-     },
+         documents: "./src/graphql/**/*.graphql",
+         generates: ["query"],
+       },
+     ],
    });
    ```
 
@@ -193,18 +191,17 @@ bun add @tanstack/react-query @better-fetch/fetch zod
    import { defineConfig } from "tangen";
 
    export default defineConfig({
-     query: {
-       sources: [
-         {
-           name: "api",
-           type: "openapi",
-           spec: "./openapi.yaml", // or a remote URL
-           // Optional: filter paths
-           // include: ["/users/**", "/posts/**"],
-           // exclude: ["/internal/**"],
-         },
-       ],
-     },
+     sources: [
+       {
+         name: "api",
+         type: "openapi",
+         spec: "./openapi.yaml", // or a remote URL
+         generates: ["query"],
+         // Optional: filter paths
+         // include: ["/users/**", "/posts/**"],
+         // exclude: ["/internal/**"],
+       },
+     ],
    });
    ```
 
@@ -242,53 +239,75 @@ bun add @tanstack/react-query @better-fetch/fetch zod
 
 ## Configuration
 
-tangen uses a multi-source configuration that supports multiple data sources:
+tangen uses a source-centric configuration where each source specifies what it generates:
 
 ```typescript
 import { defineConfig } from "tangen";
 
 export default defineConfig({
   output: "./src/generated", // optional, defaults to "./src/generated"
-  query: {
-    sources: [
-      // GraphQL with URL-based schema (introspection)
-      {
-        name: "graphql",
-        type: "graphql",
-        schema: {
-          url: "http://localhost:4000/graphql",
-          headers: {
-            "x-api-key": process.env.API_KEY,
-          },
-        },
-        documents: "./src/graphql/**/*.graphql",
-        scalars: {
-          DateTime: "Date",
-        },
-      },
-      // GraphQL with file-based schema (local SDL files)
-      // {
-      //   name: "local-graphql",
-      //   type: "graphql",
-      //   schema: {
-      //     file: ["./schema.graphql", "./extensions/**/*.graphql"],
-      //   },
-      //   documents: "./src/graphql/**/*.graphql",
-      // },
-      {
-        name: "rest-api",
-        type: "openapi",
-        spec: "https://api.example.com/openapi.json",
+  sources: [
+    // GraphQL with URL-based schema (introspection)
+    {
+      name: "graphql",
+      type: "graphql",
+      schema: {
+        url: "http://localhost:4000/graphql",
         headers: {
-          Authorization: `Bearer ${process.env.API_TOKEN}`,
+          "x-api-key": process.env.API_KEY,
         },
-        include: ["/users/**", "/posts/**"],
-        exclude: ["/internal/**"],
       },
-    ],
-    // files: { client: "client.ts", types: "types.ts", operations: "operations.ts" },
-  },
+      documents: "./src/graphql/**/*.graphql",
+      scalars: {
+        DateTime: "Date",
+      },
+      generates: ["query"], // or ["query", "form"] for both
+    },
+    // OpenAPI source generating both query and form
+    {
+      name: "rest-api",
+      type: "openapi",
+      spec: "https://api.example.com/openapi.json",
+      headers: {
+        Authorization: `Bearer ${process.env.API_TOKEN}`,
+      },
+      include: ["/users/**", "/posts/**"],
+      exclude: ["/internal/**"],
+      generates: ["query", "form"],
+    },
+  ],
 });
+```
+
+### The `generates` Property
+
+Each source must specify what to generate via the `generates` property. It accepts:
+
+**Array form (uses default filenames):**
+
+```typescript
+generates: ["query"]           // Generate only TanStack Query code
+generates: ["form"]            // Generate only TanStack Form code
+generates: ["query", "form"]   // Generate both
+```
+
+**Object form (customize filenames):**
+
+```typescript
+generates: {
+  query: {
+    files: {
+      client: "api-client.ts",      // default: "client.ts"
+      types: "api-types.ts",        // default: "types.ts"
+      operations: "api-ops.ts",     // default: "operations.ts"
+    },
+  },
+  form: {
+    files: {
+      forms: "user-forms.ts",       // default: "forms.ts"
+    },
+  },
+}
 ```
 
 ### GraphQL Source Options
@@ -300,6 +319,7 @@ export default defineConfig({
 | `schema`   | `object`                 | Yes      | Schema configuration (see below)           |
 | `documents` | `string \| string[]`    | Yes      | Glob pattern(s) for `.graphql` operation files |
 | `scalars`  | `Record<string, string>` | No       | Custom scalar type mappings                |
+| `generates` | `array \| object`       | Yes      | What to generate (see above)               |
 
 #### Schema Configuration (choose one)
 
@@ -326,6 +346,7 @@ export default defineConfig({
 | `headers` | `Record<string, string>` | No       | Headers for fetching remote spec           |
 | `include` | `string[]`               | No       | Glob patterns for paths to include         |
 | `exclude` | `string[]`               | No       | Glob patterns for paths to exclude         |
+| `generates` | `array \| object`      | Yes      | What to generate (see above)               |
 
 ### Global Options
 
@@ -333,30 +354,24 @@ export default defineConfig({
 | -------- | -------- | -------- | ------------------------------------------------------------ |
 | `output` | `string` | No       | Output directory for generated files (default: `./src/generated`) |
 
-### Query Files Options
-
-The `query.files` object allows customizing generated filenames:
-
-| Option       | Type     | Required | Description                                    |
-| ------------ | -------- | -------- | ---------------------------------------------- |
-| `client`     | `string` | No       | Client filename (default: `client.ts`)         |
-| `types`      | `string` | No       | Types filename (default: `types.ts`)           |
-| `operations` | `string` | No       | Operations filename (default: `operations.ts`) |
-
 ### Output Directory Structure
 
-Generated files are organized by library and source name:
+Generated files are organized by generator type and source name:
 
 ```
-src/generated/query/
-├── graphql/           # GraphQL source output
-│   ├── client.ts      # graphql-request client
-│   ├── types.ts       # TypeScript types
-│   └── operations.ts  # TanStack Query helpers
-└── rest-api/          # OpenAPI source output
-    ├── client.ts      # better-fetch client
-    ├── types.ts       # Zod schemas + TypeScript types
-    └── operations.ts  # TanStack Query helpers
+src/generated/
+├── query/
+│   ├── graphql/           # GraphQL source output
+│   │   ├── client.ts      # graphql-request client
+│   │   ├── types.ts       # TypeScript types
+│   │   └── operations.ts  # TanStack Query helpers
+│   └── rest-api/          # OpenAPI source output
+│       ├── client.ts      # better-fetch client
+│       ├── types.ts       # Zod schemas + TypeScript types
+│       └── operations.ts  # TanStack Query helpers
+└── form/
+    └── rest-api/          # OpenAPI source with form generation
+        └── forms.ts       # TanStack Form helpers
 ```
 
 ### Default Scalar Mappings (GraphQL)
@@ -605,9 +620,106 @@ bunx tangen generate --watch
 bunx tangen generate --watch --config ./config/tangen.config.ts
 ```
 
+## TanStack Form Integration
+
+tangen can generate `formOptions` for TanStack Form, complete with Zod validation schemas and default values derived from your mutations.
+
+### Configuration
+
+Add `"form"` to your source's `generates` array:
+
+```typescript
+import { defineConfig } from "tangen";
+
+export default defineConfig({
+  sources: [
+    {
+      name: "api",
+      type: "openapi",
+      spec: "./openapi.yaml",
+      generates: ["query", "form"], // Generate both query and form code
+    },
+  ],
+});
+```
+
+### Peer Dependencies
+
+For form generation, you'll need:
+
+```bash
+bun add @tanstack/react-form zod
+```
+
+### Generated Output
+
+When you run `tangen generate`, it creates:
+
+```
+src/generated/
+├── query/api/
+│   ├── client.ts
+│   ├── types.ts       # Zod schemas for all types
+│   └── operations.ts
+└── form/api/
+    └── forms.ts       # formOptions for each mutation
+```
+
+#### `form/{source}/forms.ts`
+
+Ready-to-use `formOptions` with validation and default values:
+
+```typescript
+import { formOptions } from "@tanstack/react-form";
+import { createUserRequestSchema } from "../../query/api/types";
+
+export const createUserFormOptions = formOptions({
+  defaultValues: {
+    name: "",
+    email: "",
+  },
+  validators: {
+    onSubmitAsync: createUserRequestSchema,
+  },
+});
+```
+
+### Usage
+
+Use the generated form options with TanStack Form:
+
+```typescript
+import { useForm } from "@tanstack/react-form";
+import { createUserFormOptions } from "./generated/form/api/forms";
+
+function CreateUserForm() {
+  const form = useForm({
+    ...createUserFormOptions,
+    onSubmit: async ({ value }) => {
+      // value is fully typed as CreateUserInput
+      await api.createUser(value);
+    },
+  });
+
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); form.handleSubmit(); }}>
+      <form.Field
+        name="name"
+        children={(field) => (
+          <input
+            value={field.state.value}
+            onChange={(e) => field.handleChange(e.target.value)}
+          />
+        )}
+      />
+      {/* ... more fields */}
+    </form>
+  );
+}
+```
+
 ## Roadmap
 
-- TanStack Form integration
 - TanStack DB integration
 - TanStack Pacer integration
 

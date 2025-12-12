@@ -26,6 +26,100 @@ export interface LoadConfigResult {
 }
 
 // =============================================================================
+// File Configuration Schemas
+// =============================================================================
+
+/**
+ * Query-specific file naming configuration (with defaults)
+ */
+export const queryFilesSchema = z.object({
+  /** Filename for the generated client (default: client.ts) */
+  client: z.string().default("client.ts"),
+  /** Filename for the generated types (default: types.ts) */
+  types: z.string().default("types.ts"),
+  /** Filename for the generated operations (default: operations.ts) */
+  operations: z.string().default("operations.ts"),
+});
+
+/** Query files config after parsing (defaults applied) */
+export type QueryFilesConfig = z.output<typeof queryFilesSchema>;
+
+/** Query files config input (before defaults are applied) */
+export type QueryFilesConfigInput = z.input<typeof queryFilesSchema>;
+
+/**
+ * Form-specific file naming configuration (with defaults)
+ */
+export const formFilesSchema = z.object({
+  /** Filename for the generated form options (default: forms.ts) */
+  forms: z.string().default("forms.ts"),
+});
+
+/** Form files config after parsing (defaults applied) */
+export type FormFilesConfig = z.output<typeof formFilesSchema>;
+
+/** Form files config input (before defaults are applied) */
+export type FormFilesConfigInput = z.input<typeof formFilesSchema>;
+
+// =============================================================================
+// Generates Configuration Schemas
+// =============================================================================
+
+/**
+ * Query generation options (per-source)
+ */
+export const queryGenerateOptionsSchema = z.object({
+  /** File naming configuration */
+  files: queryFilesSchema.optional(),
+});
+
+/**
+ * Form generation options (per-source)
+ */
+export const formGenerateOptionsSchema = z.object({
+  /** File naming configuration */
+  files: formFilesSchema.optional(),
+});
+
+/**
+ * Generates config as object (for customization)
+ */
+export const generatesObjectSchema = z
+  .object({
+    /** TanStack Query generation options */
+    query: z.union([z.literal(true), queryGenerateOptionsSchema]).optional(),
+    /** TanStack Form generation options */
+    form: z.union([z.literal(true), formGenerateOptionsSchema]).optional(),
+  })
+  .refine(
+    (obj) => obj.query !== undefined || obj.form !== undefined,
+    "At least one generator must be specified (query or form)",
+  );
+
+/**
+ * Generates config as array (simple form)
+ */
+export const generatesArraySchema = z
+  .array(z.enum(["query", "form"]))
+  .min(1, "At least one generator must be specified");
+
+/**
+ * Combined generates schema - supports both array and object forms
+ *
+ * Examples:
+ * - Simple: `generates: ["query", "form"]`
+ * - With options: `generates: { query: { files: { client: "custom.ts" } }, form: true }`
+ */
+export const generatesSchema = z.union([
+  generatesArraySchema,
+  generatesObjectSchema,
+]);
+
+export type GeneratesConfig = z.infer<typeof generatesSchema>;
+export type GeneratesConfigInput = z.input<typeof generatesSchema>;
+export type GeneratesObjectConfig = z.infer<typeof generatesObjectSchema>;
+
+// =============================================================================
 // Source Schemas
 // =============================================================================
 
@@ -84,6 +178,8 @@ export const graphqlSourceSchema = z.object({
   documents: z.union([z.string(), z.array(z.string())]),
   /** Custom scalar type mappings */
   scalars: z.record(z.string(), z.string()).optional(),
+  /** What to generate from this source */
+  generates: generatesSchema,
 });
 
 export type GraphQLSourceConfig = z.infer<typeof graphqlSourceSchema>;
@@ -104,6 +200,8 @@ export const openApiSourceSchema = z.object({
   include: z.array(z.string()).optional(),
   /** Glob patterns for paths to exclude */
   exclude: z.array(z.string()).optional(),
+  /** What to generate from this source */
+  generates: generatesSchema,
 });
 
 export type OpenAPISourceConfig = z.infer<typeof openApiSourceSchema>;
@@ -119,35 +217,15 @@ export const sourceSchema = z.discriminatedUnion("type", [
 export type SourceConfig = z.infer<typeof sourceSchema>;
 
 // =============================================================================
-// Query Files Configuration
+// Main Config Schema
 // =============================================================================
 
 /**
- * Query-specific file naming configuration (with defaults)
+ * Main tangen configuration schema (source-centric)
  */
-export const queryFilesSchema = z.object({
-  /** Filename for the generated client (default: client.ts) */
-  client: z.string().default("client.ts"),
-  /** Filename for the generated types (default: types.ts) */
-  types: z.string().default("types.ts"),
-  /** Filename for the generated operations (default: operations.ts) */
-  operations: z.string().default("operations.ts"),
-});
-
-/** Query files config after parsing (defaults applied) */
-export type QueryFilesConfig = z.output<typeof queryFilesSchema>;
-
-/** Query files config input (before defaults are applied) */
-export type QueryFilesConfigInput = z.input<typeof queryFilesSchema>;
-
-// =============================================================================
-// Query Config Schema (TanStack Query)
-// =============================================================================
-
-/**
- * Query-specific configuration schema (for TanStack Query)
- */
-export const queryConfigSchema = z.object({
+export const tangenConfigSchema = z.object({
+  /** Output directory for all generated files (default: ./src/generated) */
+  output: z.string().default("./src/generated"),
   /** Array of data sources to generate from */
   sources: z
     .array(sourceSchema)
@@ -156,35 +234,7 @@ export const queryConfigSchema = z.object({
       (sources) => new Set(sources.map((s) => s.name)).size === sources.length,
       "Source names must be unique",
     ),
-  /** File naming configuration (optional, has defaults) */
-  files: queryFilesSchema.default({
-    client: "client.ts",
-    types: "types.ts",
-    operations: "operations.ts",
-  }),
 });
-
-export type QueryConfig = z.infer<typeof queryConfigSchema>;
-
-// =============================================================================
-// Main Config Schema
-// =============================================================================
-
-/**
- * Main tangen configuration schema with library-specific configs
- */
-export const tangenConfigSchema = z
-  .object({
-    /** Output directory for all generated files (default: ./src/generated) */
-    output: z.string().default("./src/generated"),
-    /** TanStack Query configuration */
-    query: queryConfigSchema.optional(),
-    // Future: router, form, etc.
-  })
-  .refine(
-    (config) => config.query !== undefined,
-    "At least one library must be configured (e.g., query)",
-  );
 
 // =============================================================================
 // Unified Config Type
@@ -210,7 +260,7 @@ export const configSchema = tangenConfigSchema;
 // =============================================================================
 
 /**
- * Helper for defining a typed config (new multi-source format)
+ * Helper for defining a typed config
  */
 export function defineConfig(config: TangenConfigInput): TangenConfigInput {
   return config;
@@ -267,32 +317,31 @@ export function generateDefaultConfig(): string {
 
 export default defineConfig({
 	// output: "./src/generated", // default output directory
-	query: {
-		sources: [
-			{
-				name: "graphql",
-				type: "graphql",
-				schema: {
-					url: "http://localhost:4000/graphql",
-					// headers: { "x-api-key": process.env.API_KEY },
-				},
-				// Or use local schema file(s):
-				// schema: {
-				// 	file: "./schema.graphql", // or ["./schema.graphql", "./extensions/**/*.graphql"]
-				// },
-				// scalars: { DateTime: "Date", JSON: "Record<string, unknown>" },
-				documents: "./src/graphql/**/*.graphql",
+	sources: [
+		{
+			name: "graphql",
+			type: "graphql",
+			schema: {
+				url: "http://localhost:4000/graphql",
+				// headers: { "x-api-key": process.env.API_KEY },
 			},
-			// {
-			// 	name: "api",
-			// 	type: "openapi",
-			// 	spec: "./openapi.yaml", // or "https://api.example.com/openapi.json"
-			// 	// include: ["/users/**", "/posts/**"],
-			// 	// exclude: ["/internal/**"],
+			// Or use local schema file(s):
+			// schema: {
+			// 	file: "./schema.graphql", // or ["./schema.graphql", "./extensions/**/*.graphql"]
 			// },
-		],
-		// files: { client: "client.ts", types: "types.ts", operations: "operations.ts" },
-	},
+			documents: "./src/graphql/**/*.graphql",
+			// scalars: { DateTime: "Date", JSON: "Record<string, unknown>" },
+			generates: ["query"], // or { query: { files: { client: "custom.ts" } } }
+		},
+		// {
+		// 	name: "api",
+		// 	type: "openapi",
+		// 	spec: "./openapi.yaml", // or "https://api.example.com/openapi.json"
+		// 	// include: ["/users/**", "/posts/**"],
+		// 	// exclude: ["/internal/**"],
+		// 	generates: ["query", "form"], // generate both query and form options
+		// },
+	],
 })
 `;
 }
@@ -302,31 +351,134 @@ export default defineConfig({
 // =============================================================================
 
 /**
- * Check if the query config has multiple sources
+ * Normalize generates config to object form
+ * Converts array form ["query", "form"] to object form { query: {}, form: {} }
  */
-export function hasMultipleSources(config: QueryConfig): boolean {
+export function normalizeGenerates(
+  generates: GeneratesConfig | GeneratesConfigInput,
+): {
+  query?: { files: QueryFilesConfig };
+  form?: { files: FormFilesConfig };
+} {
+  // Array form: ["query", "form"]
+  if (Array.isArray(generates)) {
+    const result: {
+      query?: { files: QueryFilesConfig };
+      form?: { files: FormFilesConfig };
+    } = {};
+
+    if (generates.includes("query")) {
+      result.query = {
+        files: {
+          client: "client.ts",
+          types: "types.ts",
+          operations: "operations.ts",
+        },
+      };
+    }
+
+    if (generates.includes("form")) {
+      result.form = {
+        files: { forms: "forms.ts" },
+      };
+    }
+
+    return result;
+  }
+
+  // Object form: { query: { files: ... }, form: true }
+  const result: {
+    query?: { files: QueryFilesConfig };
+    form?: { files: FormFilesConfig };
+  } = {};
+
+  if (generates.query) {
+    const queryConfig =
+      generates.query === true ? {} : (generates.query as { files?: unknown });
+    const filesInput = queryConfig.files as QueryFilesConfigInput | undefined;
+    result.query = {
+      files: {
+        client: filesInput?.client ?? "client.ts",
+        types: filesInput?.types ?? "types.ts",
+        operations: filesInput?.operations ?? "operations.ts",
+      },
+    };
+  }
+
+  if (generates.form) {
+    const formConfig =
+      generates.form === true ? {} : (generates.form as { files?: unknown });
+    const filesInput = formConfig.files as FormFilesConfigInput | undefined;
+    result.form = {
+      files: {
+        forms: filesInput?.forms ?? "forms.ts",
+      },
+    };
+  }
+
+  return result;
+}
+
+/**
+ * Check if a source generates query code
+ */
+export function sourceGeneratesQuery(source: SourceConfig): boolean {
+  if (Array.isArray(source.generates)) {
+    return source.generates.includes("query");
+  }
+  return source.generates.query !== undefined;
+}
+
+/**
+ * Check if a source generates form code
+ */
+export function sourceGeneratesForm(source: SourceConfig): boolean {
+  if (Array.isArray(source.generates)) {
+    return source.generates.includes("form");
+  }
+  return source.generates.form !== undefined;
+}
+
+/**
+ * Check if the config has multiple sources
+ */
+export function hasMultipleSources(config: TangenConfig): boolean {
   return config.sources.length > 1;
 }
 
 /**
- * Get a source by name from the query config
+ * Get a source by name from the config
  */
 export function getSourceByName(
-  config: QueryConfig,
+  config: TangenConfig,
   name: string,
 ): SourceConfig | undefined {
   return config.sources.find((s) => s.name === name);
 }
 
 /**
- * Get all sources of a specific type from the query config
+ * Get all sources of a specific type from the config
  */
 export function getSourcesByType<T extends SourceConfig["type"]>(
-  config: QueryConfig,
+  config: TangenConfig,
   type: T,
 ): Extract<SourceConfig, { type: T }>[] {
   return config.sources.filter((s) => s.type === type) as Extract<
     SourceConfig,
     { type: T }
   >[];
+}
+
+/**
+ * Get all sources that generate query code
+ */
+export function getQuerySources(config: TangenConfig): SourceConfig[] {
+  return config.sources.filter(sourceGeneratesQuery);
+}
+
+/**
+ * Get all sources that generate form code
+ */
+export function getFormSources(config: TangenConfig): SourceConfig[] {
+  return config.sources.filter(sourceGeneratesForm);
 }

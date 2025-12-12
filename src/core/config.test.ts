@@ -7,19 +7,26 @@ import {
   configSchema,
   defineConfig,
   generateDefaultConfig,
+  generatesArraySchema,
+  generatesObjectSchema,
+  generatesSchema,
+  getFormSources,
+  getQuerySources,
   getSourceByName,
   getSourcesByType,
   graphqlSourceSchema,
   hasMultipleSources,
   loadTangenConfig,
+  normalizeGenerates,
   openApiSourceSchema,
-  queryConfigSchema,
+  sourceGeneratesForm,
+  sourceGeneratesQuery,
 } from "./config";
 
 import type {
   GraphQLSchemaUrlConfig,
   GraphQLSourceConfig,
-  QueryConfig,
+  TangenConfig,
 } from "./config";
 
 describe("graphqlSourceSchema", () => {
@@ -29,6 +36,7 @@ describe("graphqlSourceSchema", () => {
       type: "graphql",
       schema: { url: "http://localhost:4000/graphql" },
       documents: "./src/graphql/**/*.graphql",
+      generates: ["query"],
     };
     const result = graphqlSourceSchema.safeParse(source);
     expect(result.success).toBe(true);
@@ -41,6 +49,7 @@ describe("graphqlSourceSchema", () => {
       schema: { url: "http://localhost:4000/graphql" },
       documents: "./src/graphql/**/*.graphql",
       scalars: { DateTime: "Date" },
+      generates: ["query"],
     };
     const result = graphqlSourceSchema.safeParse(source);
     expect(result.success).toBe(true);
@@ -52,6 +61,7 @@ describe("graphqlSourceSchema", () => {
       type: "graphql",
       schema: { url: "http://localhost:4000/graphql" },
       documents: "./src/graphql/**/*.graphql",
+      generates: ["query"],
     };
     const result = graphqlSourceSchema.safeParse(source);
     expect(result.success).toBe(false);
@@ -63,6 +73,7 @@ describe("graphqlSourceSchema", () => {
       type: "graphql",
       schema: { url: "http://localhost:4000/graphql" },
       documents: "./src/graphql/**/*.graphql",
+      generates: ["query"],
     };
     const result = graphqlSourceSchema.safeParse(source);
     expect(result.success).toBe(false);
@@ -74,6 +85,7 @@ describe("graphqlSourceSchema", () => {
       type: "graphql",
       schema: { url: "http://localhost:4000/graphql" },
       documents: "./src/graphql/**/*.graphql",
+      generates: ["query"],
     };
     const result = graphqlSourceSchema.safeParse(source);
     expect(result.success).toBe(true);
@@ -85,6 +97,7 @@ describe("graphqlSourceSchema", () => {
       type: "graphql",
       schema: { url: "http://localhost:4000/graphql" },
       documents: ["./src/graphql/**/*.graphql", "./src/queries/**/*.gql"],
+      generates: ["query"],
     };
     const result = graphqlSourceSchema.safeParse(source);
     expect(result.success).toBe(true);
@@ -96,6 +109,7 @@ describe("graphqlSourceSchema", () => {
       type: "graphql",
       schema: {},
       documents: "./src/graphql/**/*.graphql",
+      generates: ["query"],
     };
     const result = graphqlSourceSchema.safeParse(source);
     expect(result.success).toBe(false);
@@ -107,6 +121,7 @@ describe("graphqlSourceSchema", () => {
       type: "graphql",
       schema: { url: "not-a-valid-url" },
       documents: "./src/graphql/**/*.graphql",
+      generates: ["query"],
     };
     const result = graphqlSourceSchema.safeParse(source);
     expect(result.success).toBe(false);
@@ -124,6 +139,7 @@ describe("graphqlSourceSchema", () => {
         },
       },
       documents: "./src/graphql/**/*.graphql",
+      generates: ["query"],
     };
     const result = graphqlSourceSchema.safeParse(source);
     expect(result.success).toBe(true);
@@ -139,6 +155,7 @@ describe("graphqlSourceSchema", () => {
         DateTime: "Date",
         JSON: "Record<string, unknown>",
       },
+      generates: ["query"],
     };
     const result = graphqlSourceSchema.safeParse(source);
     expect(result.success).toBe(true);
@@ -151,6 +168,7 @@ describe("graphqlSourceSchema", () => {
       type: "graphql",
       schema: { file: "./schema.graphql" },
       documents: "./src/graphql/**/*.graphql",
+      generates: ["query"],
     };
     const result = graphqlSourceSchema.safeParse(source);
     expect(result.success).toBe(true);
@@ -162,6 +180,7 @@ describe("graphqlSourceSchema", () => {
       type: "graphql",
       schema: { file: "./schemas/**/*.graphql" },
       documents: "./src/graphql/**/*.graphql",
+      generates: ["query"],
     };
     const result = graphqlSourceSchema.safeParse(source);
     expect(result.success).toBe(true);
@@ -173,6 +192,7 @@ describe("graphqlSourceSchema", () => {
       type: "graphql",
       schema: { file: ["./schema.graphql", "./extensions/**/*.graphql"] },
       documents: "./src/graphql/**/*.graphql",
+      generates: ["query"],
     };
     const result = graphqlSourceSchema.safeParse(source);
     expect(result.success).toBe(true);
@@ -184,6 +204,7 @@ describe("graphqlSourceSchema", () => {
       type: "graphql",
       schema: {},
       documents: "./src/graphql/**/*.graphql",
+      generates: ["query"],
     };
     const result = graphqlSourceSchema.safeParse(source);
     expect(result.success).toBe(false);
@@ -196,9 +217,21 @@ describe("graphqlSourceSchema", () => {
       schema: { file: "./schema.graphql" },
       documents: "./src/graphql/**/*.graphql",
       scalars: { DateTime: "Date" },
+      generates: ["query"],
     };
     const result = graphqlSourceSchema.safeParse(source);
     expect(result.success).toBe(true);
+  });
+
+  it("fails when generates is missing", () => {
+    const source = {
+      name: "main-api",
+      type: "graphql",
+      schema: { url: "http://localhost:4000/graphql" },
+      documents: "./src/graphql/**/*.graphql",
+    };
+    const result = graphqlSourceSchema.safeParse(source);
+    expect(result.success).toBe(false);
   });
 });
 
@@ -208,6 +241,7 @@ describe("openApiSourceSchema", () => {
       name: "users-api",
       type: "openapi",
       spec: "https://api.example.com/openapi.json",
+      generates: ["query"],
     };
     const result = openApiSourceSchema.safeParse(source);
     expect(result.success).toBe(true);
@@ -218,6 +252,7 @@ describe("openApiSourceSchema", () => {
       name: "users-api",
       type: "openapi",
       spec: "./specs/openapi.yaml",
+      generates: ["query"],
     };
     const result = openApiSourceSchema.safeParse(source);
     expect(result.success).toBe(true);
@@ -230,6 +265,7 @@ describe("openApiSourceSchema", () => {
       spec: "./specs/openapi.yaml",
       include: ["/users/**", "/auth/**"],
       exclude: ["/internal/**"],
+      generates: ["query"],
     };
     const result = openApiSourceSchema.safeParse(source);
     expect(result.success).toBe(true);
@@ -240,14 +276,105 @@ describe("openApiSourceSchema", () => {
       name: "users-api",
       type: "openapi",
       spec: "",
+      generates: ["query"],
+    };
+    const result = openApiSourceSchema.safeParse(source);
+    expect(result.success).toBe(false);
+  });
+
+  it("fails when generates is missing", () => {
+    const source = {
+      name: "users-api",
+      type: "openapi",
+      spec: "./specs/openapi.yaml",
     };
     const result = openApiSourceSchema.safeParse(source);
     expect(result.success).toBe(false);
   });
 });
 
-describe("queryConfigSchema", () => {
-  it("validates a query config with single GraphQL source", () => {
+describe("generatesSchema", () => {
+  describe("array form", () => {
+    it("validates generates with query only", () => {
+      const result = generatesArraySchema.safeParse(["query"]);
+      expect(result.success).toBe(true);
+    });
+
+    it("validates generates with form only", () => {
+      const result = generatesArraySchema.safeParse(["form"]);
+      expect(result.success).toBe(true);
+    });
+
+    it("validates generates with both query and form", () => {
+      const result = generatesArraySchema.safeParse(["query", "form"]);
+      expect(result.success).toBe(true);
+    });
+
+    it("fails with empty array", () => {
+      const result = generatesArraySchema.safeParse([]);
+      expect(result.success).toBe(false);
+    });
+
+    it("fails with invalid generator", () => {
+      const result = generatesArraySchema.safeParse(["invalid"]);
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("object form", () => {
+    it("validates generates with query: true", () => {
+      const result = generatesObjectSchema.safeParse({ query: true });
+      expect(result.success).toBe(true);
+    });
+
+    it("validates generates with form: true", () => {
+      const result = generatesObjectSchema.safeParse({ form: true });
+      expect(result.success).toBe(true);
+    });
+
+    it("validates generates with query options", () => {
+      const result = generatesObjectSchema.safeParse({
+        query: { files: { client: "custom-client.ts" } },
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("validates generates with form options", () => {
+      const result = generatesObjectSchema.safeParse({
+        form: { files: { forms: "custom-forms.ts" } },
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("validates generates with both query and form", () => {
+      const result = generatesObjectSchema.safeParse({
+        query: true,
+        form: { files: { forms: "forms.ts" } },
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("fails with empty object", () => {
+      const result = generatesObjectSchema.safeParse({});
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("union schema", () => {
+    it("accepts array form", () => {
+      const result = generatesSchema.safeParse(["query"]);
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts object form", () => {
+      const result = generatesSchema.safeParse({ query: true });
+      expect(result.success).toBe(true);
+    });
+  });
+});
+
+describe("configSchema", () => {
+  it("validates a config with single source", () => {
     const config = {
       sources: [
         {
@@ -255,14 +382,15 @@ describe("queryConfigSchema", () => {
           type: "graphql",
           schema: { url: "http://localhost:4000/graphql" },
           documents: "./src/graphql/**/*.graphql",
+          generates: ["query"],
         },
       ],
     };
-    const result = queryConfigSchema.safeParse(config);
+    const result = configSchema.safeParse(config);
     expect(result.success).toBe(true);
   });
 
-  it("validates a query config with multiple sources", () => {
+  it("validates a config with multiple sources", () => {
     const config = {
       sources: [
         {
@@ -270,15 +398,17 @@ describe("queryConfigSchema", () => {
           type: "graphql",
           schema: { url: "http://localhost:4000/graphql" },
           documents: "./src/graphql/**/*.graphql",
+          generates: ["query"],
         },
         {
           name: "users-service",
           type: "openapi",
           spec: "./specs/users.yaml",
+          generates: ["query", "form"],
         },
       ],
     };
-    const result = queryConfigSchema.safeParse(config);
+    const result = configSchema.safeParse(config);
     expect(result.success).toBe(true);
   });
 
@@ -290,15 +420,17 @@ describe("queryConfigSchema", () => {
           type: "graphql",
           schema: { url: "http://localhost:4000/graphql" },
           documents: "./src/graphql/**/*.graphql",
+          generates: ["query"],
         },
         {
           name: "api", // Duplicate!
           type: "openapi",
           spec: "./specs/users.yaml",
+          generates: ["query"],
         },
       ],
     };
-    const result = queryConfigSchema.safeParse(config);
+    const result = configSchema.safeParse(config);
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues[0]?.message).toContain("unique");
@@ -309,156 +441,11 @@ describe("queryConfigSchema", () => {
     const config = {
       sources: [],
     };
-    const result = queryConfigSchema.safeParse(config);
+    const result = configSchema.safeParse(config);
     expect(result.success).toBe(false);
   });
 
-  it("applies default value for files.client", () => {
-    const config = {
-      sources: [
-        {
-          name: "graphql",
-          type: "graphql",
-          schema: { url: "http://localhost:4000/graphql" },
-          documents: "./src/graphql/**/*.graphql",
-        },
-      ],
-    };
-    const result = queryConfigSchema.safeParse(config);
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.files.client).toBe("client.ts");
-    }
-  });
-
-  it("applies default value for files.types", () => {
-    const config = {
-      sources: [
-        {
-          name: "graphql",
-          type: "graphql",
-          schema: { url: "http://localhost:4000/graphql" },
-          documents: "./src/graphql/**/*.graphql",
-        },
-      ],
-    };
-    const result = queryConfigSchema.safeParse(config);
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.files.types).toBe("types.ts");
-    }
-  });
-
-  it("applies default value for files.operations", () => {
-    const config = {
-      sources: [
-        {
-          name: "graphql",
-          type: "graphql",
-          schema: { url: "http://localhost:4000/graphql" },
-          documents: "./src/graphql/**/*.graphql",
-        },
-      ],
-    };
-    const result = queryConfigSchema.safeParse(config);
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.files.operations).toBe("operations.ts");
-    }
-  });
-
-  it("applies all default files when files is not specified", () => {
-    const config = {
-      sources: [
-        {
-          name: "graphql",
-          type: "graphql",
-          schema: { url: "http://localhost:4000/graphql" },
-          documents: "./src/graphql/**/*.graphql",
-        },
-      ],
-    };
-    const result = queryConfigSchema.safeParse(config);
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.files).toEqual({
-        client: "client.ts",
-        types: "types.ts",
-        operations: "operations.ts",
-      });
-    }
-  });
-
-  it("merges partial files override with defaults", () => {
-    const config = {
-      sources: [
-        {
-          name: "graphql",
-          type: "graphql",
-          schema: { url: "http://localhost:4000/graphql" },
-          documents: "./src/graphql/**/*.graphql",
-        },
-      ],
-      files: {
-        client: "custom-client.ts",
-      },
-    };
-    const result = queryConfigSchema.safeParse(config);
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.files.client).toBe("custom-client.ts");
-      expect(result.data.files.types).toBe("types.ts");
-      expect(result.data.files.operations).toBe("operations.ts");
-    }
-  });
-
-  it("allows full files override", () => {
-    const config = {
-      sources: [
-        {
-          name: "graphql",
-          type: "graphql",
-          schema: { url: "http://localhost:4000/graphql" },
-          documents: "./src/graphql/**/*.graphql",
-        },
-      ],
-      files: {
-        client: "my-client.ts",
-        types: "my-types.ts",
-        operations: "my-operations.ts",
-      },
-    };
-    const result = queryConfigSchema.safeParse(config);
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.files).toEqual({
-        client: "my-client.ts",
-        types: "my-types.ts",
-        operations: "my-operations.ts",
-      });
-    }
-  });
-});
-
-describe("configSchema", () => {
-  it("validates a config with query configuration", () => {
-    const config = {
-      query: {
-        sources: [
-          {
-            name: "graphql",
-            type: "graphql",
-            schema: { url: "http://localhost:4000/graphql" },
-            documents: "./src/graphql/**/*.graphql",
-          },
-        ],
-      },
-    };
-    const result = configSchema.safeParse(config);
-    expect(result.success).toBe(true);
-  });
-
-  it("fails when query is missing", () => {
+  it("fails when sources is missing", () => {
     const config = {};
     const result = configSchema.safeParse(config);
     expect(result.success).toBe(false);
@@ -466,16 +453,15 @@ describe("configSchema", () => {
 
   it("applies default output directory", () => {
     const config = {
-      query: {
-        sources: [
-          {
-            name: "graphql",
-            type: "graphql",
-            schema: { url: "http://localhost:4000/graphql" },
-            documents: "./src/graphql/**/*.graphql",
-          },
-        ],
-      },
+      sources: [
+        {
+          name: "graphql",
+          type: "graphql",
+          schema: { url: "http://localhost:4000/graphql" },
+          documents: "./src/graphql/**/*.graphql",
+          generates: ["query"],
+        },
+      ],
     };
     const result = configSchema.safeParse(config);
     expect(result.success).toBe(true);
@@ -487,16 +473,15 @@ describe("configSchema", () => {
   it("allows custom output directory", () => {
     const config = {
       output: "./custom/output",
-      query: {
-        sources: [
-          {
-            name: "graphql",
-            type: "graphql",
-            schema: { url: "http://localhost:4000/graphql" },
-            documents: "./src/graphql/**/*.graphql",
-          },
-        ],
-      },
+      sources: [
+        {
+          name: "graphql",
+          type: "graphql",
+          schema: { url: "http://localhost:4000/graphql" },
+          documents: "./src/graphql/**/*.graphql",
+          generates: ["query"],
+        },
+      ],
     };
     const result = configSchema.safeParse(config);
     expect(result.success).toBe(true);
@@ -508,35 +493,35 @@ describe("configSchema", () => {
 
 describe("defineConfig", () => {
   it("returns the same config object (pass-through)", () => {
+    const generates: ("query" | "form")[] = ["query"];
     const config = {
-      query: {
-        sources: [
-          {
-            name: "graphql" as const,
-            type: "graphql" as const,
-            schema: { url: "http://localhost:4000/graphql" },
-            documents: "./src/graphql/**/*.graphql",
-          },
-        ],
-      },
+      sources: [
+        {
+          name: "graphql" as const,
+          type: "graphql" as const,
+          schema: { url: "http://localhost:4000/graphql" },
+          documents: "./src/graphql/**/*.graphql",
+          generates,
+        },
+      ],
     };
     const result = defineConfig(config);
     expect(result).toEqual(config);
   });
 
   it("preserves custom output directory", () => {
+    const generates: ("query" | "form")[] = ["query"];
     const config = {
       output: "./my-output",
-      query: {
-        sources: [
-          {
-            name: "graphql" as const,
-            type: "graphql" as const,
-            schema: { url: "http://localhost:4000/graphql" },
-            documents: "./src/graphql/**/*.graphql",
-          },
-        ],
-      },
+      sources: [
+        {
+          name: "graphql" as const,
+          type: "graphql" as const,
+          schema: { url: "http://localhost:4000/graphql" },
+          documents: "./src/graphql/**/*.graphql",
+          generates,
+        },
+      ],
     };
     const result = defineConfig(config);
     expect(result.output).toBe("./my-output");
@@ -555,12 +540,7 @@ describe("generateDefaultConfig", () => {
     expect(result).toContain('import { defineConfig } from "tangen"');
   });
 
-  it("contains query key", () => {
-    const result = generateDefaultConfig();
-    expect(result).toContain("query:");
-  });
-
-  it("contains sources array", () => {
+  it("contains sources key", () => {
     const result = generateDefaultConfig();
     expect(result).toContain("sources:");
   });
@@ -579,6 +559,11 @@ describe("generateDefaultConfig", () => {
     const result = generateDefaultConfig();
     expect(result).toContain("documents:");
     expect(result).toContain(".graphql");
+  });
+
+  it("contains generates property", () => {
+    const result = generateDefaultConfig();
+    expect(result).toContain("generates:");
   });
 
   it("contains commented output configuration", () => {
@@ -601,85 +586,133 @@ describe("generateDefaultConfig", () => {
     expect(result).toContain('// 	type: "openapi"');
     expect(result).toContain("// 	spec:");
   });
+});
 
-  it("contains commented files configuration", () => {
-    const result = generateDefaultConfig();
-    expect(result).toContain("// files:");
+describe("normalizeGenerates", () => {
+  it("normalizes array form to object form with query", () => {
+    const result = normalizeGenerates(["query"]);
+    expect(result.query).toBeDefined();
+    expect(result.query?.files).toEqual({
+      client: "client.ts",
+      types: "types.ts",
+      operations: "operations.ts",
+    });
+    expect(result.form).toBeUndefined();
+  });
+
+  it("normalizes array form to object form with form", () => {
+    const result = normalizeGenerates(["form"]);
+    expect(result.form).toBeDefined();
+    expect(result.form?.files).toEqual({
+      forms: "forms.ts",
+    });
+    expect(result.query).toBeUndefined();
+  });
+
+  it("normalizes array form to object form with both", () => {
+    const result = normalizeGenerates(["query", "form"]);
+    expect(result.query).toBeDefined();
+    expect(result.form).toBeDefined();
+  });
+
+  it("normalizes object form with query: true", () => {
+    const result = normalizeGenerates({ query: true });
+    expect(result.query?.files).toEqual({
+      client: "client.ts",
+      types: "types.ts",
+      operations: "operations.ts",
+    });
+  });
+
+  it("normalizes object form with custom files", () => {
+    const result = normalizeGenerates({
+      query: { files: { client: "custom.ts" } },
+    });
+    expect(result.query?.files.client).toBe("custom.ts");
+    expect(result.query?.files.types).toBe("types.ts");
+    expect(result.query?.files.operations).toBe("operations.ts");
+  });
+
+  it("normalizes object form with form: true", () => {
+    const result = normalizeGenerates({ form: true });
+    expect(result.form?.files).toEqual({
+      forms: "forms.ts",
+    });
+  });
+
+  it("normalizes object form with custom form files", () => {
+    const result = normalizeGenerates({
+      form: { files: { forms: "custom-forms.ts" } },
+    });
+    expect(result.form?.files.forms).toBe("custom-forms.ts");
   });
 });
 
 describe("utility functions", () => {
-  const multiSourceQueryConfig: QueryConfig = {
+  const multiSourceConfig: TangenConfig = {
+    output: "./src/generated",
     sources: [
       {
         name: "main-api",
         type: "graphql",
         schema: { url: "http://localhost:4000/graphql" },
         documents: "./src/graphql/**/*.graphql",
+        generates: ["query"],
       },
       {
         name: "users-service",
         type: "openapi",
         spec: "./specs/users.yaml",
+        generates: ["query", "form"],
       },
       {
         name: "payments-service",
         type: "openapi",
         spec: "./specs/payments.yaml",
+        generates: { form: true },
       },
     ],
-    files: {
-      client: "client.ts",
-      types: "types.ts",
-      operations: "operations.ts",
-    },
   };
 
-  const singleSourceQueryConfig: QueryConfig = {
+  const singleSourceConfig: TangenConfig = {
+    output: "./src/generated",
     sources: [
       {
         name: "graphql",
         type: "graphql",
         schema: { url: "http://localhost:4000/graphql" },
         documents: "./src/graphql/**/*.graphql",
+        generates: ["query"],
       },
     ],
-    files: {
-      client: "client.ts",
-      types: "types.ts",
-      operations: "operations.ts",
-    },
   };
 
   describe("hasMultipleSources", () => {
     it("returns true for multiple sources", () => {
-      expect(hasMultipleSources(multiSourceQueryConfig)).toBe(true);
+      expect(hasMultipleSources(multiSourceConfig)).toBe(true);
     });
 
     it("returns false for single source", () => {
-      expect(hasMultipleSources(singleSourceQueryConfig)).toBe(false);
+      expect(hasMultipleSources(singleSourceConfig)).toBe(false);
     });
   });
 
   describe("getSourceByName", () => {
     it("finds source by name", () => {
-      const source = getSourceByName(multiSourceQueryConfig, "users-service");
+      const source = getSourceByName(multiSourceConfig, "users-service");
       expect(source).toBeDefined();
       expect(source?.type).toBe("openapi");
     });
 
     it("returns undefined for non-existent name", () => {
-      const source = getSourceByName(multiSourceQueryConfig, "non-existent");
+      const source = getSourceByName(multiSourceConfig, "non-existent");
       expect(source).toBeUndefined();
     });
   });
 
   describe("getSourcesByType", () => {
     it("returns all sources of a given type", () => {
-      const openApiSources = getSourcesByType(
-        multiSourceQueryConfig,
-        "openapi",
-      );
+      const openApiSources = getSourcesByType(multiSourceConfig, "openapi");
       expect(openApiSources).toHaveLength(2);
       expect(openApiSources.map((s) => s.name)).toEqual([
         "users-service",
@@ -688,11 +721,61 @@ describe("utility functions", () => {
     });
 
     it("returns empty array when no sources match", () => {
-      const openApiSources = getSourcesByType(
-        singleSourceQueryConfig,
-        "openapi",
-      );
+      const openApiSources = getSourcesByType(singleSourceConfig, "openapi");
       expect(openApiSources).toHaveLength(0);
+    });
+  });
+
+  describe("sourceGeneratesQuery", () => {
+    it("returns true for array with query", () => {
+      const source = multiSourceConfig.sources[0]!;
+      expect(sourceGeneratesQuery(source)).toBe(true);
+    });
+
+    it("returns true for array with query and form", () => {
+      const source = multiSourceConfig.sources[1]!;
+      expect(sourceGeneratesQuery(source)).toBe(true);
+    });
+
+    it("returns false for object without query", () => {
+      const source = multiSourceConfig.sources[2]!;
+      expect(sourceGeneratesQuery(source)).toBe(false);
+    });
+  });
+
+  describe("sourceGeneratesForm", () => {
+    it("returns false for array without form", () => {
+      const source = multiSourceConfig.sources[0]!;
+      expect(sourceGeneratesForm(source)).toBe(false);
+    });
+
+    it("returns true for array with form", () => {
+      const source = multiSourceConfig.sources[1]!;
+      expect(sourceGeneratesForm(source)).toBe(true);
+    });
+
+    it("returns true for object with form", () => {
+      const source = multiSourceConfig.sources[2]!;
+      expect(sourceGeneratesForm(source)).toBe(true);
+    });
+  });
+
+  describe("getQuerySources", () => {
+    it("returns sources that generate query code", () => {
+      const sources = getQuerySources(multiSourceConfig);
+      expect(sources).toHaveLength(2);
+      expect(sources.map((s) => s.name)).toEqual(["main-api", "users-service"]);
+    });
+  });
+
+  describe("getFormSources", () => {
+    it("returns sources that generate form code", () => {
+      const sources = getFormSources(multiSourceConfig);
+      expect(sources).toHaveLength(2);
+      expect(sources.map((s) => s.name)).toEqual([
+        "users-service",
+        "payments-service",
+      ]);
     });
   });
 });
@@ -720,11 +803,11 @@ describe("loadTangenConfig", () => {
   it("throws when config is invalid", async () => {
     // Create an invalid config file (missing required fields)
     const invalidConfig = `
-      export default {
-        schema: {},
-        output: {}
-      }
-    `;
+			export default {
+				schema: {},
+				output: {}
+			}
+		`;
     await writeFile(configPath, invalidConfig, "utf-8");
 
     await expect(loadTangenConfig({ configPath })).rejects.toThrow(
@@ -734,25 +817,24 @@ describe("loadTangenConfig", () => {
 
   it("loads and validates a valid config file", async () => {
     const validConfig = `
-      export default {
-        query: {
-          sources: [
-            {
-              name: "graphql",
-              type: "graphql",
-              schema: { url: "http://localhost:4000/graphql" },
-              documents: "./src/graphql/**/*.graphql",
-            },
-          ],
-        },
-      }
-    `;
+			export default {
+				sources: [
+					{
+						name: "graphql",
+						type: "graphql",
+						schema: { url: "http://localhost:4000/graphql" },
+						documents: "./src/graphql/**/*.graphql",
+						generates: ["query"],
+					},
+				],
+			}
+		`;
     await writeFile(configPath, validConfig, "utf-8");
 
     const result = await loadTangenConfig({ configPath });
 
-    expect(result.config.query?.sources).toHaveLength(1);
-    const source = result.config.query?.sources[0];
+    expect(result.config.sources).toHaveLength(1);
+    const source = result.config.sources[0];
     expect(source?.type).toBe("graphql");
     const graphqlSource = source as GraphQLSourceConfig;
     const schemaConfig = graphqlSource.schema as GraphQLSchemaUrlConfig;
@@ -764,74 +846,69 @@ describe("loadTangenConfig", () => {
 
   it("loads and validates a multi-source config file", async () => {
     const validConfig = `
-      export default {
-        query: {
-          sources: [
-            {
-              name: "main-api",
-              type: "graphql",
-              schema: { url: "http://localhost:4000/graphql" },
-              documents: "./src/graphql/**/*.graphql",
-            },
-            {
-              name: "users-api",
-              type: "openapi",
-              spec: "./specs/users.yaml",
-            },
-          ],
-        },
-      }
-    `;
+			export default {
+				sources: [
+					{
+						name: "main-api",
+						type: "graphql",
+						schema: { url: "http://localhost:4000/graphql" },
+						documents: "./src/graphql/**/*.graphql",
+						generates: ["query"],
+					},
+					{
+						name: "users-api",
+						type: "openapi",
+						spec: "./specs/users.yaml",
+						generates: ["query", "form"],
+					},
+				],
+			}
+		`;
     await writeFile(configPath, validConfig, "utf-8");
 
     const result = await loadTangenConfig({ configPath });
 
-    expect(result.config.query?.sources).toHaveLength(2);
-    expect(result.config.query?.sources[0]?.name).toBe("main-api");
-    expect(result.config.query?.sources[1]?.name).toBe("users-api");
+    expect(result.config.sources).toHaveLength(2);
+    expect(result.config.sources[0]?.name).toBe("main-api");
+    expect(result.config.sources[1]?.name).toBe("users-api");
   });
 
   it("applies default values to loaded config", async () => {
     const configWithDefaults = `
-      export default {
-        query: {
-          sources: [
-            {
-              name: "graphql",
-              type: "graphql",
-              schema: { url: "http://localhost:4000/graphql" },
-              documents: "./src/graphql/**/*.graphql",
-            },
-          ],
-        },
-      }
-    `;
+			export default {
+				sources: [
+					{
+						name: "graphql",
+						type: "graphql",
+						schema: { url: "http://localhost:4000/graphql" },
+						documents: "./src/graphql/**/*.graphql",
+						generates: ["query"],
+					},
+				],
+			}
+		`;
     await writeFile(configPath, configWithDefaults, "utf-8");
 
     const result = await loadTangenConfig({ configPath });
 
     expect(result.config.output).toBe("./src/generated");
-    expect(result.config.query?.files.client).toBe("client.ts");
-    expect(result.config.query?.files.types).toBe("types.ts");
-    expect(result.config.query?.files.operations).toBe("operations.ts");
   });
 
   it("loads config with custom output directory", async () => {
     const configWithCustomOutput = `
-      export default {
-        output: "./custom/generated",
-        query: {
-          sources: [
-            {
-              name: "graphql",
-              type: "graphql",
-              schema: { url: "http://localhost:4000/graphql" },
-              documents: "./src/graphql/**/*.graphql",
-            },
-          ],
-        },
-      }
-    `;
+			export default {
+				output: "./custom/generated",
+				sources: [
+					{
+						name: "graphql",
+						type: "graphql",
+						schema: { url: "http://localhost:4000/graphql" },
+						documents: "./src/graphql/**/*.graphql",
+						generates: ["query"],
+					},
+				],
+			}
+		`;
     await writeFile(configPath, configWithCustomOutput, "utf-8");
 
     const result = await loadTangenConfig({ configPath });
@@ -839,31 +916,37 @@ describe("loadTangenConfig", () => {
     expect(result.config.output).toBe("./custom/generated");
   });
 
-  it("loads config with partial files override", async () => {
-    const configWithPartialFiles = `
-      export default {
-        query: {
-          sources: [
-            {
-              name: "graphql",
-              type: "graphql",
-              schema: { url: "http://localhost:4000/graphql" },
-              documents: "./src/graphql/**/*.graphql",
-            },
-          ],
-          files: {
-            client: "my-client.ts",
-          },
-        },
-      }
-    `;
-    await writeFile(configPath, configWithPartialFiles, "utf-8");
+  it("loads config with generates object form", async () => {
+    const configWithGeneratesObject = `
+			export default {
+				sources: [
+					{
+						name: "graphql",
+						type: "graphql",
+						schema: { url: "http://localhost:4000/graphql" },
+						documents: "./src/graphql/**/*.graphql",
+						generates: {
+							query: { files: { client: "my-client.ts" } },
+						},
+					},
+				],
+			}
+		`;
+    await writeFile(configPath, configWithGeneratesObject, "utf-8");
 
     const result = await loadTangenConfig({ configPath });
 
-    expect(result.config.query?.files.client).toBe("my-client.ts");
-    expect(result.config.query?.files.types).toBe("types.ts");
-    expect(result.config.query?.files.operations).toBe("operations.ts");
+    const source = result.config.sources[0];
+    // normalizeGenerates fills in defaults for missing files
+    expect(source?.generates).toEqual({
+      query: {
+        files: {
+          client: "my-client.ts",
+          operations: "operations.ts",
+          types: "types.ts",
+        },
+      },
+    });
   });
 });
 
@@ -892,27 +975,25 @@ describe("loadTangenConfig with dotenv", () => {
     // Create config that uses env var
     const configContent = `
 			export default {
-				query: {
-					sources: [
-						{
-							name: "graphql",
-							type: "graphql",
-							schema: {
-								url: "http://localhost:4000/graphql",
-								headers: { "x-api-key": process.env.TEST_API_KEY },
-							},
-							documents: "./src/graphql/**/*.graphql",
+				sources: [
+					{
+						name: "graphql",
+						type: "graphql",
+						schema: {
+							url: "http://localhost:4000/graphql",
+							headers: { "x-api-key": process.env.TEST_API_KEY },
 						},
-					],
-				},
+						documents: "./src/graphql/**/*.graphql",
+						generates: ["query"],
+					},
+				],
 			}
 		`;
     await writeFile(configPath, configContent, "utf-8");
 
     const result = await loadTangenConfig({ configPath });
 
-    const graphqlSource = result.config.query
-      ?.sources[0] as GraphQLSourceConfig;
+    const graphqlSource = result.config.sources[0] as GraphQLSourceConfig;
     const schemaConfig = graphqlSource.schema as GraphQLSchemaUrlConfig;
     expect(schemaConfig.headers?.["x-api-key"]).toBe("secret123");
   });
@@ -922,19 +1003,18 @@ describe("loadTangenConfig with dotenv", () => {
 
     const configContent = `
 			export default {
-				query: {
-					sources: [
-						{
-							name: "graphql",
-							type: "graphql",
-							schema: {
-								url: "http://localhost:4000/graphql",
-								headers: { "x-api-key": process.env.TEST_API_KEY || "fallback" },
-							},
-							documents: "./src/graphql/**/*.graphql",
+				sources: [
+					{
+						name: "graphql",
+						type: "graphql",
+						schema: {
+							url: "http://localhost:4000/graphql",
+							headers: { "x-api-key": process.env.TEST_API_KEY || "fallback" },
 						},
-					],
-				},
+						documents: "./src/graphql/**/*.graphql",
+						generates: ["query"],
+					},
+				],
 			}
 		`;
     await writeFile(configPath, configContent, "utf-8");
@@ -944,8 +1024,7 @@ describe("loadTangenConfig with dotenv", () => {
       dotenv: false,
     });
 
-    const graphqlSource = result.config.query
-      ?.sources[0] as GraphQLSourceConfig;
+    const graphqlSource = result.config.sources[0] as GraphQLSourceConfig;
     const schemaConfig = graphqlSource.schema as GraphQLSchemaUrlConfig;
     expect(schemaConfig.headers?.["x-api-key"]).toBe("fallback");
   });
@@ -959,19 +1038,18 @@ describe("loadTangenConfig with dotenv", () => {
 
     const configContent = `
 			export default {
-				query: {
-					sources: [
-						{
-							name: "graphql",
-							type: "graphql",
-							schema: {
-								url: "http://localhost:4000/graphql",
-								headers: { "x-api-key": process.env.TEST_API_KEY },
-							},
-							documents: "./src/graphql/**/*.graphql",
+				sources: [
+					{
+						name: "graphql",
+						type: "graphql",
+						schema: {
+							url: "http://localhost:4000/graphql",
+							headers: { "x-api-key": process.env.TEST_API_KEY },
 						},
-					],
-				},
+						documents: "./src/graphql/**/*.graphql",
+						generates: ["query"],
+					},
+				],
 			}
 		`;
     await writeFile(configPath, configContent, "utf-8");
@@ -981,8 +1059,7 @@ describe("loadTangenConfig with dotenv", () => {
       dotenv: { fileName: ".env.local" },
     });
 
-    const graphqlSource = result.config.query
-      ?.sources[0] as GraphQLSourceConfig;
+    const graphqlSource = result.config.sources[0] as GraphQLSourceConfig;
     const schemaConfig = graphqlSource.schema as GraphQLSchemaUrlConfig;
     expect(schemaConfig.headers?.["x-api-key"]).toBe("local123");
   });
@@ -1001,22 +1078,21 @@ describe("loadTangenConfig with dotenv", () => {
 
     const configContent = `
 			export default {
-				query: {
-					sources: [
-						{
-							name: "graphql",
-							type: "graphql",
-							schema: {
-								url: "http://localhost:4000/graphql",
-								headers: {
-									"x-api-key": process.env.TEST_API_KEY,
-									"x-other": process.env.OTHER_VAR,
-								},
+				sources: [
+					{
+						name: "graphql",
+						type: "graphql",
+						schema: {
+							url: "http://localhost:4000/graphql",
+							headers: {
+								"x-api-key": process.env.TEST_API_KEY,
+								"x-other": process.env.OTHER_VAR,
 							},
-							documents: "./src/graphql/**/*.graphql",
 						},
-					],
-				},
+						documents: "./src/graphql/**/*.graphql",
+						generates: ["query"],
+					},
+				],
 			}
 		`;
     await writeFile(configPath, configContent, "utf-8");
@@ -1026,8 +1102,7 @@ describe("loadTangenConfig with dotenv", () => {
       dotenv: { fileName: [".env", ".env.local"] },
     });
 
-    const graphqlSource = result.config.query
-      ?.sources[0] as GraphQLSourceConfig;
+    const graphqlSource = result.config.sources[0] as GraphQLSourceConfig;
     const schemaConfig = graphqlSource.schema as GraphQLSchemaUrlConfig;
     expect(schemaConfig.headers?.["x-api-key"]).toBe("override");
     expect(schemaConfig.headers?.["x-other"]).toBe("other");

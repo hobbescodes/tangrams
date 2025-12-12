@@ -4,11 +4,7 @@
 import { isUrlSchemaConfig } from "./schema";
 
 import type { GraphQLSourceConfig } from "@/core/config";
-import type {
-  GeneratedFile,
-  GenerationContext,
-  GraphQLAdapterSchema,
-} from "../types";
+import type { GeneratedFile, GraphQLAdapterSchema } from "../types";
 
 /**
  * Generate the GraphQL client file
@@ -16,7 +12,6 @@ import type {
 export function generateGraphQLClient(
   _schema: GraphQLAdapterSchema,
   config: GraphQLSourceConfig,
-  _context: GenerationContext,
 ): GeneratedFile {
   // For URL-based schemas, use the configured URL
   // For file-based schemas, use a placeholder that the user must configure

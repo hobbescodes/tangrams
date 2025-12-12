@@ -1,7 +1,6 @@
 import type {
   GraphQLSourceConfig,
   OpenAPISourceConfig,
-  QueryConfig,
   SourceConfig,
 } from "@/core/config";
 
@@ -38,13 +37,23 @@ export interface OperationGenOptions {
 }
 
 /**
- * Context passed to the adapter during generation
+ * Options for schema (Zod) generation
  */
-export interface GenerationContext {
-  /** The query config */
-  queryConfig: QueryConfig;
-  /** The output directory for this source */
-  outputDir: string;
+export interface SchemaGenOptions {
+  /** Custom scalar type mappings (for GraphQL) */
+  scalars?: Record<string, string>;
+  /** Only generate schemas for mutations (for form usage) */
+  mutationsOnly?: boolean;
+}
+
+/**
+ * Options for form options generation
+ */
+export interface FormGenOptions {
+  /** Relative import path to the schema file */
+  schemaImportPath: string;
+  /** The source name */
+  sourceName: string;
 }
 
 /**
@@ -55,6 +64,8 @@ export interface GenerationContext {
  * 2. Generating TypeScript types from the schema
  * 3. Generating a client for making requests
  * 4. Generating TanStack Query operation helpers
+ * 5. Generating Zod schemas for validation
+ * 6. Generating TanStack Form options for mutations
  */
 export interface SourceAdapter<
   TConfig extends SourceConfig = SourceConfig,
@@ -74,14 +85,9 @@ export interface SourceAdapter<
    * Generate the client file for making requests
    * @param schema The loaded schema
    * @param config The source configuration
-   * @param context Generation context
    * @returns Generated client file
    */
-  generateClient(
-    schema: TSchema,
-    config: TConfig,
-    context: GenerationContext,
-  ): GeneratedFile;
+  generateClient(schema: TSchema, config: TConfig): GeneratedFile;
 
   /**
    * Generate TypeScript types from the schema
@@ -107,6 +113,32 @@ export interface SourceAdapter<
     schema: TSchema,
     config: TConfig,
     options: OperationGenOptions,
+  ): GeneratedFile;
+
+  /**
+   * Generate Zod schemas for validation
+   * @param schema The loaded schema
+   * @param config The source configuration
+   * @param options Schema generation options
+   * @returns Generated schema file with Zod schemas
+   */
+  generateSchemas(
+    schema: TSchema,
+    config: TConfig,
+    options: SchemaGenOptions,
+  ): GeneratedFile;
+
+  /**
+   * Generate TanStack Form options for mutations
+   * @param schema The loaded schema
+   * @param config The source configuration
+   * @param options Form generation options
+   * @returns Generated form options file
+   */
+  generateFormOptions(
+    schema: TSchema,
+    config: TConfig,
+    options: FormGenOptions,
   ): GeneratedFile;
 }
 
