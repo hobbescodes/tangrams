@@ -296,6 +296,287 @@ describe("Schema Type Guards", () => {
   });
 });
 
+describe("generateSchemas", () => {
+  const schemaWithInputs = buildSchema(`
+    enum UserRole {
+      ADMIN
+      USER
+    }
+
+    input CreateUserInput {
+      name: String!
+      email: String!
+      role: UserRole
+    }
+
+    type User {
+      id: ID!
+      name: String!
+    }
+
+    type Query {
+      users: [User!]!
+    }
+
+    type Mutation {
+      createUser(input: CreateUserInput!): User!
+    }
+  `);
+
+  const testConfig: GraphQLSourceConfig = {
+    name: "test-api",
+    type: "graphql",
+    schema: { url: "http://localhost:4000/graphql" },
+    documents: "./src/**/*.graphql",
+    generates: ["query"],
+  };
+
+  it("generates Zod schemas for input types", () => {
+    const schema: GraphQLAdapterSchema = {
+      schema: schemaWithInputs,
+      documents: {
+        operations: [
+          {
+            name: "CreateUser",
+            operation: "mutation",
+            node: {
+              kind: Kind.OPERATION_DEFINITION,
+              operation: OperationTypeNode.MUTATION,
+              name: { kind: Kind.NAME, value: "CreateUser" },
+              variableDefinitions: [
+                {
+                  kind: Kind.VARIABLE_DEFINITION,
+                  variable: {
+                    kind: Kind.VARIABLE,
+                    name: { kind: Kind.NAME, value: "input" },
+                  },
+                  type: {
+                    kind: Kind.NON_NULL_TYPE,
+                    type: {
+                      kind: Kind.NAMED_TYPE,
+                      name: { kind: Kind.NAME, value: "CreateUserInput" },
+                    },
+                  },
+                },
+              ],
+              selectionSet: { kind: Kind.SELECTION_SET, selections: [] },
+            },
+            document:
+              "mutation CreateUser($input: CreateUserInput!) { createUser(input: $input) { id } }",
+          },
+        ],
+        fragments: [],
+      },
+    };
+
+    const result = graphqlAdapter.generateSchemas(schema, testConfig, {
+      mutationsOnly: true,
+    });
+
+    expect(result.filename).toBe("types.ts");
+    expect(result.content).toContain("import * as z from");
+    expect(result.content).toContain("createUserInputSchema");
+    expect(result.content).toContain("z.object({");
+  });
+
+  it("generates enum schemas", () => {
+    const schema: GraphQLAdapterSchema = {
+      schema: schemaWithInputs,
+      documents: {
+        operations: [
+          {
+            name: "CreateUser",
+            operation: "mutation",
+            node: {
+              kind: Kind.OPERATION_DEFINITION,
+              operation: OperationTypeNode.MUTATION,
+              name: { kind: Kind.NAME, value: "CreateUser" },
+              variableDefinitions: [
+                {
+                  kind: Kind.VARIABLE_DEFINITION,
+                  variable: {
+                    kind: Kind.VARIABLE,
+                    name: { kind: Kind.NAME, value: "input" },
+                  },
+                  type: {
+                    kind: Kind.NON_NULL_TYPE,
+                    type: {
+                      kind: Kind.NAMED_TYPE,
+                      name: { kind: Kind.NAME, value: "CreateUserInput" },
+                    },
+                  },
+                },
+              ],
+              selectionSet: { kind: Kind.SELECTION_SET, selections: [] },
+            },
+            document:
+              "mutation CreateUser($input: CreateUserInput!) { createUser(input: $input) { id } }",
+          },
+        ],
+        fragments: [],
+      },
+    };
+
+    const result = graphqlAdapter.generateSchemas(schema, testConfig, {});
+
+    expect(result.content).toContain("userRoleSchema");
+    expect(result.content).toContain('z.enum(["ADMIN", "USER"])');
+  });
+});
+
+describe("generateFormOptions", () => {
+  const schemaWithInputs = buildSchema(`
+    input CreateUserInput {
+      name: String!
+      email: String!
+    }
+
+    type User {
+      id: ID!
+      name: String!
+    }
+
+    type Query {
+      users: [User!]!
+    }
+
+    type Mutation {
+      createUser(input: CreateUserInput!): User!
+    }
+  `);
+
+  const testConfig: GraphQLSourceConfig = {
+    name: "test-api",
+    type: "graphql",
+    schema: { url: "http://localhost:4000/graphql" },
+    documents: "./src/**/*.graphql",
+    generates: ["form"],
+  };
+
+  it("generates form options for mutations", () => {
+    const schema: GraphQLAdapterSchema = {
+      schema: schemaWithInputs,
+      documents: {
+        operations: [
+          {
+            name: "CreateUser",
+            operation: "mutation",
+            node: {
+              kind: Kind.OPERATION_DEFINITION,
+              operation: OperationTypeNode.MUTATION,
+              name: { kind: Kind.NAME, value: "CreateUser" },
+              variableDefinitions: [
+                {
+                  kind: Kind.VARIABLE_DEFINITION,
+                  variable: {
+                    kind: Kind.VARIABLE,
+                    name: { kind: Kind.NAME, value: "input" },
+                  },
+                  type: {
+                    kind: Kind.NON_NULL_TYPE,
+                    type: {
+                      kind: Kind.NAMED_TYPE,
+                      name: { kind: Kind.NAME, value: "CreateUserInput" },
+                    },
+                  },
+                },
+              ],
+              selectionSet: { kind: Kind.SELECTION_SET, selections: [] },
+            },
+            document:
+              "mutation CreateUser($input: CreateUserInput!) { createUser(input: $input) { id } }",
+          },
+        ],
+        fragments: [],
+      },
+    };
+
+    const result = graphqlAdapter.generateFormOptions(schema, testConfig, {
+      schemaImportPath: "../../query/test-api/types",
+      sourceName: "test-api",
+    });
+
+    expect(result.filename).toBe("forms.ts");
+    expect(result.content).toContain(
+      'import { formOptions } from "@tanstack/react-form"',
+    );
+    expect(result.content).toContain("createUserFormOptions");
+    expect(result.content).toContain("defaultValues:");
+    expect(result.content).toContain("validators:");
+  });
+
+  it("returns empty file when no mutations with variables", () => {
+    const schema: GraphQLAdapterSchema = {
+      schema: schemaWithInputs,
+      documents: {
+        operations: [
+          {
+            name: "GetUsers",
+            operation: "query",
+            node: {
+              kind: Kind.OPERATION_DEFINITION,
+              operation: OperationTypeNode.QUERY,
+              name: { kind: Kind.NAME, value: "GetUsers" },
+              selectionSet: { kind: Kind.SELECTION_SET, selections: [] },
+            },
+            document: "query GetUsers { users { id } }",
+          },
+        ],
+        fragments: [],
+      },
+    };
+
+    const result = graphqlAdapter.generateFormOptions(schema, testConfig, {
+      schemaImportPath: "../../query/test-api/types",
+      sourceName: "test-api",
+    });
+
+    expect(result.filename).toBe("forms.ts");
+    expect(result.content).toContain("No mutations");
+    expect(result.warnings?.length).toBeGreaterThan(0);
+  });
+
+  it("handles mutations without variables", () => {
+    const schemaSimple = buildSchema(`
+      type Query {
+        test: String
+      }
+
+      type Mutation {
+        triggerAction: Boolean!
+      }
+    `);
+
+    const schema: GraphQLAdapterSchema = {
+      schema: schemaSimple,
+      documents: {
+        operations: [
+          {
+            name: "TriggerAction",
+            operation: "mutation",
+            node: {
+              kind: Kind.OPERATION_DEFINITION,
+              operation: OperationTypeNode.MUTATION,
+              name: { kind: Kind.NAME, value: "TriggerAction" },
+              selectionSet: { kind: Kind.SELECTION_SET, selections: [] },
+            },
+            document: "mutation TriggerAction { triggerAction }",
+          },
+        ],
+        fragments: [],
+      },
+    };
+
+    const result = graphqlAdapter.generateFormOptions(schema, testConfig, {
+      schemaImportPath: "../../query/test-api/types",
+      sourceName: "test-api",
+    });
+
+    // Mutations without variables don't get form options
+    expect(result.content).toContain("No mutations");
+  });
+});
+
 describe("loadSchemaFromFiles", () => {
   const testDir = join(tmpdir(), "tangen-graphql-test");
 

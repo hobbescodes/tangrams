@@ -1267,3 +1267,71 @@ describe("OpenAPI Operations Generation Edge Cases", () => {
     expect(result.content).toContain("DELETE");
   });
 });
+
+describe("generateSchemas", () => {
+  const config: OpenAPISourceConfig = {
+    name: "petstore",
+    type: "openapi",
+    generates: ["query"],
+    spec: join(fixturesDir, "petstore.json"),
+  };
+
+  it("generates Zod schemas for all operations", async () => {
+    const schema = await openapiAdapter.loadSchema(config);
+    const result = openapiAdapter.generateSchemas(schema, config, {});
+
+    expect(result.filename).toBe("types.ts");
+    expect(result.content).toContain("import * as z from");
+    // Should have component schemas
+    expect(result.content).toContain("petSchema");
+    expect(result.content).toContain("speciesSchema");
+  });
+
+  it("generates only request body schemas when mutationsOnly is true", async () => {
+    const schema = await openapiAdapter.loadSchema(config);
+    const result = openapiAdapter.generateSchemas(schema, config, {
+      mutationsOnly: true,
+    });
+
+    expect(result.filename).toBe("types.ts");
+    // Should have request body schemas
+    expect(result.content).toContain("createPetInputSchema");
+  });
+});
+
+describe("generateFormOptions", () => {
+  const config: OpenAPISourceConfig = {
+    name: "petstore",
+    type: "openapi",
+    generates: ["query", "form"],
+    spec: join(fixturesDir, "petstore.json"),
+  };
+
+  it("generates form options for POST/PUT/PATCH operations", async () => {
+    const schema = await openapiAdapter.loadSchema(config);
+    const result = openapiAdapter.generateFormOptions(schema, config, {
+      schemaImportPath: "../../query/petstore/types",
+      sourceName: "petstore",
+    });
+
+    expect(result.filename).toBe("forms.ts");
+    expect(result.content).toContain(
+      'import { formOptions } from "@tanstack/react-form"',
+    );
+    // Should have form options for createPet and updatePet
+    expect(result.content).toContain("createPetFormOptions");
+    expect(result.content).toContain("updatePetFormOptions");
+    expect(result.content).toContain("defaultValues:");
+    expect(result.content).toContain("validators:");
+  });
+
+  it("imports schemas from the correct path", async () => {
+    const schema = await openapiAdapter.loadSchema(config);
+    const result = openapiAdapter.generateFormOptions(schema, config, {
+      schemaImportPath: "../schema/api/types",
+      sourceName: "petstore",
+    });
+
+    expect(result.content).toContain('from "../schema/api/types"');
+  });
+});
