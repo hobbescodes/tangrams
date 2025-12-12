@@ -1,0 +1,379 @@
+---
+title: TanStack Form
+description: Generate formOptions for TanStack Form with Zod validation.
+---
+
+# TanStack Form
+
+Tangrams generates `formOptions` with auto-generated default values and Zod validators from your mutations. These snap right into TanStack Form's `useForm` hook.
+
+## Peer Dependencies
+
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+<Tabs items={['bun', 'npm', 'pnpm']}>
+  <Tab value="bun">
+```bash
+bun add @tanstack/react-form zod
+```
+  </Tab>
+  <Tab value="npm">
+```bash
+npm install @tanstack/react-form zod
+```
+  </Tab>
+  <Tab value="pnpm">
+```bash
+pnpm add @tanstack/react-form zod
+```
+  </Tab>
+</Tabs>
+
+## Setup
+
+### GraphQL Source
+
+Configure a GraphQL source with `"form"` in the generates array:
+
+```typescript
+import { defineConfig } from "tangrams"
+
+export default defineConfig({
+  sources: [
+    {
+      name: "graphql",
+      type: "graphql",
+      schema: {
+        url: "http://localhost:4000/graphql",
+      },
+      documents: "./src/graphql/**/*.graphql",
+      generates: ["form"],
+    },
+  ],
+})
+```
+
+Forms are generated from **mutation** operations. Create mutations in your `.graphql` files:
+
+```graphql
+# src/graphql/user.graphql
+
+mutation CreateUser($input: CreateUserInput!) {
+  createUser(input: $input) {
+    id
+    name
+  }
+}
+
+mutation UpdateUser($id: ID!, $input: UpdateUserInput!) {
+  updateUser(id: $id, input: $input) {
+    id
+    name
+  }
+}
+```
+
+### OpenAPI Source
+
+Configure an OpenAPI source with `"form"` in the generates array:
+
+```typescript
+import { defineConfig } from "tangrams"
+
+export default defineConfig({
+  sources: [
+    {
+      name: "api",
+      type: "openapi",
+      spec: "./openapi.yaml",
+      generates: ["form"],
+    },
+  ],
+})
+```
+
+Forms are generated from **POST**, **PUT**, and **PATCH** operations that have request bodies.
+
+### Generate
+
+Run the generator:
+
+```bash
+bunx tangrams generate
+```
+
+## Generated Output
+
+### Output Directory Structure
+
+```
+src/generated/
+├── zod/
+│   └── <source>/
+│       └── schema.ts     # Zod schemas for request bodies
+└── form/
+    └── <source>/
+        └── forms.ts      # formOptions exports
+```
+
+### What Gets Generated
+
+For each mutation with a request body, Tangrams generates a `formOptions` export with:
+
+- **`defaultValues`** - Auto-generated from the Zod schema structure
+- **`validators.onSubmitAsync`** - The Zod schema for validation
+
+**Example `forms.ts`:**
+
+```typescript
+import { formOptions } from "@tanstack/react-form"
+import { createUserRequestSchema, updateUserRequestSchema } from "../../zod/api/schema"
+
+export const createUserFormOptions = formOptions({
+  defaultValues: {
+    name: "",
+    email: "",
+  },
+  validators: {
+    onSubmitAsync: createUserRequestSchema,
+  },
+})
+
+export const updateUserFormOptions = formOptions({
+  defaultValues: {
+    name: "",
+    email: "",
+    bio: "",
+  },
+  validators: {
+    onSubmitAsync: updateUserRequestSchema,
+  },
+})
+```
+
+### Default Value Generation
+
+Tangrams automatically generates sensible default values based on your Zod schema types:
+
+| Zod Type | Default Value |
+|----------|---------------|
+| `z.string()` | `""` |
+| `z.number()` | `0` |
+| `z.boolean()` | `false` |
+| `z.array()` | `[]` |
+| `z.object()` | `{ nested defaults }` |
+| `z.enum()` | First enum value |
+| `z.nullable()` | `null` |
+| `z.optional()` | *(excluded from object)* |
+
+**Example:** Given this Zod schema:
+
+```typescript
+const createPostRequestSchema = z.object({
+  title: z.string(),
+  content: z.string(),
+  published: z.boolean(),
+  tags: z.array(z.string()),
+  category: z.enum(["tech", "lifestyle", "news"]),
+  metadata: z.object({
+    author: z.string(),
+    views: z.number(),
+  }).optional(),
+})
+```
+
+Tangrams generates these default values:
+
+```typescript
+defaultValues: {
+  title: "",
+  content: "",
+  published: false,
+  tags: [],
+  category: "tech",
+  // metadata is excluded (optional)
+}
+```
+
+## Usage
+
+### Basic Form
+
+Spread the generated `formOptions` into `useForm`:
+
+```typescript
+import { useForm } from "@tanstack/react-form"
+import { createUserFormOptions } from "./generated/form/api/forms"
+
+function CreateUserForm() {
+  const form = useForm({
+    ...createUserFormOptions,
+    onSubmit: async ({ value }) => {
+      // value is fully typed
+      console.log("Submitting:", value)
+    },
+  })
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        form.handleSubmit()
+      }}
+    >
+      <form.Field
+        name="name"
+        children={(field) => (
+          <div>
+            <label>Name</label>
+            <input
+              value={field.state.value}
+              onChange={(e) => field.handleChange(e.target.value)}
+            />
+            {field.state.meta.errors.length > 0 && (
+              <span>{field.state.meta.errors.join(", ")}</span>
+            )}
+          </div>
+        )}
+      />
+      <form.Field
+        name="email"
+        children={(field) => (
+          <div>
+            <label>Email</label>
+            <input
+              type="email"
+              value={field.state.value}
+              onChange={(e) => field.handleChange(e.target.value)}
+            />
+            {field.state.meta.errors.length > 0 && (
+              <span>{field.state.meta.errors.join(", ")}</span>
+            )}
+          </div>
+        )}
+      />
+      <button type="submit">Create User</button>
+    </form>
+  )
+}
+```
+
+### Combining with Mutations
+
+Use the generated `formOptions` alongside `mutationOptions` from [TanStack Query](/docs/tanstack-query) for a complete form submission flow:
+
+```typescript
+import { useForm } from "@tanstack/react-form"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { createUserFormOptions } from "./generated/form/api/forms"
+import { createUserMutationOptions } from "./generated/query/api/operations"
+
+function CreateUserForm() {
+  const queryClient = useQueryClient()
+  const mutation = useMutation(createUserMutationOptions())
+
+  const form = useForm({
+    ...createUserFormOptions,
+    onSubmit: async ({ value }) => {
+      await mutation.mutateAsync(value)
+      // Invalidate queries after successful mutation
+      queryClient.invalidateQueries({ queryKey: ["api", "listUsers"] })
+    },
+  })
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        form.handleSubmit()
+      }}
+    >
+      {/* ... form fields */}
+      <button type="submit" disabled={mutation.isPending}>
+        {mutation.isPending ? "Creating..." : "Create User"}
+      </button>
+      {mutation.isError && (
+        <div>Error: {mutation.error.message}</div>
+      )}
+    </form>
+  )
+}
+```
+
+### Overriding Default Values
+
+You can override the generated default values when needed:
+
+```typescript
+const form = useForm({
+  ...createUserFormOptions,
+  defaultValues: {
+    ...createUserFormOptions.defaultValues,
+    name: "Pre-filled Name",
+  },
+  onSubmit: async ({ value }) => {
+    // ...
+  },
+})
+```
+
+### Edit Forms with Existing Data
+
+For edit forms, override `defaultValues` with the existing data:
+
+```typescript
+function EditUserForm({ user }: { user: User }) {
+  const form = useForm({
+    ...updateUserFormOptions,
+    defaultValues: {
+      name: user.name,
+      email: user.email,
+      bio: user.bio ?? "",
+    },
+    onSubmit: async ({ value }) => {
+      // ...
+    },
+  })
+
+  return (
+    // ... form JSX
+  )
+}
+```
+
+## Configuration Reference
+
+### GraphQL Source Options
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `name` | `string` | Yes | Unique name for this source |
+| `type` | `"graphql"` | Yes | Source type |
+| `schema` | `object` | Yes | Schema configuration (URL or file-based) |
+| `documents` | `string \| string[]` | Yes | Glob pattern(s) for `.graphql` files |
+| `generates` | `array \| object` | Yes | Must include `"form"` |
+
+### OpenAPI Source Options
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `name` | `string` | Yes | Unique name for this source |
+| `type` | `"openapi"` | Yes | Source type |
+| `spec` | `string` | Yes | Path to OpenAPI spec (local or URL) |
+| `include` | `string[]` | No | Glob patterns for paths to include |
+| `exclude` | `string[]` | No | Glob patterns for paths to exclude |
+| `generates` | `array \| object` | Yes | Must include `"form"` |
+
+### Customizing Output Files
+
+Use the object form of `generates` to customize the output filename:
+
+```typescript
+generates: {
+  form: {
+    files: {
+      forms: "user-forms.ts",  // default: "forms.ts"
+    },
+  },
+}
+```

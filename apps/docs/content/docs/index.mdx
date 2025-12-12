@@ -54,28 +54,7 @@ pnpm add -D tangrams
   </Tab>
 </Tabs>
 
-### Peer Dependencies
-
-The pieces you generate depend on which TanStack libraries you're using:
-
-**TanStack Query:**
-```bash
-bun add @tanstack/react-query
-```
-
-**TanStack Form:**
-```bash
-bun add @tanstack/react-form zod
-```
-
-**Data fetching** (depends on your schema type):
-```bash
-# For GraphQL
-bun add graphql-request
-
-# For OpenAPI
-bun add @better-fetch/fetch zod
-```
+Additional peer dependencies are required based on which TanStack library you're generating for. See the [TanStack Query](/docs/tanstack-query) and [TanStack Form](/docs/tanstack-form) guides for details.
 
 ## How It Works
 
@@ -102,7 +81,7 @@ function UserProfile({ id }: { id: string }) {
 
 ## Next Steps
 
-Choose your data source to get started:
+Choose your TanStack library to get started:
 
-- [GraphQL Guide](/docs/graphql) - Generate pieces from GraphQL schemas and operations
-- [OpenAPI Guide](/docs/openapi) - Generate pieces from OpenAPI/Swagger specs
+- [TanStack Query](/docs/tanstack-query) - Generate `queryOptions` and `mutationOptions`
+- [TanStack Form](/docs/tanstack-form) - Generate `formOptions` with Zod validation

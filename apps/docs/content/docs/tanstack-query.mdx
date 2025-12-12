@@ -1,0 +1,449 @@
+---
+title: TanStack Query
+description: Generate queryOptions and mutationOptions for TanStack Query.
+---
+
+# TanStack Query
+
+Tangrams generates `queryOptions` and `mutationOptions` that snap right into TanStack Query hooks like `useQuery`, `useSuspenseQuery`, and `useMutation`.
+
+## Peer Dependencies
+
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+Install the required dependencies based on your data source:
+
+### Core
+
+<Tabs items={['bun', 'npm', 'pnpm']}>
+  <Tab value="bun">
+```bash
+bun add @tanstack/react-query
+```
+  </Tab>
+  <Tab value="npm">
+```bash
+npm install @tanstack/react-query
+```
+  </Tab>
+  <Tab value="pnpm">
+```bash
+pnpm add @tanstack/react-query
+```
+  </Tab>
+</Tabs>
+
+### GraphQL Sources
+
+<Tabs items={['bun', 'npm', 'pnpm']}>
+  <Tab value="bun">
+```bash
+bun add graphql-request
+```
+  </Tab>
+  <Tab value="npm">
+```bash
+npm install graphql-request
+```
+  </Tab>
+  <Tab value="pnpm">
+```bash
+pnpm add graphql-request
+```
+  </Tab>
+</Tabs>
+
+### OpenAPI Sources
+
+<Tabs items={['bun', 'npm', 'pnpm']}>
+  <Tab value="bun">
+```bash
+bun add @better-fetch/fetch zod
+```
+  </Tab>
+  <Tab value="npm">
+```bash
+npm install @better-fetch/fetch zod
+```
+  </Tab>
+  <Tab value="pnpm">
+```bash
+pnpm add @better-fetch/fetch zod
+```
+  </Tab>
+</Tabs>
+
+## Setup
+
+### GraphQL Source
+
+Configure a GraphQL source with either URL-based introspection or local SDL files:
+
+**URL-based (introspection):**
+
+```typescript
+import { defineConfig } from "tangrams"
+
+export default defineConfig({
+  sources: [
+    {
+      name: "graphql",
+      type: "graphql",
+      schema: {
+        url: "http://localhost:4000/graphql",
+        // headers: { "x-api-key": process.env.API_KEY },
+      },
+      documents: "./src/graphql/**/*.graphql",
+      generates: ["query"],
+    },
+  ],
+})
+```
+
+**File-based (local SDL files):**
+
+```typescript
+import { defineConfig } from "tangrams"
+
+export default defineConfig({
+  sources: [
+    {
+      name: "graphql",
+      type: "graphql",
+      schema: {
+        file: "./schema.graphql",
+        // Or multiple files:
+        // file: ["./schema.graphql", "./extensions/**/*.graphql"],
+      },
+      documents: "./src/graphql/**/*.graphql",
+      generates: ["query"],
+    },
+  ],
+})
+```
+
+Then create your GraphQL operations in `.graphql` files:
+
+```graphql
+# src/graphql/user.graphql
+
+query GetUser($id: ID!) {
+  user(id: $id) {
+    id
+    name
+    email
+  }
+}
+
+mutation CreateUser($input: CreateUserInput!) {
+  createUser(input: $input) {
+    id
+    name
+  }
+}
+```
+
+### OpenAPI Source
+
+Configure an OpenAPI source with a local file or remote URL:
+
+```typescript
+import { defineConfig } from "tangrams"
+
+export default defineConfig({
+  sources: [
+    {
+      name: "api",
+      type: "openapi",
+      spec: "./openapi.yaml", // or a remote URL
+      generates: ["query"],
+    },
+  ],
+})
+```
+
+**With path filtering:**
+
+```typescript
+{
+  name: "api",
+  type: "openapi",
+  spec: "./openapi.yaml",
+  include: ["/users/**", "/posts/**"],
+  exclude: ["/internal/**"],
+  generates: ["query"],
+}
+```
+
+### Generate
+
+Run the generator:
+
+```bash
+bunx tangrams generate
+```
+
+## Generated Output
+
+### Output Directory Structure
+
+```
+src/generated/
+├── zod/
+│   └── <source>/
+│       └── schema.ts         # Zod schemas (OpenAPI always, GraphQL when form enabled)
+└── query/
+    └── <source>/
+        ├── client.ts         # API client
+        ├── types.ts          # TypeScript types (GraphQL only)
+        └── operations.ts     # queryOptions and mutationOptions
+```
+
+### GraphQL Output
+
+**`client.ts`** - A configured `graphql-request` client:
+
+```typescript
+import { GraphQLClient } from "graphql-request"
+
+const endpoint = "http://localhost:4000/graphql"
+
+export const getClient = async () => {
+  return new GraphQLClient(endpoint, {
+    headers: {
+      // Add your headers here
+    },
+  })
+}
+```
+
+**`types.ts`** - TypeScript types from your schema and operations:
+
+```typescript
+// Operation types
+export type GetUserQueryVariables = { id: string }
+export type GetUserQuery = {
+  user: { id: string; name: string; email: string } | null
+}
+
+export type CreateUserMutationVariables = { input: CreateUserInput }
+export type CreateUserMutation = {
+  createUser: { id: string; name: string }
+}
+```
+
+**`operations.ts`** - Ready-to-use query and mutation options:
+
+```typescript
+export const getUserQueryOptions = (variables: GetUserQueryVariables) =>
+  queryOptions({
+    queryKey: ["graphql", "GetUser", variables],
+    queryFn: async () =>
+      (await getClient()).request<GetUserQuery>(GetUserDocument, variables),
+  })
+
+export const createUserMutationOptions = () =>
+  mutationOptions({
+    mutationKey: ["graphql", "CreateUser"],
+    mutationFn: async (variables: CreateUserMutationVariables) =>
+      (await getClient()).request<CreateUserMutation>(
+        CreateUserDocument,
+        variables
+      ),
+  })
+```
+
+### OpenAPI Output
+
+**`zod/<source>/schema.ts`** - Zod schemas and inferred TypeScript types:
+
+```typescript
+import * as z from "zod"
+
+export const userSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string(),
+})
+
+export const createUserRequestSchema = z.object({
+  name: z.string(),
+  email: z.string(),
+})
+
+// Inferred TypeScript types
+export type User = z.infer<typeof userSchema>
+export type CreateUserRequest = z.infer<typeof createUserRequestSchema>
+```
+
+**`client.ts`** - A configured `better-fetch` client:
+
+```typescript
+import { createFetch } from "@better-fetch/fetch"
+
+const baseURL = "https://api.example.com"
+
+export const $fetch = createFetch({
+  baseURL,
+})
+```
+
+**`operations.ts`** - Query and mutation options with Zod validation:
+
+```typescript
+export const listUsersQueryOptions = (params?: ListUsersParams) =>
+  queryOptions({
+    queryKey: ["api", "listUsers", params],
+    queryFn: async () => {
+      const { data, error } = await $fetch<ListUsersResponse>("/users", {
+        output: listUsersResponseSchema,
+      })
+      if (error) throw error
+      return data
+    },
+  })
+
+export const createUserMutationOptions = () =>
+  mutationOptions({
+    mutationKey: ["api", "createUser"],
+    mutationFn: async (body: CreateUserRequest) => {
+      const { data, error } = await $fetch<User>("/users", {
+        method: "POST",
+        output: userSchema,
+        body,
+      })
+      if (error) throw error
+      return data
+    },
+  })
+```
+
+## Usage
+
+The generated options snap right into TanStack Query hooks:
+
+```typescript
+import { useQuery, useSuspenseQuery, useMutation } from "@tanstack/react-query"
+import {
+  getUserQueryOptions,
+  createUserMutationOptions,
+} from "./generated/query/graphql/operations"
+
+function UserProfile({ userId }: { userId: string }) {
+  // useQuery with full type inference
+  const { data, isLoading } = useQuery(getUserQueryOptions({ id: userId }))
+
+  if (isLoading) return <div>Loading...</div>
+
+  return <div>{data?.user?.name}</div>
+}
+
+function UserProfileSuspense({ userId }: { userId: string }) {
+  // useSuspenseQuery - data is never undefined
+  const { data } = useSuspenseQuery(getUserQueryOptions({ id: userId }))
+
+  return <div>{data.user?.name}</div>
+}
+
+function CreateUserButton() {
+  const { mutate, isPending } = useMutation(createUserMutationOptions())
+
+  return (
+    <button
+      disabled={isPending}
+      onClick={() => mutate({ input: { name: "Jane", email: "jane@example.com" } })}
+    >
+      {isPending ? "Creating..." : "Create User"}
+    </button>
+  )
+}
+```
+
+## Configuration Reference
+
+### GraphQL Source Options
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `name` | `string` | Yes | Unique name for this source (lowercase, alphanumeric with hyphens) |
+| `type` | `"graphql"` | Yes | Source type |
+| `schema` | `object` | Yes | Schema configuration (see below) |
+| `documents` | `string \| string[]` | Yes | Glob pattern(s) for `.graphql` operation files |
+| `scalars` | `Record<string, string>` | No | Custom scalar type mappings |
+| `generates` | `array \| object` | Yes | What to generate |
+
+#### Schema Configuration
+
+**URL-based (introspection):**
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `schema.url` | `string` | Yes | GraphQL endpoint URL for introspection |
+| `schema.headers` | `Record<string, string>` | No | Headers to send with introspection request |
+
+**File-based (local SDL files):**
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `schema.file` | `string \| string[]` | Yes | Path or glob pattern(s) for `.graphql` schema files |
+
+### OpenAPI Source Options
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `name` | `string` | Yes | Unique name for this source (lowercase, alphanumeric with hyphens) |
+| `type` | `"openapi"` | Yes | Source type |
+| `spec` | `string` | Yes | Path to OpenAPI spec (local file or URL) |
+| `headers` | `Record<string, string>` | No | Headers for fetching remote spec |
+| `include` | `string[]` | No | Glob patterns for paths to include |
+| `exclude` | `string[]` | No | Glob patterns for paths to exclude |
+| `generates` | `array \| object` | Yes | What to generate |
+
+### Custom Scalars (GraphQL)
+
+Map GraphQL scalars to TypeScript types:
+
+```typescript
+{
+  name: "graphql",
+  type: "graphql",
+  schema: { url: "..." },
+  documents: "...",
+  scalars: {
+    DateTime: "Date",
+    JSON: "Record<string, unknown>",
+  },
+  generates: ["query"],
+}
+```
+
+#### Default Scalar Mappings
+
+| GraphQL Scalar | TypeScript Type |
+|----------------|-----------------|
+| `ID` | `string` |
+| `String` | `string` |
+| `Int` | `number` |
+| `Float` | `number` |
+| `Boolean` | `boolean` |
+| `DateTime` | `string` |
+| `Date` | `string` |
+| `JSON` | `unknown` |
+| `BigInt` | `bigint` |
+| `UUID` | `string` |
+
+### Customizing Output Files
+
+Use the object form of `generates` to customize filenames:
+
+```typescript
+generates: {
+  query: {
+    files: {
+      client: "api-client.ts",      // default: "client.ts"
+      types: "api-types.ts",        // default: "types.ts" (GraphQL only)
+      operations: "api-ops.ts",     // default: "operations.ts"
+    },
+  },
+}
+```
