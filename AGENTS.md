@@ -33,11 +33,12 @@
 - Run `bunx changeset` or create a markdown file in `.changeset/` with the format:
   ```md
   ---
-  "tangen": patch | minor | major
+  "tangen": patch | minor
   ---
   Description of the change.
   ```
-- Use `patch` for bug fixes, `minor` for new features, `major` for breaking changes
+- Use `patch` for bug fixes, `minor` for new features or breaking changes
+- **Never use `major`** - major version bumps are always done manually
 
 ## Documentation
 - Always verify and update documentation (README.md) after making breaking changes or changes that affect user-facing APIs, config structure, or CLI behavior
