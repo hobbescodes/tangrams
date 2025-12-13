@@ -1928,10 +1928,10 @@ describe("OpenAPI Collection Discovery", () => {
 
       expect(result.filename).toBe("collections.ts");
       expect(result.content).toContain("queryCollectionOptions");
-      expect(result.content).toContain("@tanstack/query-db");
+      expect(result.content).toContain("@tanstack/query-db-collection");
     });
 
-    it("imports QueryClient type", async () => {
+    it("imports QueryClient type and createCollection", async () => {
       const schema = await openapiAdapter.loadSchema(config);
       const result = openapiAdapter.generateCollections(schema, config, {
         operationsImportPath: "./operations",
@@ -1942,6 +1942,8 @@ describe("OpenAPI Collection Discovery", () => {
 
       expect(result.content).toContain("QueryClient");
       expect(result.content).toContain("@tanstack/react-query");
+      expect(result.content).toContain("createCollection");
+      expect(result.content).toContain("@tanstack/react-db");
     });
 
     it("imports entity types from types file", async () => {
@@ -1957,7 +1959,7 @@ describe("OpenAPI Collection Discovery", () => {
       expect(result.content).toContain("Pet");
     });
 
-    it("imports query options from operations file", async () => {
+    it("imports client functions from client file", async () => {
       const schema = await openapiAdapter.loadSchema(config);
       const result = openapiAdapter.generateCollections(schema, config, {
         operationsImportPath: "./operations",
@@ -1966,11 +1968,12 @@ describe("OpenAPI Collection Discovery", () => {
         collectionType: "query",
       });
 
-      expect(result.content).toContain('from "./operations"');
-      expect(result.content).toContain("listPetsQueryOptions");
+      // Should import from client (not operations for mutation options)
+      expect(result.content).toContain('from "./client"');
+      expect(result.content).toContain("listPets");
     });
 
-    it("generates collection with getKey and getId functions", async () => {
+    it("generates collection with queryKey, queryFn, and getKey", async () => {
       const schema = await openapiAdapter.loadSchema(config);
       const result = openapiAdapter.generateCollections(schema, config, {
         operationsImportPath: "./operations",
@@ -1979,11 +1982,12 @@ describe("OpenAPI Collection Discovery", () => {
         collectionType: "query",
       });
 
+      expect(result.content).toContain("queryKey:");
+      expect(result.content).toContain("queryFn:");
       expect(result.content).toContain("getKey:");
-      expect(result.content).toContain("getId:");
     });
 
-    it("generates mutation handlers when available", async () => {
+    it("generates persistence handlers (onInsert, onUpdate, onDelete) when mutations available", async () => {
       const schema = await openapiAdapter.loadSchema(config);
       const result = openapiAdapter.generateCollections(schema, config, {
         operationsImportPath: "./operations",
@@ -1992,10 +1996,10 @@ describe("OpenAPI Collection Discovery", () => {
         collectionType: "query",
       });
 
-      expect(result.content).toContain("mutations:");
-      expect(result.content).toContain("insert:");
-      expect(result.content).toContain("update:");
-      expect(result.content).toContain("delete:");
+      expect(result.content).toContain("onInsert:");
+      expect(result.content).toContain("onUpdate:");
+      expect(result.content).toContain("onDelete:");
+      expect(result.content).toContain("transaction.mutations");
     });
 
     it("exports named collection options factory", async () => {
@@ -2009,6 +2013,7 @@ describe("OpenAPI Collection Discovery", () => {
 
       expect(result.content).toContain("export const petCollectionOptions");
       expect(result.content).toContain("(queryClient: QueryClient)");
+      expect(result.content).toContain("createCollection(");
     });
   });
 });

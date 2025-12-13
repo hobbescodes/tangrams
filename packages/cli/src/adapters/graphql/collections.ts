@@ -349,7 +349,10 @@ export function generateGraphQLCollections(
   const lines: string[] = [];
 
   // Imports
-  lines.push('import { queryCollectionOptions } from "@tanstack/query-db"');
+  lines.push(
+    'import { queryCollectionOptions } from "@tanstack/query-db-collection"',
+  );
+  lines.push('import { createCollection } from "@tanstack/react-db"');
   lines.push("");
   lines.push('import type { QueryClient } from "@tanstack/react-query"');
 
@@ -361,14 +364,16 @@ export function generateGraphQLCollections(
     );
   }
 
-  // Import query options from operations
-  const queryOptionImports = entities.map(
-    (e) => `${toCamelCase(e.listQuery.operationName)}QueryOptions`,
+  // Import query/mutation functions from operations
+  const queryFnImports = entities.map(
+    (e) => `${toCamelCase(e.listQuery.operationName)}`,
   );
-  const mutationImports = entities.flatMap((e) =>
-    e.mutations.map((m) => `${toCamelCase(m.operationName)}MutationOptions`),
+  const mutationFnImports = entities.flatMap((e) =>
+    e.mutations.map((m) => `${toCamelCase(m.operationName)}`),
   );
-  const allOperationImports = [...queryOptionImports, ...mutationImports];
+  const allOperationImports = [
+    ...new Set([...queryFnImports, ...mutationFnImports]),
+  ];
 
   if (allOperationImports.length > 0) {
     lines.push(
@@ -380,7 +385,7 @@ export function generateGraphQLCollections(
 
   // Generate collection options for each entity
   for (const entity of entities) {
-    lines.push(generateEntityCollectionOptions(entity));
+    lines.push(generateEntityCollectionOptions(entity, options));
     lines.push("");
   }
 
@@ -393,37 +398,59 @@ export function generateGraphQLCollections(
 /**
  * Generate collection options for a single entity
  */
-function generateEntityCollectionOptions(entity: CollectionEntity): string {
+function generateEntityCollectionOptions(
+  entity: CollectionEntity,
+  _options: CollectionGenOptions,
+): string {
   const lines: string[] = [];
   const collectionName = `${toCamelCase(entity.name)}CollectionOptions`;
-  const listQueryOptions = `${toCamelCase(entity.listQuery.operationName)}QueryOptions`;
+  const listQueryFn = `${toCamelCase(entity.listQuery.operationName)}`;
 
   lines.push("/**");
   lines.push(` * Collection options for ${entity.name}`);
   lines.push(" */");
-  lines.push(
-    `export const ${collectionName} = (queryClient: QueryClient) => queryCollectionOptions<${entity.typeName}, "${entity.keyField}", ${entity.keyFieldType}>({`,
-  );
-  lines.push(`  queryClient,`);
-  lines.push(`  getKey: (item) => item.${entity.keyField},`);
-  lines.push(`  getId: (item) => item.${entity.keyField},`);
-  lines.push(`  queries: {`);
-  lines.push(`    list: ${listQueryOptions}(),`);
-  lines.push(`  },`);
+  lines.push(`export const ${collectionName} = (queryClient: QueryClient) =>`);
+  lines.push(`  createCollection(`);
+  lines.push(`    queryCollectionOptions({`);
+  lines.push(`      queryKey: ${JSON.stringify(entity.listQuery.queryKey)},`);
+  lines.push(`      queryFn: async () => ${listQueryFn}(),`);
+  lines.push(`      queryClient,`);
+  lines.push(`      getKey: (item) => item.${entity.keyField},`);
 
-  // Add mutations if available
-  if (entity.mutations.length > 0) {
-    lines.push(`  mutations: {`);
+  // Add persistence handlers for mutations
+  const insertMutation = entity.mutations.find((m) => m.type === "insert");
+  const updateMutation = entity.mutations.find((m) => m.type === "update");
+  const deleteMutation = entity.mutations.find((m) => m.type === "delete");
 
-    for (const mutation of entity.mutations) {
-      const mutationOptions = `${toCamelCase(mutation.operationName)}MutationOptions`;
-      lines.push(`    ${mutation.type}: ${mutationOptions}(),`);
-    }
-
-    lines.push(`  },`);
+  if (insertMutation) {
+    const insertFn = toCamelCase(insertMutation.operationName);
+    lines.push(`      onInsert: async ({ transaction }) => {`);
+    lines.push(
+      `        await Promise.all(transaction.mutations.map((m) => ${insertFn}({ input: m.modified })))`,
+    );
+    lines.push(`      },`);
   }
 
-  lines.push(`})`);
+  if (updateMutation) {
+    const updateFn = toCamelCase(updateMutation.operationName);
+    lines.push(`      onUpdate: async ({ transaction }) => {`);
+    lines.push(
+      `        await Promise.all(transaction.mutations.map((m) => ${updateFn}({ ${entity.keyField}: m.original.${entity.keyField}, input: m.changes })))`,
+    );
+    lines.push(`      },`);
+  }
+
+  if (deleteMutation) {
+    const deleteFn = toCamelCase(deleteMutation.operationName);
+    lines.push(`      onDelete: async ({ transaction }) => {`);
+    lines.push(
+      `        await Promise.all(transaction.mutations.map((m) => ${deleteFn}({ ${entity.keyField}: m.key })))`,
+    );
+    lines.push(`      },`);
+  }
+
+  lines.push(`    })`);
+  lines.push(`  )`);
 
   return lines.join("\n");
 }

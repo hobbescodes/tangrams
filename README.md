@@ -66,7 +66,7 @@ bun add @tanstack/react-router @tanstack/react-start
 **TanStack DB (`generates` includes `"db"`):**
 
 ```bash
-bun add @tanstack/db @tanstack/query-db @tanstack/react-query
+bun add @tanstack/react-db @tanstack/query-db-collection @tanstack/react-query
 ```
 
 **GraphQL sources (when generating `"query"`):**
@@ -980,36 +980,45 @@ src/generated/
 
 #### `<source>/db/collections.ts`
 
-Collection options with query and mutation handlers:
+Collection options with query and persistence handlers:
 
 ```typescript
-import { queryCollectionOptions } from "@tanstack/query-db";
+import { queryCollectionOptions } from "@tanstack/query-db-collection";
+import { createCollection } from "@tanstack/react-db";
+
 import type { QueryClient } from "@tanstack/react-query";
 import type { Pet } from "../schema";
-import {
-  listPetsQueryOptions,
-  createPetMutationOptions,
-  updatePetMutationOptions,
-  deletePetMutationOptions,
-} from "../query/operations";
+import { listPets, createPet, updatePet, deletePet } from "../client";
 
 /**
  * Collection options for Pet
  */
 export const petCollectionOptions = (queryClient: QueryClient) =>
-  queryCollectionOptions<Pet, "id", string>({
-    queryClient,
-    getKey: (item) => item.id,
-    getId: (item) => item.id,
-    queries: {
-      list: listPetsQueryOptions(),
-    },
-    mutations: {
-      insert: createPetMutationOptions(),
-      update: updatePetMutationOptions(),
-      delete: deletePetMutationOptions(),
-    },
-  });
+  createCollection(
+    queryCollectionOptions({
+      queryKey: ["Pet"],
+      queryFn: async () => listPets(),
+      queryClient,
+      getKey: (item) => item.id,
+      onInsert: async ({ transaction }) => {
+        await Promise.all(
+          transaction.mutations.map((m) => createPet({ body: m.modified }))
+        );
+      },
+      onUpdate: async ({ transaction }) => {
+        await Promise.all(
+          transaction.mutations.map((m) =>
+            updatePet({ id: m.original.id, body: m.changes })
+          )
+        );
+      },
+      onDelete: async ({ transaction }) => {
+        await Promise.all(
+          transaction.mutations.map((m) => deletePet({ id: m.key }))
+        );
+      },
+    })
+  );
 ```
 
 ### Usage
@@ -1017,16 +1026,15 @@ export const petCollectionOptions = (queryClient: QueryClient) =>
 Use the generated collection options with TanStack DB:
 
 ```typescript
-import { createCollection } from "@tanstack/db";
 import { useQueryClient } from "@tanstack/react-query";
 import { petCollectionOptions } from "./generated/api/db/collections";
 
 function PetList() {
   const queryClient = useQueryClient();
-  const collection = createCollection(petCollectionOptions(queryClient));
+  const collection = petCollectionOptions(queryClient);
 
-  // Use collection.query(), collection.insert(), etc.
-  const pets = collection.query();
+  // Use collection.state, collection.insert(), etc.
+  const pets = collection.state;
 
   return (
     <ul>
