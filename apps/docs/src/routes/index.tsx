@@ -43,8 +43,8 @@ function HomePage() {
           description="Create formOptions with Zod validation - the missing piece for type-safe forms."
         />
         <FeatureCard
-          title="Any Data Source"
-          description="GraphQL or OpenAPI - bring your schema, we'll shape the pieces to fit."
+          title="TanStack DB"
+          description="Generate collections with optimistic updates - local-first data sync that just works."
         />
       </div>
     </main>
