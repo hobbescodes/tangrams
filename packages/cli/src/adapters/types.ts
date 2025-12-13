@@ -25,30 +25,24 @@ export interface TypeGenOptions {
 }
 
 /**
- * Options for operation generation
+ * Options for functions generation (standalone fetch functions)
  */
-export interface OperationGenOptions {
+export interface FunctionsGenOptions {
   /** Relative import path to the client file */
   clientImportPath: string;
   /** Relative import path to the types/schema file */
   typesImportPath: string;
-  /** The source name to include in query/mutation keys */
-  sourceName: string;
-  /** Enable TanStack Start server functions wrapping (imports from start/) */
-  serverFunctions?: boolean;
-  /** Relative import path to the start/functions file (when serverFunctions is true) */
-  startImportPath?: string;
 }
 
 /**
- * Options for start (server functions) generation
+ * Options for operation generation
  */
-export interface StartGenOptions {
-  /** Relative import path to the client file */
-  clientImportPath: string;
+export interface OperationGenOptions {
+  /** Relative import path to the functions file (required if functions are generated) */
+  functionsImportPath?: string;
   /** Relative import path to the types/schema file */
   typesImportPath: string;
-  /** The source name */
+  /** The source name to include in query/mutation keys */
   sourceName: string;
 }
 
@@ -128,8 +122,8 @@ export interface CollectionDiscoveryResult {
  * Options for collection generation
  */
 export interface CollectionGenOptions {
-  /** Relative import path to the operations file */
-  operationsImportPath: string;
+  /** Relative import path to the functions file */
+  functionsImportPath: string;
   /** Relative import path to the types/schema file */
   typesImportPath: string;
   /** The source name */
@@ -146,9 +140,9 @@ export interface CollectionGenOptions {
  * Each adapter is responsible for:
  * 1. Loading/parsing its schema from the configured source
  * 2. Generating a client for making requests
- * 3. Generating TanStack Query operation helpers
- * 4. Generating TanStack Start server functions
- * 5. Generating Zod schemas for validation (OpenAPI always, GraphQL when form/start enabled)
+ * 3. Generating standalone fetch functions
+ * 4. Generating TanStack Query operation helpers
+ * 5. Generating Zod schemas for validation (OpenAPI always, GraphQL when form enabled)
  * 6. Generating TanStack Form options for mutations
  * 7. (GraphQL only) Generating TypeScript types for operations
  */
@@ -175,6 +169,19 @@ export interface SourceAdapter<
   generateClient(schema: TSchema, config: TConfig): GeneratedFile;
 
   /**
+   * Generate standalone fetch functions
+   * @param schema The loaded schema
+   * @param config The source configuration
+   * @param options Functions generation options
+   * @returns Generated functions file
+   */
+  generateFunctions(
+    schema: TSchema,
+    config: TConfig,
+    options: FunctionsGenOptions,
+  ): GeneratedFile;
+
+  /**
    * Generate TanStack Query operation helpers
    * @param schema The loaded schema
    * @param config The source configuration
@@ -185,19 +192,6 @@ export interface SourceAdapter<
     schema: TSchema,
     config: TConfig,
     options: OperationGenOptions,
-  ): GeneratedFile;
-
-  /**
-   * Generate TanStack Start server functions
-   * @param schema The loaded schema
-   * @param config The source configuration
-   * @param options Start generation options
-   * @returns Generated server functions file
-   */
-  generateStart(
-    schema: TSchema,
-    config: TConfig,
-    options: StartGenOptions,
   ): GeneratedFile;
 
   /**

@@ -11,30 +11,29 @@ import { normalizeGenerates } from "./config";
 
 describe("generator utilities", () => {
   describe("normalizeGenerates integration with generator", () => {
-    it("correctly normalizes array form for start generator", () => {
-      const result = normalizeGenerates(["start"]);
+    it("correctly normalizes array form for functions generator", () => {
+      const result = normalizeGenerates(["functions"]);
 
-      expect(result.start).toBeDefined();
-      expect(result.start?.files.functions).toBe("functions.ts");
+      expect(result.functions).toBeDefined();
+      expect(result.functions?.files.functions).toBe("functions.ts");
       expect(result.query).toBeUndefined();
       expect(result.form).toBeUndefined();
     });
 
-    it("correctly normalizes query with serverFunctions", () => {
+    it("correctly normalizes query generator", () => {
       const result = normalizeGenerates({
-        query: { serverFunctions: true },
+        query: true,
       });
 
       expect(result.query).toBeDefined();
-      expect(result.query?.serverFunctions).toBe(true);
       expect(result.query?.files.operations).toBe("operations.ts");
     });
 
     it("correctly normalizes all generators", () => {
-      const result = normalizeGenerates(["query", "start", "form"]);
+      const result = normalizeGenerates(["query", "functions", "form"]);
 
       expect(result.query).toBeDefined();
-      expect(result.start).toBeDefined();
+      expect(result.functions).toBeDefined();
       expect(result.form).toBeDefined();
       expect(result.files.client).toBe("client.ts");
       expect(result.files.schema).toBe("schema.ts");
@@ -50,7 +49,7 @@ describe("generator utilities", () => {
             operations: "api-operations.ts",
           },
         },
-        start: {
+        functions: {
           files: {
             functions: "server-fns.ts",
           },
@@ -61,7 +60,7 @@ describe("generator utilities", () => {
       expect(result.files.schema).toBe("types.ts");
       expect(result.query?.files.types).toBe("graphql-types.ts");
       expect(result.query?.files.operations).toBe("api-operations.ts");
-      expect(result.start?.files.functions).toBe("server-fns.ts");
+      expect(result.functions?.files.functions).toBe("server-fns.ts");
     });
   });
 });

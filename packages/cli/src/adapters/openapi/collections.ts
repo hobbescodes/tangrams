@@ -380,20 +380,20 @@ export function generateOpenAPICollections(
     );
   }
 
-  // Import fetch functions from client
-  const fetchFnImports = entities.map(
+  // Import query/mutation functions from functions.ts
+  const queryFnImports = entities.map(
     (e) => `${toCamelCase(e.listQuery.operationName)}`,
   );
   const mutationFnImports = entities.flatMap((e) =>
     e.mutations.map((m) => `${toCamelCase(m.operationName)}`),
   );
-  const allClientImports = [
-    ...new Set([...fetchFnImports, ...mutationFnImports]),
+  const allFunctionImports = [
+    ...new Set([...queryFnImports, ...mutationFnImports]),
   ];
 
-  if (allClientImports.length > 0) {
+  if (allFunctionImports.length > 0) {
     lines.push(
-      `import { ${allClientImports.join(", ")} } from "${options.operationsImportPath.replace("/operations", "/client")}"`,
+      `import { ${allFunctionImports.join(", ")} } from "${options.functionsImportPath}"`,
     );
   }
 

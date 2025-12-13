@@ -364,20 +364,20 @@ export function generateGraphQLCollections(
     );
   }
 
-  // Import query/mutation functions from operations
+  // Import query/mutation functions from functions.ts
   const queryFnImports = entities.map(
     (e) => `${toCamelCase(e.listQuery.operationName)}`,
   );
   const mutationFnImports = entities.flatMap((e) =>
     e.mutations.map((m) => `${toCamelCase(m.operationName)}`),
   );
-  const allOperationImports = [
+  const allFunctionImports = [
     ...new Set([...queryFnImports, ...mutationFnImports]),
   ];
 
-  if (allOperationImports.length > 0) {
+  if (allFunctionImports.length > 0) {
     lines.push(
-      `import { ${allOperationImports.join(", ")} } from "${options.operationsImportPath}"`,
+      `import { ${allFunctionImports.join(", ")} } from "${options.functionsImportPath}"`,
     );
   }
 

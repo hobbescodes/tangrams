@@ -18,7 +18,7 @@ Currently supporting **TanStack Query** and **TanStack Form** with more integrat
 ## Features
 
 - **TanStack Query** - Generate type-safe `queryOptions` and `mutationOptions` from your GraphQL operations or OpenAPI specs
-- **TanStack Start** - Optionally wrap operations in `createServerFn` for server-side data fetching
+- **Standalone Functions** - Generate standalone async fetch functions for use directly or with any framework
 - **TanStack Form** - Generate type-safe `formOptions` with Zod validation schemas from your mutations
 - **TanStack DB** - Generate `queryCollectionOptions` with auto-detected CRUD operations for local-first data
 - **TanStack Pacer** - Generate rate-limited operation wrappers _(coming soon)_
@@ -55,12 +55,6 @@ bun add @tanstack/react-query
 
 ```bash
 bun add @tanstack/react-form zod
-```
-
-**TanStack Start (when using `serverFunctions: true`):**
-
-```bash
-bun add @tanstack/react-router @tanstack/react-start
 ```
 
 **TanStack DB (`generates` includes `"db"`):**
@@ -316,6 +310,8 @@ generates: ["form"]; // Generate only TanStack Form code
 generates: ["db"]; // Generate only TanStack DB collections
 generates: ["query", "form"]; // Generate both query and form
 generates: ["query", "db"]; // Generate query and db collections
+generates: ["functions"]; // Generate standalone fetch functions
+generates: ["query", "functions"]; // Generate both query and functions
 ```
 
 **Object form (customize filenames):**
@@ -324,16 +320,16 @@ generates: ["query", "db"]; // Generate query and db collections
 generates: {
   client: "api-client.ts",          // default: "client.ts" (at source root)
   schema: "api-schema.ts",          // default: "schema.ts" (at source root)
+  functions: {                       // generate standalone fetch functions
+    files: {
+      functions: "api-functions.ts", // default: "functions.ts" (at source root)
+    },
+  },
   query: {
-    serverFunctions: true,           // import server functions from start/ directory
+    functionsImportPath: "../functions", // import functions from functions.ts
     files: {
       types: "api-types.ts",         // default: "types.ts" (GraphQL only)
       operations: "api-ops.ts",      // default: "operations.ts"
-    },
-  },
-  start: {                           // generate server functions (TanStack Start)
-    files: {
-      functions: "server-fns.ts",    // default: "functions.ts"
     },
   },
   form: {
@@ -353,7 +349,7 @@ generates: {
 }
 ```
 
-**Note:** The `client` and `schema` files are now at the source root level, shared by all generators. Server functions are generated in a separate `start/` directory when using the `start` generator.
+**Note:** The `client`, `schema`, and `functions` files are at the source root level, shared by all generators.
 
 ### GraphQL Source Options
 
@@ -408,18 +404,17 @@ src/generated/
 └── <source>/              # e.g., "graphql", "rest-api"
     ├── client.ts          # API client (shared)
     ├── schema.ts          # Zod schemas (OpenAPI always, GraphQL when form enabled)
+    ├── functions.ts       # Standalone fetch functions (when using functions generator)
     ├── query/             # TanStack Query output
     │   ├── types.ts       # TypeScript types (GraphQL only)
     │   └── operations.ts  # queryOptions and mutationOptions
-    ├── start/             # TanStack Start output (when using start generator)
-    │   └── functions.ts   # createServerFn wrappers
     ├── form/              # TanStack Form output
     │   └── forms.ts       # formOptions
     └── db/                # TanStack DB output
-        └── collections.ts # queryCollectionOptions
+        └── collections.ts # queryCollectionOptions (imports from ../functions.ts)
 ```
 
-**Note:** The `client.ts` and `schema.ts` files are at the source root, shared by all generators. Server functions are in a separate `start/` directory and are imported by `query/operations.ts` when `serverFunctions: true`.
+**Note:** The `client.ts`, `schema.ts`, and `functions.ts` files are at the source root, shared by all generators. When using `functionsImportPath`, `query/operations.ts` imports from `functions.ts`.
 
 ### Default Scalar Mappings (GraphQL)
 
@@ -771,13 +766,13 @@ function CreateUserForm() {
 }
 ```
 
-## TanStack Start Integration
+## Standalone Functions
 
-tangrams can generate server functions for TanStack Start, wrapping your query and mutation operations in `createServerFn` for server-side data fetching.
+tangrams can generate standalone async fetch functions that can be used directly in your code or with any framework. These functions provide a simple, typed interface for making API calls.
 
 ### Configuration
 
-Add `"start"` to your `generates` array to generate server functions in a separate directory:
+Add `"functions"` to your `generates` array:
 
 ```typescript
 import { defineConfig } from "tangrams";
@@ -789,91 +784,110 @@ export default defineConfig({
       type: "graphql",
       schema: { url: "http://localhost:4000/graphql" },
       documents: "./src/graphql/**/*.graphql",
-      generates: ["query", "start"], // Generate both query options and server functions
+      generates: ["query", "functions"], // Generate both query options and standalone functions
     },
   ],
 });
 ```
 
-To have your query options use the server functions, enable `serverFunctions: true`:
+To have your query operations import from the standalone functions, use `functionsImportPath`:
 
 ```typescript
 generates: {
-  query: { serverFunctions: true },
-  start: true,
+  functions: true,
+  query: {
+    functionsImportPath: "../functions", // operations.ts will import from functions.ts
+  },
 }
-```
-
-### Peer Dependencies
-
-For server functions, you'll need TanStack Start:
-
-```bash
-bun add @tanstack/react-router @tanstack/react-start
 ```
 
 ### Generated Output
 
-When using the `start` generator, tangrams creates server functions in a separate directory:
+When using the `functions` generator, tangrams creates standalone functions at the source root:
 
 ```
 src/generated/
 └── graphql/
     ├── client.ts
-    ├── query/
-    │   ├── types.ts
-    │   └── operations.ts     # imports from ../start/functions when serverFunctions: true
-    └── start/
-        └── functions.ts      # createServerFn wrappers
+    ├── functions.ts       # Standalone async fetch functions
+    └── query/
+        ├── types.ts
+        └── operations.ts  # Can import from ../functions.ts
 ```
 
-#### `<source>/start/functions.ts`
+#### `<source>/functions.ts`
 
-Server functions for all operations:
+Standalone async functions for all operations:
 
 ```typescript
-import { createServerFn } from "@tanstack/react-start";
-import { getClient } from "../client";
+import { getClient } from "./client";
+import type { GetUserQuery, GetUserQueryVariables } from "./query/types";
 
-// Server function for queries (GET method)
-export const getUserFn = createServerFn({ method: "GET" })
-  .inputValidator((data: GetUserQueryVariables) => data)
-  .handler(async ({ data }) =>
-    (await getClient()).request<GetUserQuery>(GetUserDocument, data)
-  );
+const GetUserDocument = `
+  query GetUser($id: ID!) {
+    user(id: $id) {
+      id
+      name
+      email
+    }
+  }
+`;
 
-// Server function for mutations (POST method)
-export const createUserFn = createServerFn({ method: "POST" })
-  .inputValidator((data: CreateUserMutationVariables) => data)
-  .handler(async ({ data }) =>
-    (await getClient()).request<CreateUserMutation>(CreateUserDocument, data)
+export async function getUser(
+  variables: GetUserQueryVariables
+): Promise<GetUserQuery> {
+  return (await getClient()).request<GetUserQuery>(GetUserDocument, variables);
+}
+
+export async function createUser(
+  variables: CreateUserMutationVariables
+): Promise<CreateUserMutation> {
+  return (await getClient()).request<CreateUserMutation>(
+    CreateUserDocument,
+    variables
   );
+}
 ```
 
-#### `<source>/query/operations.ts` (with `serverFunctions: true`)
+#### `<source>/query/operations.ts` (with `functionsImportPath`)
 
-Query options that import and use the server functions:
+Query options that import and use the standalone functions:
 
 ```typescript
-import { getUserFn, createUserFn } from "../start/functions";
+import { getUser, createUser } from "../functions";
 
 export const getUserQueryOptions = (variables: GetUserQueryVariables) =>
   queryOptions({
     queryKey: ["graphql", "GetUser", variables],
-    queryFn: () => getUserFn({ data: variables }),
+    queryFn: () => getUser(variables),
   });
 
 export const createUserMutationOptions = () =>
   mutationOptions({
     mutationKey: ["graphql", "CreateUser"],
     mutationFn: (variables: CreateUserMutationVariables) =>
-      createUserFn({ data: variables }),
+      createUser(variables),
   });
 ```
 
 ### Usage
 
-Use the generated options exactly as before - the server function wrapping is transparent:
+Use the generated functions directly anywhere in your code:
+
+```typescript
+import { getUser, createUser } from "./generated/graphql/functions";
+
+// Call directly in any context
+const user = await getUser({ id: "123" });
+
+// Use in server-side code, API routes, etc.
+export async function GET(request: Request) {
+  const user = await getUser({ id: "123" });
+  return Response.json(user);
+}
+```
+
+Or use with TanStack Query through the generated options:
 
 ```typescript
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -883,19 +897,9 @@ import {
 } from "./generated/graphql/query/operations";
 
 function UserProfile({ userId }: { userId: string }) {
-  // Data fetching happens on the server!
   const { data } = useQuery(getUserQueryOptions({ id: userId }));
   return <div>{data?.user?.name}</div>;
 }
-```
-
-You can also call server functions directly:
-
-```typescript
-import { getUserFn } from "./generated/graphql/start/functions";
-
-// Call directly in loaders, actions, or other server contexts
-const user = await getUserFn({ data: { id: "123" } });
 ```
 
 ## TanStack DB Integration
@@ -972,10 +976,11 @@ src/generated/
 └── api/
     ├── client.ts
     ├── schema.ts
+    ├── functions.ts       # Standalone functions (when using functions generator)
     ├── query/
     │   └── operations.ts
     └── db/
-        └── collections.ts
+        └── collections.ts # Imports from ../functions.ts when available
 ```
 
 #### `<source>/db/collections.ts`
@@ -988,7 +993,7 @@ import { createCollection } from "@tanstack/react-db";
 
 import type { QueryClient } from "@tanstack/react-query";
 import type { Pet } from "../schema";
-import { listPets, createPet, updatePet, deletePet } from "../client";
+import { listPets, createPet, updatePet, deletePet } from "../functions";
 
 /**
  * Collection options for Pet

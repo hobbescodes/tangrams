@@ -7,7 +7,8 @@
 
 import { loadDocuments } from "@/core/documents";
 import { generateFormOptionsCode } from "@/generators/forms";
-import { generateStartFunctions } from "@/generators/start";
+import { generateFunctions } from "@/generators/functions";
+import { generateGraphQLOperations } from "@/generators/operations";
 import { generateGraphQLZodSchemas } from "@/generators/zod/graphql";
 import { toSchemaName } from "@/generators/zod/index";
 import { generateGraphQLClient } from "./client";
@@ -15,7 +16,6 @@ import {
   discoverGraphQLEntities,
   generateGraphQLCollections,
 } from "./collections";
-import { generateGraphQLOperations } from "./operations";
 import {
   introspectSchema,
   isFileSchemaConfig,
@@ -30,12 +30,12 @@ import type {
   CollectionDiscoveryResult,
   CollectionGenOptions,
   FormGenOptions,
+  FunctionsGenOptions,
   GeneratedFile,
   GraphQLAdapterSchema,
   GraphQLAdapter as IGraphQLAdapter,
   OperationGenOptions,
   SchemaGenOptions,
-  StartGenOptions,
   TypeGenOptions,
 } from "../types";
 
@@ -98,33 +98,42 @@ class GraphQLAdapterImpl implements IGraphQLAdapter {
   }
 
   /**
+   * Generate standalone fetch functions
+   */
+  generateFunctions(
+    schema: GraphQLAdapterSchema,
+    _config: GraphQLSourceConfig,
+    options: FunctionsGenOptions,
+  ): GeneratedFile {
+    const content = generateFunctions({
+      documents: schema.documents,
+      clientImportPath: options.clientImportPath,
+      typesImportPath: options.typesImportPath,
+    });
+
+    return {
+      filename: "functions.ts",
+      content,
+    };
+  }
+
+  /**
    * Generate TanStack Query operation helpers
    */
   generateOperations(
     schema: GraphQLAdapterSchema,
-    config: GraphQLSourceConfig,
+    _config: GraphQLSourceConfig,
     options: OperationGenOptions,
   ): GeneratedFile {
-    return generateGraphQLOperations(schema, config, options);
-  }
-
-  /**
-   * Generate TanStack Start server functions
-   */
-  generateStart(
-    schema: GraphQLAdapterSchema,
-    _config: GraphQLSourceConfig,
-    options: StartGenOptions,
-  ): GeneratedFile {
-    const content = generateStartFunctions({
+    const content = generateGraphQLOperations({
       documents: schema.documents,
-      clientImportPath: options.clientImportPath,
+      functionsImportPath: options.functionsImportPath,
       typesImportPath: options.typesImportPath,
       sourceName: options.sourceName,
     });
 
     return {
-      filename: "functions.ts",
+      filename: "operations.ts",
       content,
     };
   }
