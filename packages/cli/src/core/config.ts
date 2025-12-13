@@ -26,143 +26,61 @@ export interface LoadConfigResult {
 }
 
 // =============================================================================
-// File Configuration Schemas
+// Overrides Configuration Schemas
 // =============================================================================
 
 /**
- * Query-specific file naming configuration (with defaults)
+ * Per-collection override configuration
  */
-export const queryFilesSchema = z.object({
-  /** Filename for the generated types (default: types.ts) */
-  types: z.string().default("types.ts"),
-  /** Filename for the generated operations (default: operations.ts) */
-  operations: z.string().default("operations.ts"),
+export const collectionOverrideSchema = z.object({
+  /** Override the key field for this collection (default: auto-detected 'id' field) */
+  keyField: z.string().optional(),
 });
 
-/** Query files config after parsing (defaults applied) */
-export type QueryFilesConfig = z.output<typeof queryFilesSchema>;
-
-/** Query files config input (before defaults are applied) */
-export type QueryFilesConfigInput = z.input<typeof queryFilesSchema>;
+export type CollectionOverrideConfig = z.infer<typeof collectionOverrideSchema>;
 
 /**
- * Start-specific file naming configuration (with defaults)
+ * DB-specific overrides
  */
-export const startFilesSchema = z.object({
-  /** Filename for the generated server functions (default: functions.ts) */
-  functions: z.string().default("functions.ts"),
+export const dbOverridesSchema = z.object({
+  /** Per-collection overrides (key: entity name, value: collection config) */
+  collections: z.record(z.string(), collectionOverrideSchema).optional(),
 });
 
-/** Start files config after parsing (defaults applied) */
-export type StartFilesConfig = z.output<typeof startFilesSchema>;
-
-/** Start files config input (before defaults are applied) */
-export type StartFilesConfigInput = z.input<typeof startFilesSchema>;
+export type DbOverridesConfig = z.infer<typeof dbOverridesSchema>;
 
 /**
- * Form-specific file naming configuration (with defaults)
+ * Source-level overrides configuration
  */
-export const formFilesSchema = z.object({
-  /** Filename for the generated form options (default: forms.ts) */
-  forms: z.string().default("forms.ts"),
+export const overridesSchema = z.object({
+  /** Custom scalar type mappings (GraphQL only) */
+  scalars: z.record(z.string(), z.string()).optional(),
+  /** TanStack DB overrides */
+  db: dbOverridesSchema.optional(),
 });
 
-/** Form files config after parsing (defaults applied) */
-export type FormFilesConfig = z.output<typeof formFilesSchema>;
-
-/** Form files config input (before defaults are applied) */
-export type FormFilesConfigInput = z.input<typeof formFilesSchema>;
-
-/**
- * Zod-specific file naming configuration (with defaults)
- */
-export const zodFilesSchema = z.object({
-  /** Filename for the generated Zod schemas (default: schema.ts) */
-  schema: z.string().default("schema.ts"),
-});
-
-/** Zod files config after parsing (defaults applied) */
-export type ZodFilesConfig = z.output<typeof zodFilesSchema>;
-
-/** Zod files config input (before defaults are applied) */
-export type ZodFilesConfigInput = z.input<typeof zodFilesSchema>;
+export type OverridesConfig = z.infer<typeof overridesSchema>;
 
 // =============================================================================
-// Generates Configuration Schemas
+// Generates Configuration Schema
 // =============================================================================
 
 /**
- * Query generation options (per-source)
- */
-export const queryGenerateOptionsSchema = z.object({
-  /** File naming configuration */
-  files: queryFilesSchema.optional(),
-  /** Enable TanStack Start server functions wrapping (implies start generator) */
-  serverFunctions: z.boolean().optional(),
-});
-
-/**
- * Start generation options (per-source)
- */
-export const startGenerateOptionsSchema = z.object({
-  /** File naming configuration */
-  files: startFilesSchema.optional(),
-});
-
-/**
- * Form generation options (per-source)
- */
-export const formGenerateOptionsSchema = z.object({
-  /** File naming configuration */
-  files: formFilesSchema.optional(),
-});
-
-/**
- * Generates config as object (for customization)
- */
-export const generatesObjectSchema = z
-  .object({
-    /** Filename for the generated client at source root (default: client.ts) */
-    client: z.string().optional(),
-    /** Filename for the generated Zod schemas at source root (default: schema.ts) */
-    schema: z.string().optional(),
-    /** TanStack Query generation options */
-    query: z.union([z.literal(true), queryGenerateOptionsSchema]).optional(),
-    /** TanStack Start generation options */
-    start: z.union([z.literal(true), startGenerateOptionsSchema]).optional(),
-    /** TanStack Form generation options */
-    form: z.union([z.literal(true), formGenerateOptionsSchema]).optional(),
-  })
-  .refine(
-    (obj) =>
-      obj.query !== undefined ||
-      obj.start !== undefined ||
-      obj.form !== undefined,
-    "At least one generator must be specified (query, start, or form)",
-  );
-
-/**
- * Generates config as array (simple form)
- */
-export const generatesArraySchema = z
-  .array(z.enum(["query", "start", "form"]))
-  .min(1, "At least one generator must be specified");
-
-/**
- * Combined generates schema - supports both array and object forms
+ * Generates config - array of TanStack libraries to generate artifacts for
  *
- * Examples:
- * - Simple: `generates: ["query", "form"]`
- * - With options: `generates: { query: { files: { client: "custom.ts" } }, form: true }`
+ * Available options:
+ * - "query" - TanStack Query (queryOptions, mutationOptions)
+ * - "form" - TanStack Form (formOptions with Zod validation)
+ * - "db" - TanStack DB (queryCollectionOptions)
+ *
+ * Note: When "db" is specified, "query" is auto-enabled since DB depends on it.
+ * The functions.ts file is automatically generated when query or db is enabled.
  */
-export const generatesSchema = z.union([
-  generatesArraySchema,
-  generatesObjectSchema,
-]);
+export const generatesSchema = z
+  .array(z.enum(["query", "form", "db"]))
+  .min(1, "At least one generator must be specified (query, form, or db)");
 
 export type GeneratesConfig = z.infer<typeof generatesSchema>;
-export type GeneratesConfigInput = z.input<typeof generatesSchema>;
-export type GeneratesObjectConfig = z.infer<typeof generatesObjectSchema>;
 
 // =============================================================================
 // Source Schemas
@@ -221,10 +139,10 @@ export const graphqlSourceSchema = z.object({
   schema: graphqlSchemaConfig,
   /** Glob pattern(s) for GraphQL document files */
   documents: z.union([z.string(), z.array(z.string())]),
-  /** Custom scalar type mappings */
-  scalars: z.record(z.string(), z.string()).optional(),
   /** What to generate from this source */
   generates: generatesSchema,
+  /** Optional overrides for scalars and DB collections */
+  overrides: overridesSchema.optional(),
 });
 
 export type GraphQLSourceConfig = z.infer<typeof graphqlSourceSchema>;
@@ -247,6 +165,8 @@ export const openApiSourceSchema = z.object({
   exclude: z.array(z.string()).optional(),
   /** What to generate from this source */
   generates: generatesSchema,
+  /** Optional overrides for DB collections */
+  overrides: overridesSchema.optional(),
 });
 
 export type OpenAPISourceConfig = z.infer<typeof openApiSourceSchema>;
@@ -361,7 +281,6 @@ export function generateDefaultConfig(): string {
   return `import { defineConfig } from "tangrams"
 
 export default defineConfig({
-	// output: "./src/generated", // default output directory
 	sources: [
 		{
 			name: "graphql",
@@ -372,19 +291,19 @@ export default defineConfig({
 			},
 			// Or use local schema file(s):
 			// schema: {
-			// 	file: "./schema.graphql", // or ["./schema.graphql", "./extensions/**/*.graphql"]
+			// 	file: "./schema.graphql",
 			// },
 			documents: "./src/graphql/**/*.graphql",
-			// scalars: { DateTime: "Date", JSON: "Record<string, unknown>" },
-			generates: ["query"], // or { query: { files: { client: "custom.ts" } } }
+			generates: ["query"],
+			// overrides: {
+			// 	scalars: { DateTime: "Date" },
+			// },
 		},
 		// {
 		// 	name: "api",
 		// 	type: "openapi",
-		// 	spec: "./openapi.yaml", // or "https://api.example.com/openapi.json"
-		// 	// include: ["/users/**", "/posts/**"],
-		// 	// exclude: ["/internal/**"],
-		// 	generates: ["query", "form"], // generate both query and form options
+		// 	spec: "./openapi.yaml",
+		// 	generates: ["query", "form"],
 		// },
 	],
 })
@@ -397,129 +316,49 @@ export default defineConfig({
 
 /**
  * Normalized generates config result
+ * Auto-enables query when db is specified
  */
 export interface NormalizedGenerates {
-  /** Source-level files */
-  files: { client: string; schema: string };
-  query?: { files: QueryFilesConfig; serverFunctions?: boolean };
-  start?: { files: StartFilesConfig };
-  form?: { files: FormFilesConfig };
+  query: boolean;
+  form: boolean;
+  db: boolean;
 }
 
 /**
- * Normalize generates config to object form
- * Converts array form ["query", "start", "form"] to object form with defaults
+ * Normalize generates config
+ * Auto-enables query when db is specified (db depends on functions which needs types)
  */
 export function normalizeGenerates(
-  generates: GeneratesConfig | GeneratesConfigInput,
+  generates: GeneratesConfig,
 ): NormalizedGenerates {
-  // Array form: ["query", "start", "form"]
-  if (Array.isArray(generates)) {
-    const result: NormalizedGenerates = {
-      files: { client: "client.ts", schema: "schema.ts" },
-    };
-
-    if (generates.includes("query")) {
-      result.query = {
-        files: {
-          types: "types.ts",
-          operations: "operations.ts",
-        },
-        serverFunctions: false,
-      };
-    }
-
-    if (generates.includes("start")) {
-      result.start = {
-        files: { functions: "functions.ts" },
-      };
-    }
-
-    if (generates.includes("form")) {
-      result.form = {
-        files: { forms: "forms.ts" },
-      };
-    }
-
-    return result;
-  }
-
-  // Object form: { client: "...", query: { files: ... }, start: true, form: true }
-  const result: NormalizedGenerates = {
-    files: {
-      client: generates.client ?? "client.ts",
-      schema: generates.schema ?? "schema.ts",
-    },
+  const hasDb = generates.includes("db");
+  return {
+    query: generates.includes("query") || hasDb,
+    form: generates.includes("form"),
+    db: hasDb,
   };
-
-  if (generates.query) {
-    const queryConfig =
-      generates.query === true
-        ? {}
-        : (generates.query as { files?: unknown; serverFunctions?: boolean });
-    const filesInput = queryConfig.files as QueryFilesConfigInput | undefined;
-    result.query = {
-      files: {
-        types: filesInput?.types ?? "types.ts",
-        operations: filesInput?.operations ?? "operations.ts",
-      },
-      serverFunctions: queryConfig.serverFunctions ?? false,
-    };
-  }
-
-  if (generates.start) {
-    const startConfig =
-      generates.start === true ? {} : (generates.start as { files?: unknown });
-    const filesInput = startConfig.files as StartFilesConfigInput | undefined;
-    result.start = {
-      files: {
-        functions: filesInput?.functions ?? "functions.ts",
-      },
-    };
-  }
-
-  if (generates.form) {
-    const formConfig =
-      generates.form === true ? {} : (generates.form as { files?: unknown });
-    const filesInput = formConfig.files as FormFilesConfigInput | undefined;
-    result.form = {
-      files: {
-        forms: filesInput?.forms ?? "forms.ts",
-      },
-    };
-  }
-
-  return result;
 }
 
 /**
  * Check if a source generates query code
  */
 export function sourceGeneratesQuery(source: SourceConfig): boolean {
-  if (Array.isArray(source.generates)) {
-    return source.generates.includes("query");
-  }
-  return source.generates.query !== undefined;
+  const normalized = normalizeGenerates(source.generates);
+  return normalized.query;
 }
 
 /**
  * Check if a source generates form code
  */
 export function sourceGeneratesForm(source: SourceConfig): boolean {
-  if (Array.isArray(source.generates)) {
-    return source.generates.includes("form");
-  }
-  return source.generates.form !== undefined;
+  return source.generates.includes("form");
 }
 
 /**
- * Check if a source generates start code (server functions)
+ * Check if a source generates db code (TanStack DB collections)
  */
-export function sourceGeneratesStart(source: SourceConfig): boolean {
-  if (Array.isArray(source.generates)) {
-    return source.generates.includes("start");
-  }
-  return source.generates.start !== undefined;
+export function sourceGeneratesDb(source: SourceConfig): boolean {
+  return source.generates.includes("db");
 }
 
 /**
@@ -567,18 +406,26 @@ export function getFormSources(config: TangramsConfig): SourceConfig[] {
 }
 
 /**
- * Check if a source's query operations use server functions (TanStack Start)
- * This is different from sourceGeneratesStart - this checks if query options
- * should call server functions from the start/ directory
+ * Get all sources that generate db code (TanStack DB collections)
  */
-export function sourceUsesServerFunctions(source: SourceConfig): boolean {
-  const generates = normalizeGenerates(source.generates);
-  return generates.query?.serverFunctions === true;
+export function getDbSources(config: TangramsConfig): SourceConfig[] {
+  return config.sources.filter(sourceGeneratesDb);
 }
 
 /**
- * Get all sources that generate start code (server functions)
+ * Get scalars configuration from a source (from overrides)
  */
-export function getStartSources(config: TangramsConfig): SourceConfig[] {
-  return config.sources.filter(sourceGeneratesStart);
+export function getScalarsFromSource(
+  source: SourceConfig,
+): Record<string, string> | undefined {
+  return source.overrides?.scalars;
+}
+
+/**
+ * Get DB collection overrides from a source
+ */
+export function getDbCollectionOverrides(
+  source: SourceConfig,
+): Record<string, { keyField?: string }> | undefined {
+  return source.overrides?.db?.collections;
 }

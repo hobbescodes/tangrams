@@ -11,19 +11,25 @@ import {
 } from "@/generators/forms";
 import { generateOpenAPIZodSchemas } from "@/generators/zod/openapi";
 import { generateOpenAPIClient } from "./client";
+import {
+  discoverOpenAPIEntities,
+  generateOpenAPICollections,
+} from "./collections";
+import { generateOpenAPIFunctions } from "./functions";
 import { generateOpenAPIOperations } from "./operations";
 import { extractOperations, loadOpenAPISpec } from "./schema";
-import { generateOpenAPIStart } from "./start";
 
 import type { OpenAPISourceConfig } from "@/core/config";
 import type {
+  CollectionDiscoveryResult,
+  CollectionGenOptions,
   FormGenOptions,
+  FunctionsGenOptions,
   GeneratedFile,
   OpenAPIAdapter as IOpenAPIAdapter,
   OpenAPIAdapterSchema,
   OperationGenOptions,
   SchemaGenOptions,
-  StartGenOptions,
 } from "../types";
 
 /**
@@ -50,6 +56,21 @@ class OpenAPIAdapterImpl implements IOpenAPIAdapter {
   }
 
   /**
+   * Generate standalone fetch functions
+   */
+  generateFunctions(
+    schema: OpenAPIAdapterSchema,
+    _config: OpenAPISourceConfig,
+    options: FunctionsGenOptions,
+  ): GeneratedFile {
+    const operations = extractOperations(schema.document);
+    return generateOpenAPIFunctions(operations, {
+      clientImportPath: options.clientImportPath,
+      schemaImportPath: options.typesImportPath,
+    });
+  }
+
+  /**
    * Generate TanStack Query operation helpers
    */
   generateOperations(
@@ -57,18 +78,8 @@ class OpenAPIAdapterImpl implements IOpenAPIAdapter {
     config: OpenAPISourceConfig,
     options: OperationGenOptions,
   ): GeneratedFile {
-    return generateOpenAPIOperations(schema, config, options);
-  }
-
-  /**
-   * Generate TanStack Start server functions
-   */
-  generateStart(
-    schema: OpenAPIAdapterSchema,
-    config: OpenAPISourceConfig,
-    options: StartGenOptions,
-  ): GeneratedFile {
-    return generateOpenAPIStart(schema, config, options);
+    const operations = extractOperations(schema.document);
+    return generateOpenAPIOperations(schema, config, operations, options);
   }
 
   /**
@@ -143,6 +154,35 @@ class OpenAPIAdapterImpl implements IOpenAPIAdapter {
       content: result.content,
       warnings: result.warnings,
     };
+  }
+
+  /**
+   * Discover entities from the OpenAPI schema for TanStack DB collection generation
+   */
+  discoverCollectionEntities(
+    schema: OpenAPIAdapterSchema,
+    _config: OpenAPISourceConfig,
+    overrides?: Record<string, { keyField?: string }>,
+  ): CollectionDiscoveryResult {
+    const operations = extractOperations(schema.document);
+    return discoverOpenAPIEntities(schema, operations, overrides);
+  }
+
+  /**
+   * Generate TanStack DB collection options
+   */
+  generateCollections(
+    schema: OpenAPIAdapterSchema,
+    _config: OpenAPISourceConfig,
+    options: CollectionGenOptions,
+  ): GeneratedFile {
+    const operations = extractOperations(schema.document);
+    const { entities } = discoverOpenAPIEntities(
+      schema,
+      operations,
+      options.collectionOverrides,
+    );
+    return generateOpenAPICollections(entities, options);
   }
 }
 

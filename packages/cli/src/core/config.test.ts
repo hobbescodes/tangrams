@@ -7,8 +7,6 @@ import {
   configSchema,
   defineConfig,
   generateDefaultConfig,
-  generatesArraySchema,
-  generatesObjectSchema,
   generatesSchema,
   getFormSources,
   getQuerySources,
@@ -21,7 +19,6 @@ import {
   openApiSourceSchema,
   sourceGeneratesForm,
   sourceGeneratesQuery,
-  sourceUsesServerFunctions,
 } from "./config";
 
 import type {
@@ -295,99 +292,49 @@ describe("openApiSourceSchema", () => {
 });
 
 describe("generatesSchema", () => {
-  describe("array form", () => {
-    it("validates generates with query only", () => {
-      const result = generatesArraySchema.safeParse(["query"]);
-      expect(result.success).toBe(true);
-    });
-
-    it("validates generates with form only", () => {
-      const result = generatesArraySchema.safeParse(["form"]);
-      expect(result.success).toBe(true);
-    });
-
-    it("validates generates with both query and form", () => {
-      const result = generatesArraySchema.safeParse(["query", "form"]);
-      expect(result.success).toBe(true);
-    });
-
-    it("fails with empty array", () => {
-      const result = generatesArraySchema.safeParse([]);
-      expect(result.success).toBe(false);
-    });
-
-    it("fails with invalid generator", () => {
-      const result = generatesArraySchema.safeParse(["invalid"]);
-      expect(result.success).toBe(false);
-    });
+  it("validates generates with query only", () => {
+    const result = generatesSchema.safeParse(["query"]);
+    expect(result.success).toBe(true);
   });
 
-  describe("object form", () => {
-    it("validates generates with query: true", () => {
-      const result = generatesObjectSchema.safeParse({ query: true });
-      expect(result.success).toBe(true);
-    });
-
-    it("validates generates with form: true", () => {
-      const result = generatesObjectSchema.safeParse({ form: true });
-      expect(result.success).toBe(true);
-    });
-
-    it("validates generates with query options", () => {
-      const result = generatesObjectSchema.safeParse({
-        query: { files: { client: "custom-client.ts" } },
-      });
-      expect(result.success).toBe(true);
-    });
-
-    it("validates generates with form options", () => {
-      const result = generatesObjectSchema.safeParse({
-        form: { files: { forms: "custom-forms.ts" } },
-      });
-      expect(result.success).toBe(true);
-    });
-
-    it("validates generates with both query and form", () => {
-      const result = generatesObjectSchema.safeParse({
-        query: true,
-        form: { files: { forms: "forms.ts" } },
-      });
-      expect(result.success).toBe(true);
-    });
-
-    it("validates generates with serverFunctions option", () => {
-      const result = generatesObjectSchema.safeParse({
-        query: { serverFunctions: true },
-      });
-      expect(result.success).toBe(true);
-    });
-
-    it("validates generates with serverFunctions and custom files", () => {
-      const result = generatesObjectSchema.safeParse({
-        query: {
-          serverFunctions: true,
-          files: { client: "custom-client.ts" },
-        },
-      });
-      expect(result.success).toBe(true);
-    });
-
-    it("fails with empty object", () => {
-      const result = generatesObjectSchema.safeParse({});
-      expect(result.success).toBe(false);
-    });
+  it("validates generates with form only", () => {
+    const result = generatesSchema.safeParse(["form"]);
+    expect(result.success).toBe(true);
   });
 
-  describe("union schema", () => {
-    it("accepts array form", () => {
-      const result = generatesSchema.safeParse(["query"]);
-      expect(result.success).toBe(true);
-    });
+  it("validates generates with db only", () => {
+    const result = generatesSchema.safeParse(["db"]);
+    expect(result.success).toBe(true);
+  });
 
-    it("accepts object form", () => {
-      const result = generatesSchema.safeParse({ query: true });
-      expect(result.success).toBe(true);
-    });
+  it("validates generates with query and form", () => {
+    const result = generatesSchema.safeParse(["query", "form"]);
+    expect(result.success).toBe(true);
+  });
+
+  it("validates generates with query, form, and db", () => {
+    const result = generatesSchema.safeParse(["query", "form", "db"]);
+    expect(result.success).toBe(true);
+  });
+
+  it("fails with empty array", () => {
+    const result = generatesSchema.safeParse([]);
+    expect(result.success).toBe(false);
+  });
+
+  it("fails with invalid generator", () => {
+    const result = generatesSchema.safeParse(["invalid"]);
+    expect(result.success).toBe(false);
+  });
+
+  it("fails with functions (no longer valid)", () => {
+    const result = generatesSchema.safeParse(["functions"]);
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects object form (no longer supported)", () => {
+    const result = generatesSchema.safeParse({ query: true });
+    expect(result.success).toBe(false);
   });
 });
 
@@ -584,19 +531,15 @@ describe("generateDefaultConfig", () => {
     expect(result).toContain("generates:");
   });
 
-  it("contains commented output configuration", () => {
-    const result = generateDefaultConfig();
-    expect(result).toContain("// output:");
-  });
-
   it("contains commented headers example", () => {
     const result = generateDefaultConfig();
     expect(result).toContain("// headers:");
   });
 
-  it("contains commented scalars example", () => {
+  it("contains commented overrides example with scalars", () => {
     const result = generateDefaultConfig();
-    expect(result).toContain("// scalars:");
+    expect(result).toContain("// overrides:");
+    expect(result).toContain("scalars:");
   });
 
   it("contains commented OpenAPI source example", () => {
@@ -607,120 +550,48 @@ describe("generateDefaultConfig", () => {
 });
 
 describe("normalizeGenerates", () => {
-  it("normalizes array form to object form with query", () => {
+  it("normalizes array with query only", () => {
     const result = normalizeGenerates(["query"]);
-    expect(result.query).toBeDefined();
-    expect(result.query?.files).toEqual({
-      types: "types.ts",
-      operations: "operations.ts",
-    });
-    expect(result.form).toBeUndefined();
-    expect(result.files.client).toBe("client.ts");
-    expect(result.files.schema).toBe("schema.ts");
+    expect(result.query).toBe(true);
+    expect(result.form).toBe(false);
+    expect(result.db).toBe(false);
   });
 
-  it("normalizes array form to object form with form", () => {
+  it("normalizes array with form only", () => {
     const result = normalizeGenerates(["form"]);
-    expect(result.form).toBeDefined();
-    expect(result.form?.files).toEqual({
-      forms: "forms.ts",
-    });
-    expect(result.query).toBeUndefined();
+    expect(result.query).toBe(false);
+    expect(result.form).toBe(true);
+    expect(result.db).toBe(false);
   });
 
-  it("normalizes array form to object form with start", () => {
-    const result = normalizeGenerates(["start"]);
-    expect(result.start).toBeDefined();
-    expect(result.start?.files).toEqual({
-      functions: "functions.ts",
-    });
-    expect(result.query).toBeUndefined();
-    expect(result.form).toBeUndefined();
+  it("normalizes array with db only", () => {
+    const result = normalizeGenerates(["db"]);
+    // db auto-enables query (db depends on functions which needs types)
+    expect(result.query).toBe(true);
+    expect(result.form).toBe(false);
+    expect(result.db).toBe(true);
   });
 
-  it("normalizes array form to object form with all generators", () => {
-    const result = normalizeGenerates(["query", "start", "form"]);
-    expect(result.query).toBeDefined();
-    expect(result.start).toBeDefined();
-    expect(result.form).toBeDefined();
+  it("normalizes array with query and form", () => {
+    const result = normalizeGenerates(["query", "form"]);
+    expect(result.query).toBe(true);
+    expect(result.form).toBe(true);
+    expect(result.db).toBe(false);
   });
 
-  it("normalizes object form with query: true", () => {
-    const result = normalizeGenerates({ query: true });
-    expect(result.query?.files).toEqual({
-      types: "types.ts",
-      operations: "operations.ts",
-    });
+  it("normalizes array with all generators", () => {
+    const result = normalizeGenerates(["query", "form", "db"]);
+    expect(result.query).toBe(true);
+    expect(result.form).toBe(true);
+    expect(result.db).toBe(true);
   });
 
-  it("normalizes object form with custom query files", () => {
-    const result = normalizeGenerates({
-      query: { files: { types: "custom-types.ts" } },
-    });
-    expect(result.query?.files.types).toBe("custom-types.ts");
-    expect(result.query?.files.operations).toBe("operations.ts");
-  });
-
-  it("normalizes object form with custom source-level files", () => {
-    const result = normalizeGenerates({
-      client: "api-client.ts",
-      schema: "api-schema.ts",
-      query: true,
-    });
-    expect(result.files.client).toBe("api-client.ts");
-    expect(result.files.schema).toBe("api-schema.ts");
-  });
-
-  it("normalizes object form with form: true", () => {
-    const result = normalizeGenerates({ form: true });
-    expect(result.form?.files).toEqual({
-      forms: "forms.ts",
-    });
-  });
-
-  it("normalizes object form with custom form files", () => {
-    const result = normalizeGenerates({
-      form: { files: { forms: "custom-forms.ts" } },
-    });
-    expect(result.form?.files.forms).toBe("custom-forms.ts");
-  });
-
-  it("normalizes object form with start: true", () => {
-    const result = normalizeGenerates({ start: true });
-    expect(result.start?.files).toEqual({
-      functions: "functions.ts",
-    });
-  });
-
-  it("normalizes object form with custom start files", () => {
-    const result = normalizeGenerates({
-      start: { files: { functions: "server-fns.ts" } },
-    });
-    expect(result.start?.files.functions).toBe("server-fns.ts");
-  });
-
-  it("normalizes array form with serverFunctions as false by default", () => {
-    const result = normalizeGenerates(["query"]);
-    expect(result.query?.serverFunctions).toBe(false);
-  });
-
-  it("normalizes object form with serverFunctions: true", () => {
-    const result = normalizeGenerates({
-      query: { serverFunctions: true },
-    });
-    expect(result.query?.serverFunctions).toBe(true);
-  });
-
-  it("normalizes object form with serverFunctions: false explicitly", () => {
-    const result = normalizeGenerates({
-      query: { serverFunctions: false },
-    });
-    expect(result.query?.serverFunctions).toBe(false);
-  });
-
-  it("normalizes object form with query: true and defaults serverFunctions to false", () => {
-    const result = normalizeGenerates({ query: true });
-    expect(result.query?.serverFunctions).toBe(false);
+  it("auto-enables query when db is specified", () => {
+    // db without explicit query still enables query
+    const result = normalizeGenerates(["db", "form"]);
+    expect(result.query).toBe(true);
+    expect(result.form).toBe(true);
+    expect(result.db).toBe(true);
   });
 });
 
@@ -745,7 +616,7 @@ describe("utility functions", () => {
         name: "payments-service",
         type: "openapi",
         spec: "./specs/payments.yaml",
-        generates: { form: true },
+        generates: ["form"],
       },
     ],
   };
@@ -852,56 +723,6 @@ describe("utility functions", () => {
         "users-service",
         "payments-service",
       ]);
-    });
-  });
-
-  describe("sourceUsesServerFunctions", () => {
-    it("returns false for array form generates", () => {
-      const source = multiSourceConfig.sources[0]!;
-      expect(sourceUsesServerFunctions(source)).toBe(false);
-    });
-
-    it("returns false for object form without serverFunctions", () => {
-      const source: TangramsConfig["sources"][0] = {
-        name: "test-api",
-        type: "graphql",
-        schema: { url: "http://localhost:4000/graphql" },
-        documents: "./src/graphql/**/*.graphql",
-        generates: { query: true },
-      };
-      expect(sourceUsesServerFunctions(source)).toBe(false);
-    });
-
-    it("returns false when serverFunctions is explicitly false", () => {
-      const source: TangramsConfig["sources"][0] = {
-        name: "test-api",
-        type: "graphql",
-        schema: { url: "http://localhost:4000/graphql" },
-        documents: "./src/graphql/**/*.graphql",
-        generates: { query: { serverFunctions: false } },
-      };
-      expect(sourceUsesServerFunctions(source)).toBe(false);
-    });
-
-    it("returns true when serverFunctions is true", () => {
-      const source: TangramsConfig["sources"][0] = {
-        name: "test-api",
-        type: "graphql",
-        schema: { url: "http://localhost:4000/graphql" },
-        documents: "./src/graphql/**/*.graphql",
-        generates: { query: { serverFunctions: true } },
-      };
-      expect(sourceUsesServerFunctions(source)).toBe(true);
-    });
-
-    it("returns false for form-only generates", () => {
-      const source: TangramsConfig["sources"][0] = {
-        name: "test-api",
-        type: "openapi",
-        spec: "./specs/test.yaml",
-        generates: { form: true },
-      };
-      expect(sourceUsesServerFunctions(source)).toBe(false);
     });
   });
 });
@@ -1042,8 +863,8 @@ describe("loadTangramsConfig", () => {
     expect(result.config.output).toBe("./custom/generated");
   });
 
-  it("loads config with generates object form", async () => {
-    const configWithGeneratesObject = `
+  it("loads config with generates array form", async () => {
+    const configWithGeneratesArray = `
 			export default {
 				sources: [
 					{
@@ -1051,31 +872,22 @@ describe("loadTangramsConfig", () => {
 						type: "graphql",
 						schema: { url: "http://localhost:4000/graphql" },
 						documents: "./src/graphql/**/*.graphql",
-						generates: {
-							client: "my-client.ts",
-							query: true,
-						},
+						generates: ["query", "form"],
 					},
 				],
 			}
 		`;
-    await writeFile(configPath, configWithGeneratesObject, "utf-8");
+    await writeFile(configPath, configWithGeneratesArray, "utf-8");
 
     const result = await loadTangramsConfig({ configPath });
 
     const source = result.config.sources[0];
-    // The raw generates config should match what was provided
-    expect(source?.generates).toEqual({
-      client: "my-client.ts",
-      query: true,
-    });
-    // normalizeGenerates fills in defaults for files
+    expect(source?.generates).toEqual(["query", "form"]);
+    // normalizeGenerates returns simple booleans
     const normalized = normalizeGenerates(source!.generates);
-    expect(normalized.files.client).toBe("my-client.ts");
-    expect(normalized.query?.files).toEqual({
-      operations: "operations.ts",
-      types: "types.ts",
-    });
+    expect(normalized.query).toBe(true);
+    expect(normalized.form).toBe(true);
+    expect(normalized.db).toBe(false);
   });
 });
 

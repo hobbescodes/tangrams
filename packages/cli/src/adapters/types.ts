@@ -25,30 +25,23 @@ export interface TypeGenOptions {
 }
 
 /**
- * Options for operation generation
+ * Options for functions generation (standalone fetch functions)
  */
-export interface OperationGenOptions {
+export interface FunctionsGenOptions {
   /** Relative import path to the client file */
   clientImportPath: string;
   /** Relative import path to the types/schema file */
   typesImportPath: string;
-  /** The source name to include in query/mutation keys */
-  sourceName: string;
-  /** Enable TanStack Start server functions wrapping (imports from start/) */
-  serverFunctions?: boolean;
-  /** Relative import path to the start/functions file (when serverFunctions is true) */
-  startImportPath?: string;
 }
 
 /**
- * Options for start (server functions) generation
+ * Options for operation generation
+ * Note: Functions are always imported from "../functions" (hardcoded)
  */
-export interface StartGenOptions {
-  /** Relative import path to the client file */
-  clientImportPath: string;
+export interface OperationGenOptions {
   /** Relative import path to the types/schema file */
   typesImportPath: string;
-  /** The source name */
+  /** The source name to include in query/mutation keys */
   sourceName: string;
 }
 
@@ -70,15 +63,82 @@ export interface FormGenOptions {
   sourceName: string;
 }
 
+// =============================================================================
+// TanStack DB Collection Types
+// =============================================================================
+
+/**
+ * Mutation type for collection CRUD operations
+ */
+export type CollectionMutationType = "insert" | "update" | "delete";
+
+/**
+ * Mutation info for a collection entity
+ */
+export interface CollectionMutation {
+  /** The mutation type (insert, update, delete) */
+  type: CollectionMutationType;
+  /** The operation name/identifier in the source */
+  operationName: string;
+  /** The input type name for this mutation (if applicable) */
+  inputTypeName?: string;
+}
+
+/**
+ * Entity metadata for collection generation
+ */
+export interface CollectionEntity {
+  /** The entity/model name (e.g., "Pet", "User") */
+  name: string;
+  /** The TypeScript type name for this entity */
+  typeName: string;
+  /** The key field for identifying unique entities (e.g., "id", "petId") */
+  keyField: string;
+  /** The TypeScript type of the key field */
+  keyFieldType: string;
+  /** The query operation that fetches the list of entities */
+  listQuery: {
+    /** Operation name */
+    operationName: string;
+    /** Query key for TanStack Query */
+    queryKey: string[];
+  };
+  /** Available mutations for this entity */
+  mutations: CollectionMutation[];
+}
+
+/**
+ * Result of discovering entities for collection generation
+ */
+export interface CollectionDiscoveryResult {
+  /** Discovered entities that can be used for collections */
+  entities: CollectionEntity[];
+  /** Warnings encountered during discovery */
+  warnings: string[];
+}
+
+/**
+ * Options for collection generation
+ * Note: Functions are always imported from "../functions" (hardcoded)
+ */
+export interface CollectionGenOptions {
+  /** Relative import path to the types/schema file */
+  typesImportPath: string;
+  /** The source name */
+  sourceName: string;
+  /** Per-entity overrides from config */
+  collectionOverrides?: Record<string, { keyField?: string }>;
+}
+
 /**
  * Base interface for all source adapters
  *
  * Each adapter is responsible for:
  * 1. Loading/parsing its schema from the configured source
  * 2. Generating a client for making requests
- * 3. Generating TanStack Query operation helpers
- * 4. Generating TanStack Start server functions
- * 5. Generating Zod schemas for validation (OpenAPI always, GraphQL when form/start enabled)
+ * 3. Generating standalone fetch functions
+ * 4. Generating TanStack Query operation helpers
+ * 5. Generating Zod schemas for validation (OpenAPI always, GraphQL when form/db enabled)
  * 6. Generating TanStack Form options for mutations
  * 7. (GraphQL only) Generating TypeScript types for operations
  */
@@ -105,6 +165,19 @@ export interface SourceAdapter<
   generateClient(schema: TSchema, config: TConfig): GeneratedFile;
 
   /**
+   * Generate standalone fetch functions
+   * @param schema The loaded schema
+   * @param config The source configuration
+   * @param options Functions generation options
+   * @returns Generated functions file
+   */
+  generateFunctions(
+    schema: TSchema,
+    config: TConfig,
+    options: FunctionsGenOptions,
+  ): GeneratedFile;
+
+  /**
    * Generate TanStack Query operation helpers
    * @param schema The loaded schema
    * @param config The source configuration
@@ -115,19 +188,6 @@ export interface SourceAdapter<
     schema: TSchema,
     config: TConfig,
     options: OperationGenOptions,
-  ): GeneratedFile;
-
-  /**
-   * Generate TanStack Start server functions
-   * @param schema The loaded schema
-   * @param config The source configuration
-   * @param options Start generation options
-   * @returns Generated server functions file
-   */
-  generateStart(
-    schema: TSchema,
-    config: TConfig,
-    options: StartGenOptions,
   ): GeneratedFile;
 
   /**
@@ -154,6 +214,32 @@ export interface SourceAdapter<
     schema: TSchema,
     config: TConfig,
     options: FormGenOptions,
+  ): GeneratedFile;
+
+  /**
+   * Discover entities from the schema for TanStack DB collection generation
+   * @param schema The loaded schema
+   * @param config The source configuration
+   * @param overrides Per-entity config overrides (e.g., custom keyField)
+   * @returns Entity metadata for collection generation
+   */
+  discoverCollectionEntities(
+    schema: TSchema,
+    config: TConfig,
+    overrides?: Record<string, { keyField?: string }>,
+  ): CollectionDiscoveryResult;
+
+  /**
+   * Generate TanStack DB collection options
+   * @param schema The loaded schema
+   * @param config The source configuration
+   * @param options Collection generation options
+   * @returns Generated collections file
+   */
+  generateCollections(
+    schema: TSchema,
+    config: TConfig,
+    options: CollectionGenOptions,
   ): GeneratedFile;
 }
 

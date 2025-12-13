@@ -7,11 +7,15 @@
 
 import { loadDocuments } from "@/core/documents";
 import { generateFormOptionsCode } from "@/generators/forms";
-import { generateStartFunctions } from "@/generators/start";
+import { generateFunctions } from "@/generators/functions";
+import { generateGraphQLOperations } from "@/generators/operations";
 import { generateGraphQLZodSchemas } from "@/generators/zod/graphql";
 import { toSchemaName } from "@/generators/zod/index";
 import { generateGraphQLClient } from "./client";
-import { generateGraphQLOperations } from "./operations";
+import {
+  discoverGraphQLEntities,
+  generateGraphQLCollections,
+} from "./collections";
 import {
   introspectSchema,
   isFileSchemaConfig,
@@ -23,13 +27,15 @@ import { generateGraphQLTypes } from "./types";
 import type { GraphQLSchema } from "graphql";
 import type { GraphQLSourceConfig } from "@/core/config";
 import type {
+  CollectionDiscoveryResult,
+  CollectionGenOptions,
   FormGenOptions,
+  FunctionsGenOptions,
   GeneratedFile,
   GraphQLAdapterSchema,
   GraphQLAdapter as IGraphQLAdapter,
   OperationGenOptions,
   SchemaGenOptions,
-  StartGenOptions,
   TypeGenOptions,
 } from "../types";
 
@@ -92,33 +98,41 @@ class GraphQLAdapterImpl implements IGraphQLAdapter {
   }
 
   /**
+   * Generate standalone fetch functions
+   */
+  generateFunctions(
+    schema: GraphQLAdapterSchema,
+    _config: GraphQLSourceConfig,
+    options: FunctionsGenOptions,
+  ): GeneratedFile {
+    const content = generateFunctions({
+      documents: schema.documents,
+      clientImportPath: options.clientImportPath,
+      typesImportPath: options.typesImportPath,
+    });
+
+    return {
+      filename: "functions.ts",
+      content,
+    };
+  }
+
+  /**
    * Generate TanStack Query operation helpers
    */
   generateOperations(
     schema: GraphQLAdapterSchema,
-    config: GraphQLSourceConfig,
+    _config: GraphQLSourceConfig,
     options: OperationGenOptions,
   ): GeneratedFile {
-    return generateGraphQLOperations(schema, config, options);
-  }
-
-  /**
-   * Generate TanStack Start server functions
-   */
-  generateStart(
-    schema: GraphQLAdapterSchema,
-    _config: GraphQLSourceConfig,
-    options: StartGenOptions,
-  ): GeneratedFile {
-    const content = generateStartFunctions({
+    const content = generateGraphQLOperations({
       documents: schema.documents,
-      clientImportPath: options.clientImportPath,
       typesImportPath: options.typesImportPath,
       sourceName: options.sourceName,
     });
 
     return {
-      filename: "functions.ts",
+      filename: "operations.ts",
       content,
     };
   }
@@ -161,7 +175,7 @@ class GraphQLAdapterImpl implements IGraphQLAdapter {
       schema.schema,
       { ...schema.documents, operations: mutations },
       {
-        scalars: config.scalars,
+        scalars: config.overrides?.scalars,
       },
     );
 
@@ -232,6 +246,32 @@ class GraphQLAdapterImpl implements IGraphQLAdapter {
       content: result.content,
       warnings: result.warnings,
     };
+  }
+
+  /**
+   * Discover entities from the GraphQL schema for TanStack DB collection generation
+   */
+  discoverCollectionEntities(
+    schema: GraphQLAdapterSchema,
+    _config: GraphQLSourceConfig,
+    overrides?: Record<string, { keyField?: string }>,
+  ): CollectionDiscoveryResult {
+    return discoverGraphQLEntities(schema, overrides);
+  }
+
+  /**
+   * Generate TanStack DB collection options
+   */
+  generateCollections(
+    schema: GraphQLAdapterSchema,
+    _config: GraphQLSourceConfig,
+    options: CollectionGenOptions,
+  ): GeneratedFile {
+    const { entities } = discoverGraphQLEntities(
+      schema,
+      options.collectionOverrides,
+    );
+    return generateGraphQLCollections(entities, options);
   }
 }
 

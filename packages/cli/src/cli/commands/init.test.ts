@@ -38,7 +38,7 @@ describe("init command logic", () => {
       const content = await readFile(configPath, "utf-8");
       expect(content).toContain("defineConfig");
       expect(content).toContain("sources");
-      expect(content).toContain("output");
+      // Output uses default value (./src/generated) so it's not in the template
     });
   });
 
@@ -89,11 +89,11 @@ describe("init command logic", () => {
       expect(config).toContain(".graphql");
     });
 
-    it("includes output configuration comment", () => {
+    it("includes generates configuration", () => {
       const config = generateDefaultConfig();
 
-      expect(config).toContain("// output:");
-      expect(config).toContain("./src/generated");
+      expect(config).toContain("generates:");
+      expect(config).toContain('["query"]');
     });
 
     it("includes commented OpenAPI source example", () => {

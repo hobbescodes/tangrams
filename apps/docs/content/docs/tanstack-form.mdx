@@ -108,11 +108,9 @@ bunx tangrams generate
 
 ```
 src/generated/
-├── zod/
-│   └── <source>/
-│       └── schema.ts     # Zod schemas for request bodies
-└── form/
-    └── <source>/
+└── <source>/
+    ├── schema.ts         # Zod schemas for request bodies
+    └── form/
         └── forms.ts      # formOptions exports
 ```
 
@@ -127,7 +125,7 @@ For each mutation with a request body, Tangrams generates a `formOptions` export
 
 ```typescript
 import { formOptions } from "@tanstack/react-form"
-import { createUserRequestSchema, updateUserRequestSchema } from "../../zod/api/schema"
+import { createUserRequestSchema, updateUserRequestSchema } from "../schema"
 
 export const createUserFormOptions = formOptions({
   defaultValues: {
@@ -351,7 +349,7 @@ function EditUserForm({ user }: { user: User }) {
 | `type` | `"graphql"` | Yes | Source type |
 | `schema` | `object` | Yes | Schema configuration (URL or file-based) |
 | `documents` | `string \| string[]` | Yes | Glob pattern(s) for `.graphql` files |
-| `generates` | `array \| object` | Yes | Must include `"form"` |
+| `generates` | `array` | Yes | Must include `"form"` |
 
 ### OpenAPI Source Options
 
@@ -362,18 +360,6 @@ function EditUserForm({ user }: { user: User }) {
 | `spec` | `string` | Yes | Path to OpenAPI spec (local or URL) |
 | `include` | `string[]` | No | Glob patterns for paths to include |
 | `exclude` | `string[]` | No | Glob patterns for paths to exclude |
-| `generates` | `array \| object` | Yes | Must include `"form"` |
+| `generates` | `array` | Yes | Must include `"form"` |
 
-### Customizing Output Files
 
-Use the object form of `generates` to customize the output filename:
-
-```typescript
-generates: {
-  form: {
-    files: {
-      forms: "user-forms.ts",  // default: "forms.ts"
-    },
-  },
-}
-```

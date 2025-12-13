@@ -48,12 +48,11 @@ describe("generate command logic", () => {
       expect(result.success).toBe(false);
     });
 
-    it("normalizeGenerates applies default output filenames", () => {
+    it("normalizeGenerates returns simple boolean flags", () => {
       const generates = normalizeGenerates(["query"]);
-      expect(generates.files.client).toBe("client.ts");
-      expect(generates.files.schema).toBe("schema.ts");
-      expect(generates.query?.files.types).toBe("types.ts");
-      expect(generates.query?.files.operations).toBe("operations.ts");
+      expect(generates.query).toBe(true);
+      expect(generates.form).toBe(false);
+      expect(generates.db).toBe(false);
     });
   });
 
@@ -196,7 +195,8 @@ describe("generate command logic", () => {
       expect(result.success).toBe(true);
     });
 
-    it("accepts custom output filenames via generates object", () => {
+    it("generates is array-only (no object form)", () => {
+      // Object form is no longer supported - file customization is not allowed
       const config = {
         output: "./src/generated",
         sources: [
@@ -205,15 +205,25 @@ describe("generate command logic", () => {
             type: "graphql",
             schema: { url: "http://localhost:4000/graphql" },
             documents: "./src/graphql/**/*.graphql",
-            generates: {
-              client: "graphql-client.ts",
-              query: {
-                files: {
-                  types: "graphql-types.ts",
-                  operations: "graphql-operations.ts",
-                },
-              },
-            },
+            generates: { query: true }, // Object form should fail validation
+          },
+        ],
+      };
+
+      const result = configSchema.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+
+    it("accepts array form with multiple generators", () => {
+      const config = {
+        output: "./src/generated",
+        sources: [
+          {
+            name: "graphql",
+            type: "graphql",
+            schema: { url: "http://localhost:4000/graphql" },
+            documents: "./src/graphql/**/*.graphql",
+            generates: ["query", "form", "db"],
           },
         ],
       };
@@ -222,15 +232,11 @@ describe("generate command logic", () => {
       expect(result.success).toBe(true);
       if (result.success) {
         const source = result.data.sources[0];
-        expect(source).toBeDefined();
-        if (source) {
-          const generates = normalizeGenerates(source.generates);
-          expect(generates.files.client).toBe("graphql-client.ts");
-          expect(generates.query?.files.types).toBe("graphql-types.ts");
-          expect(generates.query?.files.operations).toBe(
-            "graphql-operations.ts",
-          );
-        }
+        expect(source?.generates).toEqual(["query", "form", "db"]);
+        const normalized = normalizeGenerates(source!.generates);
+        expect(normalized.query).toBe(true);
+        expect(normalized.form).toBe(true);
+        expect(normalized.db).toBe(true);
       }
     });
   });

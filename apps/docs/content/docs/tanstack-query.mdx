@@ -191,12 +191,11 @@ bunx tangrams generate
 src/generated/
 └── <source>/
     ├── client.ts             # API client (shared)
-    ├── schema.ts             # Zod schemas (OpenAPI always, GraphQL when form enabled)
-    ├── query/
-    │   ├── types.ts          # TypeScript types (GraphQL only)
-    │   └── operations.ts     # queryOptions and mutationOptions
-    └── start/                # When using start generator
-        └── functions.ts      # createServerFn wrappers
+    ├── schema.ts             # Zod schemas (OpenAPI always, GraphQL when form/db enabled)
+    ├── functions.ts          # Standalone fetch functions (auto-generated)
+    └── query/
+        ├── types.ts          # TypeScript types (GraphQL only)
+        └── operations.ts     # queryOptions and mutationOptions
 ```
 
 ### GraphQL Output
@@ -369,8 +368,8 @@ function CreateUserButton() {
 | `type` | `"graphql"` | Yes | Source type |
 | `schema` | `object` | Yes | Schema configuration (see below) |
 | `documents` | `string \| string[]` | Yes | Glob pattern(s) for `.graphql` operation files |
-| `scalars` | `Record<string, string>` | No | Custom scalar type mappings |
-| `generates` | `array \| object` | Yes | What to generate |
+| `generates` | `array` | Yes | What to generate: `["query"]`, `["query", "form"]`, etc. |
+| `overrides` | `object` | No | Override scalars and DB collection settings |
 
 #### Schema Configuration
 
@@ -397,11 +396,11 @@ function CreateUserButton() {
 | `headers` | `Record<string, string>` | No | Headers for fetching remote spec |
 | `include` | `string[]` | No | Glob patterns for paths to include |
 | `exclude` | `string[]` | No | Glob patterns for paths to exclude |
-| `generates` | `array \| object` | Yes | What to generate |
+| `generates` | `array` | Yes | What to generate: `["query"]`, `["query", "form"]`, etc. |
 
 ### Custom Scalars (GraphQL)
 
-Map GraphQL scalars to TypeScript types:
+Map GraphQL scalars to TypeScript types using `overrides.scalars`:
 
 ```typescript
 {
@@ -409,11 +408,13 @@ Map GraphQL scalars to TypeScript types:
   type: "graphql",
   schema: { url: "..." },
   documents: "...",
-  scalars: {
-    DateTime: "Date",
-    JSON: "Record<string, unknown>",
-  },
   generates: ["query"],
+  overrides: {
+    scalars: {
+      DateTime: "Date",
+      JSON: "Record<string, unknown>",
+    },
+  },
 }
 ```
 
@@ -432,151 +433,8 @@ Map GraphQL scalars to TypeScript types:
 | `BigInt` | `bigint` |
 | `UUID` | `string` |
 
-### Customizing Output Files
+## TanStack DB Integration
 
-Use the object form of `generates` to customize filenames:
+Tangrams can also generate TanStack DB collections for local-first data synchronization with optimistic updates. When `"db"` is specified in `generates`, query generation is automatically enabled as well.
 
-```typescript
-generates: {
-  client: "api-client.ts",        // default: "client.ts" (at source root)
-  schema: "api-schema.ts",        // default: "schema.ts" (at source root)
-  query: {
-    files: {
-      types: "api-types.ts",      // default: "types.ts" (GraphQL only)
-      operations: "api-ops.ts",   // default: "operations.ts"
-    },
-  },
-  start: {
-    files: {
-      functions: "server-fns.ts", // default: "functions.ts"
-    },
-  },
-}
-```
-
-## TanStack Start Integration
-
-Tangrams can generate server functions for TanStack Start, wrapping your operations in `createServerFn` for server-side data fetching. For more details, see the [TanStack Start](/docs/tanstack-start) guide.
-
-### Quick Setup
-
-Add `"start"` to your `generates` array:
-
-```typescript
-import { defineConfig } from "tangrams"
-
-export default defineConfig({
-  sources: [
-    {
-      name: "graphql",
-      type: "graphql",
-      schema: { url: "http://localhost:4000/graphql" },
-      documents: "./src/graphql/**/*.graphql",
-      generates: ["query", "start"], // Generate both
-    },
-  ],
-})
-```
-
-To have query options use server functions:
-
-```typescript
-generates: {
-  query: { serverFunctions: true },
-  start: true,
-}
-```
-
-### Peer Dependencies
-
-<Tabs items={['bun', 'npm', 'pnpm']}>
-  <Tab value="bun">
-```bash
-bun add @tanstack/react-router @tanstack/react-start
-```
-  </Tab>
-  <Tab value="npm">
-```bash
-npm install @tanstack/react-router @tanstack/react-start
-```
-  </Tab>
-  <Tab value="pnpm">
-```bash
-pnpm add @tanstack/react-router @tanstack/react-start
-```
-  </Tab>
-</Tabs>
-
-### Generated Output
-
-Server functions are generated in a separate `start/` directory:
-
-**`<source>/start/functions.ts`:**
-
-```typescript
-import { createServerFn } from "@tanstack/react-start"
-
-// Query server function (GET method)
-export const getUserFn = createServerFn({ method: "GET" })
-  .inputValidator((data: GetUserQueryVariables) => data)
-  .handler(async ({ data }) =>
-    (await getClient()).request<GetUserQuery>(GetUserDocument, data)
-  )
-
-// Mutation server function (POST method)
-export const createUserFn = createServerFn({ method: "POST" })
-  .inputValidator((data: CreateUserMutationVariables) => data)
-  .handler(async ({ data }) =>
-    (await getClient()).request<CreateUserMutation>(CreateUserDocument, data)
-  )
-```
-
-**`<source>/query/operations.ts` (with `serverFunctions: true`):**
-
-```typescript
-import { getUserFn, createUserFn } from "../start/functions"
-
-export const getUserQueryOptions = (variables: GetUserQueryVariables) =>
-  queryOptions({
-    queryKey: ["graphql", "GetUser", variables],
-    queryFn: () => getUserFn({ data: variables }),
-  })
-
-export const createUserMutationOptions = () =>
-  mutationOptions({
-    mutationKey: ["graphql", "CreateUser"],
-    mutationFn: (variables: CreateUserMutationVariables) =>
-      createUserFn({ data: variables }),
-  })
-```
-
-### Usage
-
-Use the generated options exactly as before - the server function wrapping is transparent:
-
-```typescript
-import { useQuery, useMutation } from "@tanstack/react-query"
-import {
-  getUserQueryOptions,
-  createUserMutationOptions,
-} from "./generated/graphql/query/operations"
-
-function UserProfile({ userId }: { userId: string }) {
-  // Data fetching happens on the server!
-  const { data } = useQuery(getUserQueryOptions({ id: userId }))
-  return <div>{data?.user?.name}</div>
-}
-```
-
-You can also call server functions directly in loaders or actions:
-
-```typescript
-import { getUserFn } from "./generated/graphql/start/functions"
-
-// In a TanStack Router loader
-export const Route = createFileRoute("/user/$userId")({
-  loader: async ({ params }) => {
-    return getUserFn({ data: { id: params.userId } })
-  },
-})
-```
+For more details, see the [TanStack DB](/docs/tanstack-db) guide.

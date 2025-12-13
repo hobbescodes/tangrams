@@ -1,3 +1,3 @@
 {
-  "pages": ["index", "tanstack-query", "tanstack-start", "tanstack-form"]
+  "pages": ["index", "tanstack-query", "tanstack-form", "tanstack-db"]
 }

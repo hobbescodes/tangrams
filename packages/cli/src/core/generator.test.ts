@@ -11,57 +11,45 @@ import { normalizeGenerates } from "./config";
 
 describe("generator utilities", () => {
   describe("normalizeGenerates integration with generator", () => {
-    it("correctly normalizes array form for start generator", () => {
-      const result = normalizeGenerates(["start"]);
+    it("correctly normalizes array form with query", () => {
+      const result = normalizeGenerates(["query"]);
 
-      expect(result.start).toBeDefined();
-      expect(result.start?.files.functions).toBe("functions.ts");
-      expect(result.query).toBeUndefined();
-      expect(result.form).toBeUndefined();
+      expect(result.query).toBe(true);
+      expect(result.form).toBe(false);
+      expect(result.db).toBe(false);
     });
 
-    it("correctly normalizes query with serverFunctions", () => {
-      const result = normalizeGenerates({
-        query: { serverFunctions: true },
-      });
+    it("correctly normalizes array form with form", () => {
+      const result = normalizeGenerates(["form"]);
 
-      expect(result.query).toBeDefined();
-      expect(result.query?.serverFunctions).toBe(true);
-      expect(result.query?.files.operations).toBe("operations.ts");
+      expect(result.query).toBe(false);
+      expect(result.form).toBe(true);
+      expect(result.db).toBe(false);
+    });
+
+    it("correctly normalizes array form with db", () => {
+      const result = normalizeGenerates(["db"]);
+
+      // db auto-enables query
+      expect(result.query).toBe(true);
+      expect(result.form).toBe(false);
+      expect(result.db).toBe(true);
     });
 
     it("correctly normalizes all generators", () => {
-      const result = normalizeGenerates(["query", "start", "form"]);
+      const result = normalizeGenerates(["query", "form", "db"]);
 
-      expect(result.query).toBeDefined();
-      expect(result.start).toBeDefined();
-      expect(result.form).toBeDefined();
-      expect(result.files.client).toBe("client.ts");
-      expect(result.files.schema).toBe("schema.ts");
+      expect(result.query).toBe(true);
+      expect(result.form).toBe(true);
+      expect(result.db).toBe(true);
     });
 
-    it("allows custom filenames", () => {
-      const result = normalizeGenerates({
-        client: "api-client.ts",
-        schema: "types.ts",
-        query: {
-          files: {
-            types: "graphql-types.ts",
-            operations: "api-operations.ts",
-          },
-        },
-        start: {
-          files: {
-            functions: "server-fns.ts",
-          },
-        },
-      });
+    it("auto-enables query when db is specified without query", () => {
+      const result = normalizeGenerates(["db", "form"]);
 
-      expect(result.files.client).toBe("api-client.ts");
-      expect(result.files.schema).toBe("types.ts");
-      expect(result.query?.files.types).toBe("graphql-types.ts");
-      expect(result.query?.files.operations).toBe("api-operations.ts");
-      expect(result.start?.files.functions).toBe("server-fns.ts");
+      expect(result.query).toBe(true);
+      expect(result.form).toBe(true);
+      expect(result.db).toBe(true);
     });
   });
 });

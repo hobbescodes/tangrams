@@ -1,0 +1,402 @@
+---
+title: TanStack DB
+description: Generate collections for TanStack DB with local-first data synchronization.
+---
+
+# TanStack DB
+
+Tangrams generates TanStack DB collection options that provide local-first data synchronization with optimistic updates. Collections are generated from your GraphQL queries and mutations or OpenAPI operations.
+
+## Peer Dependencies
+
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+<Tabs items={['bun', 'npm', 'pnpm']}>
+  <Tab value="bun">
+```bash
+bun add @tanstack/db @tanstack/react-db @tanstack/query-db-collection @tanstack/react-query
+```
+  </Tab>
+  <Tab value="npm">
+```bash
+npm install @tanstack/db @tanstack/react-db @tanstack/query-db-collection @tanstack/react-query
+```
+  </Tab>
+  <Tab value="pnpm">
+```bash
+pnpm add @tanstack/db @tanstack/react-db @tanstack/query-db-collection @tanstack/react-query
+```
+  </Tab>
+</Tabs>
+
+### GraphQL Sources
+
+<Tabs items={['bun', 'npm', 'pnpm']}>
+  <Tab value="bun">
+```bash
+bun add graphql-request
+```
+  </Tab>
+  <Tab value="npm">
+```bash
+npm install graphql-request
+```
+  </Tab>
+  <Tab value="pnpm">
+```bash
+pnpm add graphql-request
+```
+  </Tab>
+</Tabs>
+
+### OpenAPI Sources
+
+<Tabs items={['bun', 'npm', 'pnpm']}>
+  <Tab value="bun">
+```bash
+bun add @better-fetch/fetch zod
+```
+  </Tab>
+  <Tab value="npm">
+```bash
+npm install @better-fetch/fetch zod
+```
+  </Tab>
+  <Tab value="pnpm">
+```bash
+pnpm add @better-fetch/fetch zod
+```
+  </Tab>
+</Tabs>
+
+## Setup
+
+### GraphQL Source
+
+Configure a GraphQL source with `"db"` in the generates array:
+
+```typescript
+import { defineConfig } from "tangrams"
+
+export default defineConfig({
+  sources: [
+    {
+      name: "graphql",
+      type: "graphql",
+      schema: {
+        url: "http://localhost:4000/graphql",
+      },
+      documents: "./src/graphql/**/*.graphql",
+      generates: ["db"], // Also enables "query" automatically
+    },
+  ],
+})
+```
+
+Then create your GraphQL operations in `.graphql` files:
+
+```graphql
+# src/graphql/user.graphql
+
+query ListUsers {
+  users {
+    id
+    name
+    email
+  }
+}
+
+mutation CreateUser($input: CreateUserInput!) {
+  createUser(input: $input) {
+    id
+    name
+    email
+  }
+}
+
+mutation UpdateUser($id: ID!, $input: UpdateUserInput!) {
+  updateUser(id: $id, input: $input) {
+    id
+    name
+    email
+  }
+}
+
+mutation DeleteUser($id: ID!) {
+  deleteUser(id: $id)
+}
+```
+
+### OpenAPI Source
+
+Configure an OpenAPI source with `"db"` in the generates array:
+
+```typescript
+import { defineConfig } from "tangrams"
+
+export default defineConfig({
+  sources: [
+    {
+      name: "api",
+      type: "openapi",
+      spec: "./openapi.yaml",
+      generates: ["db"], // Also enables "query" automatically
+    },
+  ],
+})
+```
+
+### Generate
+
+Run the generator:
+
+```bash
+bunx tangrams generate
+```
+
+## Generated Output
+
+### Output Directory Structure
+
+```
+src/generated/
+└── <source>/
+    ├── client.ts             # API client (shared)
+    ├── schema.ts             # Zod schemas
+    ├── functions.ts          # Standalone fetch functions (auto-generated)
+    ├── query/
+    │   ├── types.ts          # TypeScript types (GraphQL only)
+    │   └── operations.ts     # queryOptions and mutationOptions
+    └── db/
+        └── collections.ts    # TanStack DB collection options
+```
+
+### What Gets Generated
+
+When `"db"` is specified in the `generates` array:
+
+1. **`functions.ts`** - Standalone fetch functions for each operation (auto-generated)
+2. **`db/collections.ts`** - TanStack DB collection options that wire up the fetch functions
+
+**Example `functions.ts`:**
+
+```typescript
+import { getClient } from "./client"
+import type { ListUsersQuery, CreateUserMutation, CreateUserMutationVariables } from "./query/types"
+
+export const listUsers = async (): Promise<ListUsersQuery> => {
+  return (await getClient()).request<ListUsersQuery>(ListUsersDocument)
+}
+
+export const createUser = async (variables: CreateUserMutationVariables): Promise<CreateUserMutation> => {
+  return (await getClient()).request<CreateUserMutation>(CreateUserDocument, variables)
+}
+
+export const updateUser = async (variables: UpdateUserMutationVariables): Promise<UpdateUserMutation> => {
+  return (await getClient()).request<UpdateUserMutation>(UpdateUserDocument, variables)
+}
+
+export const deleteUser = async (variables: DeleteUserMutationVariables): Promise<DeleteUserMutation> => {
+  return (await getClient()).request<DeleteUserMutation>(DeleteUserDocument, variables)
+}
+```
+
+**Example `db/collections.ts`:**
+
+```typescript
+import { queryCollectionOptions } from "@tanstack/query-db-collection"
+import { createCollection } from "@tanstack/react-db"
+
+import type { QueryClient } from "@tanstack/react-query"
+import type { User } from "./types"
+import { listUsers, createUser, updateUser, deleteUser } from "../functions"
+
+/**
+ * Collection options for User
+ */
+export const userCollectionOptions = (queryClient: QueryClient) =>
+  createCollection(
+    queryCollectionOptions({
+      queryKey: ["graphql", "ListUsers"],
+      queryFn: async () => listUsers(),
+      queryClient,
+      getKey: (item) => item.id,
+      onInsert: async ({ transaction }) => {
+        await Promise.all(transaction.mutations.map((m) => createUser({ input: m.modified })))
+      },
+      onUpdate: async ({ transaction }) => {
+        await Promise.all(transaction.mutations.map((m) => updateUser({ id: m.original.id, input: m.changes })))
+      },
+      onDelete: async ({ transaction }) => {
+        await Promise.all(transaction.mutations.map((m) => deleteUser({ id: m.key })))
+      },
+    })
+  )
+```
+
+### Collection Options Factory
+
+Each generated collection is a **factory function** that takes a `QueryClient` and returns a collection. This allows the collection to integrate with TanStack Query for data fetching and caching.
+
+The generated collection options include:
+
+- **`queryKey`** - Cache key for TanStack Query
+- **`queryFn`** - Fetches the list data using the generated function
+- **`queryClient`** - TanStack Query client for cache management
+- **`getKey`** - Extracts the unique key from each item
+- **`onInsert`** - Persistence handler for insert mutations
+- **`onUpdate`** - Persistence handler for update mutations
+- **`onDelete`** - Persistence handler for delete mutations
+
+## Usage
+
+### Creating a Collection
+
+Pass your `QueryClient` to the collection options factory:
+
+```typescript
+import { QueryClient } from "@tanstack/react-query"
+import { userCollectionOptions } from "./generated/graphql/db/collections"
+
+const queryClient = new QueryClient()
+const usersCollection = userCollectionOptions(queryClient)
+```
+
+### Using with React
+
+Use the collection with TanStack DB's React hooks:
+
+```typescript
+import { useQuery } from "@tanstack/react-db"
+import { userCollectionOptions } from "./generated/graphql/db/collections"
+
+function UserList({ queryClient }: { queryClient: QueryClient }) {
+  const usersCollection = userCollectionOptions(queryClient)
+  const { data: users } = useQuery(usersCollection)
+
+  return (
+    <ul>
+      {users.map((user) => (
+        <li key={user.id}>{user.name}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+### Combining with Query Options
+
+Since `"db"` automatically enables `"query"`, you can use both collections and standard query options:
+
+```typescript
+import { useQuery } from "@tanstack/react-query"
+import { getUserQueryOptions } from "./generated/graphql/query/operations"
+import { userCollectionOptions } from "./generated/graphql/db/collections"
+
+function Dashboard({ queryClient }: { queryClient: QueryClient }) {
+  // Use standard query options for one-off queries
+  const { data: currentUser } = useQuery(getUserQueryOptions({ id: "current-user" }))
+
+  // Use collection for list data with local-first sync
+  const usersCollection = userCollectionOptions(queryClient)
+
+  return (
+    <div>
+      <h1>Welcome, {currentUser?.user?.name}</h1>
+      {/* Use usersCollection with TanStack DB hooks */}
+    </div>
+  )
+}
+```
+
+## Configuration Reference
+
+### GraphQL Source Options
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `name` | `string` | Yes | Unique name for this source (lowercase, alphanumeric with hyphens) |
+| `type` | `"graphql"` | Yes | Source type |
+| `schema` | `object` | Yes | Schema configuration (see below) |
+| `documents` | `string \| string[]` | Yes | Glob pattern(s) for `.graphql` operation files |
+| `generates` | `array` | Yes | Must include `"db"` (automatically enables `"query"`) |
+| `overrides` | `object` | No | Override scalars and DB collection settings |
+
+#### Schema Configuration
+
+**URL-based (introspection):**
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `schema.url` | `string` | Yes | GraphQL endpoint URL for introspection |
+| `schema.headers` | `Record<string, string>` | No | Headers to send with introspection request |
+
+**File-based (local SDL files):**
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `schema.file` | `string \| string[]` | Yes | Path or glob pattern(s) for `.graphql` schema files |
+
+### OpenAPI Source Options
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `name` | `string` | Yes | Unique name for this source (lowercase, alphanumeric with hyphens) |
+| `type` | `"openapi"` | Yes | Source type |
+| `spec` | `string` | Yes | Path to OpenAPI spec (local file or URL) |
+| `headers` | `Record<string, string>` | No | Headers for fetching remote spec |
+| `include` | `string[]` | No | Glob patterns for paths to include |
+| `exclude` | `string[]` | No | Glob patterns for paths to exclude |
+| `generates` | `array` | Yes | Must include `"db"` (automatically enables `"query"`) |
+| `overrides` | `object` | No | Override DB collection settings |
+
+### Custom Scalars (GraphQL)
+
+Map GraphQL scalars to TypeScript types using `overrides.scalars`:
+
+```typescript
+{
+  name: "graphql",
+  type: "graphql",
+  schema: { url: "..." },
+  documents: "...",
+  generates: ["db"],
+  overrides: {
+    scalars: {
+      DateTime: "Date",
+      JSON: "Record<string, unknown>",
+    },
+  },
+}
+```
+
+#### Default Scalar Mappings
+
+| GraphQL Scalar | TypeScript Type |
+|----------------|-----------------|
+| `ID` | `string` |
+| `String` | `string` |
+| `Int` | `number` |
+| `Float` | `number` |
+| `Boolean` | `boolean` |
+| `DateTime` | `string` |
+| `Date` | `string` |
+| `JSON` | `unknown` |
+| `BigInt` | `bigint` |
+| `UUID` | `string` |
+
+## Combining Generators
+
+You can combine `"db"` with other generators:
+
+```typescript
+generates: ["db", "form"]
+```
+
+This generates:
+- `functions.ts` - Standalone fetch functions
+- `query/operations.ts` - Query and mutation options
+- `db/collections.ts` - TanStack DB collection options
+- `form/forms.ts` - Form options with Zod validation
+
+Note: `"db"` automatically enables `"query"`, so you don't need to specify both.
