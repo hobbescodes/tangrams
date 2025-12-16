@@ -1,0 +1,42 @@
+{
+  "name": "start-openapi-query",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "start": "node .output/server/index.mjs",
+    "generate": "tangrams generate"
+  },
+  "dependencies": {
+    "@better-fetch/fetch": "^1.1.16",
+    "@tanstack/react-devtools": "^0.8.4",
+    "@tanstack/react-query": "^5.80.7",
+    "@tanstack/react-query-devtools": "^5.80.7",
+    "@tanstack/react-router": "^1.121.0",
+    "@tanstack/react-router-devtools": "^1.121.0",
+    "@tanstack/react-router-ssr-query": "^1.141.2",
+    "@tanstack/react-start": "^1.121.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "@examples/shared": "workspace:*",
+    "@tailwindcss/vite": "^4.1.8",
+    "@tanstack/devtools-vite": "^0.3.12",
+    "@types/react": "^19.1.6",
+    "@types/react-dom": "^19.1.5",
+    "@vitejs/plugin-react": "^4.5.2",
+    "tailwindcss": "^4.1.8",
+    "tangrams": "workspace:*",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "vite-tsconfig-paths": "^5.1.4"
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
+  }
+}

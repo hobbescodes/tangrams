@@ -1,12 +1,12 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 
-import { getPetsQueryOptions } from "@/generated/api/query/operations";
+import { listPetsQueryOptions } from "@/generated/api/query/operations";
 
 export const Route = createFileRoute("/pets/")({
   loader: ({ context }) => {
     context.queryClient.ensureQueryData(
-      getPetsQueryOptions({ limit: 20, offset: 0 }),
+      listPetsQueryOptions({ limit: 20, offset: 0 }),
     );
   },
   component: PetsListComponent,
@@ -14,11 +14,11 @@ export const Route = createFileRoute("/pets/")({
 
 function PetsListComponent() {
   const { data } = useSuspenseQuery(
-    getPetsQueryOptions({ limit: 20, offset: 0 }),
+    listPetsQueryOptions({ limit: 20, offset: 0 }),
   );
 
-  const pets = data.pets.data;
-  const totalCount = data.pets.total;
+  const pets = data.data;
+  const totalCount = data.total;
 
   return (
     <div className="mx-auto max-w-4xl p-8">

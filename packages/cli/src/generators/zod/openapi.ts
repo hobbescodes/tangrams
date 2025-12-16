@@ -8,7 +8,6 @@ import {
   buildZodOutput,
   createZodGenContext,
   getSafePropertyName,
-  isSchemaReference,
   toPascalCase,
   toSchemaName,
 } from "./index";
@@ -214,6 +213,7 @@ function generateZodSchema(
 
 /**
  * Generate schemas for operation request/response types
+ * Always creates type aliases for request/response, even when they reference existing schemas
  */
 function generateOperationSchemas(
   operations: ParsedOperation[],
@@ -223,28 +223,22 @@ function generateOperationSchemas(
     const baseName = toPascalCase(op.operationId);
 
     // Generate request body schema if present
+    // Always create a type alias, even if it references an existing schema
     if (op.requestBody) {
       const requestName = `${baseName}Request`;
       if (!ctx.generatedSchemas.has(requestName)) {
         const zodType = schemaToZod(op.requestBody, ctx, requestName);
-
-        // Check if this is just a reference to an existing schema
-        if (!isSchemaReference(zodType)) {
-          addSchemaToContext(ctx, requestName, zodType);
-        }
+        addSchemaToContext(ctx, requestName, zodType);
       }
     }
 
     // Generate response schema if present
+    // Always create a type alias, even if it references an existing schema
     if (op.responseSchema) {
       const responseName = `${baseName}Response`;
       if (!ctx.generatedSchemas.has(responseName)) {
         const zodType = schemaToZod(op.responseSchema, ctx, responseName);
-
-        // Check if this is just a reference to an existing schema
-        if (!isSchemaReference(zodType)) {
-          addSchemaToContext(ctx, responseName, zodType);
-        }
+        addSchemaToContext(ctx, responseName, zodType);
       }
     }
 
@@ -410,6 +404,7 @@ export function schemaToZod(
 
 /**
  * Get Zod type for string schema with format support
+ * Uses Zod v4 top-level format validators
  */
 function getStringZodType(schema: SchemaObject): string {
   switch (schema.format) {

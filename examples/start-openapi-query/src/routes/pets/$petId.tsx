@@ -1,12 +1,12 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 
-import { getPetByIdQueryOptions } from "@/generated/api/query/operations";
+import { getPetQueryOptions } from "@/generated/api/query/operations";
 
 export const Route = createFileRoute("/pets/$petId")({
   loader: ({ context, params }) => {
     context.queryClient.ensureQueryData(
-      getPetByIdQueryOptions({ id: params.petId }),
+      getPetQueryOptions({ petId: params.petId }),
     );
   },
   component: PetDetailComponent,
@@ -15,9 +15,7 @@ export const Route = createFileRoute("/pets/$petId")({
 function PetDetailComponent() {
   const { petId } = Route.useParams();
 
-  const { data } = useSuspenseQuery(getPetByIdQueryOptions({ id: petId }));
-
-  const pet = data.pet;
+  const { data: pet } = useSuspenseQuery(getPetQueryOptions({ petId }));
 
   if (!pet) {
     return (

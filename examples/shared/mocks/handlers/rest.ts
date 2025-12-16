@@ -21,7 +21,7 @@ import type { HttpHandler } from "msw";
 import type { PetCategory, PetStatus } from "../data/pets";
 import type { UserRole } from "../data/users";
 
-const API_BASE = "/api";
+const API_BASE = "http://localhost:3000/api";
 
 export const restHandlers: HttpHandler[] = [
   // Pets

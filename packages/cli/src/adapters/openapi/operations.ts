@@ -117,7 +117,7 @@ function generateTypeImports(operations: ParsedOperation[]): string {
       const requestName = `${baseName}Request`;
       if (!seenTypes.has(requestName)) {
         seenTypes.add(requestName);
-        typeImportsList.push(`\ttype ${requestName},`);
+        typeImportsList.push(`\t${requestName},`);
       }
     }
 
@@ -126,7 +126,7 @@ function generateTypeImports(operations: ParsedOperation[]): string {
       const paramsName = `${baseName}Params`;
       if (!seenTypes.has(paramsName)) {
         seenTypes.add(paramsName);
-        typeImportsList.push(`\ttype ${paramsName},`);
+        typeImportsList.push(`\t${paramsName},`);
       }
     }
   }

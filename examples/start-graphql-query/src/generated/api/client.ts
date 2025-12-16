@@ -3,8 +3,7 @@
 
 import { GraphQLClient } from "graphql-request";
 
-// Use absolute URL for SSR compatibility with MSW
-const endpoint = "http://localhost:5173/graphql";
+const endpoint = "http://localhost:3000/graphql";
 
 /**
  * Returns a GraphQL client instance.

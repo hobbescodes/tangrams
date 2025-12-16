@@ -3,7 +3,8 @@ import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { createPetMutationOptions } from "@/generated/api/query/operations";
-import { PetCategory, PetStatus } from "@/generated/api/query/types";
+
+import type { PetCategory, PetStatus } from "@/generated/api/schema";
 
 export const Route = createFileRoute("/pets/new")({
   component: NewPetComponent,
@@ -14,13 +15,13 @@ function NewPetComponent() {
   const queryClient = useQueryClient();
 
   const [name, setName] = useState("");
-  const [status, setStatus] = useState<PetStatus>(PetStatus.available);
-  const [category, setCategory] = useState<PetCategory>(PetCategory.dog);
+  const [status, setStatus] = useState<PetStatus>("available");
+  const [category, setCategory] = useState<PetCategory>("dog");
 
   const createPetMutation = useMutation({
     ...createPetMutationOptions(),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["api", "GetPets"] });
+      queryClient.invalidateQueries({ queryKey: ["api", "listPets"] });
       navigate({ to: "/pets" });
     },
   });
@@ -28,7 +29,7 @@ function NewPetComponent() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     createPetMutation.mutate({
-      input: {
+      body: {
         name,
         status,
         category,
@@ -79,9 +80,9 @@ function NewPetComponent() {
             onChange={(e) => setStatus(e.target.value as PetStatus)}
             className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
-            <option value={PetStatus.available}>Available</option>
-            <option value={PetStatus.pending}>Pending</option>
-            <option value={PetStatus.sold}>Sold</option>
+            <option value="available">Available</option>
+            <option value="pending">Pending</option>
+            <option value="sold">Sold</option>
           </select>
         </div>
 
@@ -98,11 +99,11 @@ function NewPetComponent() {
             onChange={(e) => setCategory(e.target.value as PetCategory)}
             className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
-            <option value={PetCategory.dog}>Dog</option>
-            <option value={PetCategory.cat}>Cat</option>
-            <option value={PetCategory.bird}>Bird</option>
-            <option value={PetCategory.fish}>Fish</option>
-            <option value={PetCategory.reptile}>Reptile</option>
+            <option value="dog">Dog</option>
+            <option value="cat">Cat</option>
+            <option value="bird">Bird</option>
+            <option value="fish">Fish</option>
+            <option value="reptile">Reptile</option>
           </select>
         </div>
 
