@@ -35,8 +35,14 @@ describe("generateFormOptionsCode", () => {
     expect(result.content).toContain(
       'import { createUserRequestSchema } from "./types"',
     );
+    // Should import the type for satisfies clause
+    expect(result.content).toContain(
+      'import type { CreateUserRequest } from "./types"',
+    );
     expect(result.content).toContain("export const createUserFormOptions");
     expect(result.content).toContain("defaultValues:");
+    // Should use 'as' to widen the type to match the schema
+    expect(result.content).toContain("as CreateUserRequest");
     expect(result.content).toContain("validators:");
     expect(result.content).toContain("onSubmitAsync: createUserRequestSchema");
     expect(result.warnings).toHaveLength(0);
@@ -65,6 +71,10 @@ describe("generateFormOptionsCode", () => {
     expect(result.content).toContain("updateUserFormOptions");
     expect(result.content).toContain(
       "import { createUserRequestSchema, updateUserRequestSchema }",
+    );
+    // Should import types for both mutations
+    expect(result.content).toContain(
+      "import type { CreateUserRequest, UpdateUserRequest }",
     );
   });
 
@@ -120,9 +130,9 @@ describe("generateFormOptionsCode", () => {
       allSchemas: [],
     });
 
-    // Should still generate form options with null default values for unknown types
+    // Should still generate form options with empty object default values for unknown types
     expect(result.content).toContain("createItemFormOptions");
-    expect(result.content).toContain("defaultValues: null");
+    expect(result.content).toContain("defaultValues: {} as CreateItemRequest");
     expect(result.warnings).toHaveLength(0);
   });
 

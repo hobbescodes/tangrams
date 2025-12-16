@@ -34,7 +34,7 @@
     "includes": [
       "**",
       "!!.beads",
-      "!!test/generated",
+      "!!**/generated",
       "!!.changeset",
       "!!**/test/fixtures/graphql/anonymous.graphql",
       "!!apps/docs/.source",

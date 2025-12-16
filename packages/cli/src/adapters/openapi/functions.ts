@@ -119,8 +119,9 @@ function generateImports(operations: ParsedOperation[]): {
       }
     }
 
-    // Params type
-    if (hasParams) {
+    // Params type - only for GET operations (queries use the Params type, mutations use inline types)
+    const isQuery = op.method === "get";
+    if (hasParams && isQuery) {
       const paramsName = `${baseName}Params`;
       if (!seenTypes.has(paramsName)) {
         seenTypes.add(paramsName);

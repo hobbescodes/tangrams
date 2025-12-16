@@ -9,6 +9,7 @@ import {
   generateFormOptionsCode,
   getOpenAPIRequestSchemaName,
 } from "@/generators/forms";
+import { extractSchemaDefinitions } from "@/generators/zod/defaults";
 import { generateOpenAPIZodSchemas } from "@/generators/zod/openapi";
 import { generateOpenAPIClient } from "./client";
 import {
@@ -128,15 +129,20 @@ class OpenAPIAdapterImpl implements IOpenAPIAdapter {
     const schemasResult = generateOpenAPIZodSchemas(document, mutations);
 
     // Build mutation info for form generation
+    // First extract all schema definitions so we can look them up
+    const allSchemas = extractSchemaDefinitions(schemasResult.content);
+    const schemaMap = new Map<string, string>();
+    for (const def of allSchemas) {
+      const match = def.match(/^export const (\w+Schema) = ([\s\S]+)$/);
+      if (match && match[1] && match[2]) {
+        schemaMap.set(match[1], match[2].trim());
+      }
+    }
+
     const mutationOps = mutations.map((op) => {
       const schemaName = getOpenAPIRequestSchemaName(op.operationId);
-      // Find the schema code - look for the schema definition in the generated schemas
-      const schemaMatch = schemasResult.content.match(
-        new RegExp(`export const ${schemaName} = ([^;]+)`),
-      );
-      const schemaCode = schemaMatch
-        ? schemaMatch[1] || "z.object({})"
-        : "z.object({})";
+      // Look up the schema code from our extracted definitions
+      const schemaCode = schemaMap.get(schemaName) || "z.object({})";
 
       return {
         operationId: op.operationId,
@@ -147,9 +153,7 @@ class OpenAPIAdapterImpl implements IOpenAPIAdapter {
 
     const result = generateFormOptionsCode(mutationOps, {
       schemaImportPath: options.schemaImportPath,
-      allSchemas: schemasResult.content
-        .split("\n")
-        .filter((l) => l.startsWith("export const")),
+      allSchemas,
     });
 
     return {

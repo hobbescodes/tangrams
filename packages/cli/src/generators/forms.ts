@@ -10,6 +10,16 @@ import {
 import { toCamelCase, toPascalCase, toSchemaName } from "./zod/index";
 
 /**
+ * Derive the TypeScript type name from a schema variable name.
+ * e.g., "createPetRequestSchema" -> "CreatePetRequest"
+ */
+function schemaNameToTypeName(schemaName: string): string {
+  // Remove "Schema" suffix and ensure PascalCase
+  const withoutSuffix = schemaName.replace(/Schema$/, "");
+  return toPascalCase(withoutSuffix);
+}
+
+/**
  * Information about a mutation operation for form generation
  */
 export interface MutationOperation {
@@ -69,11 +79,19 @@ export function generateFormOptionsCode(
   lines.push('import { formOptions } from "@tanstack/react-form"');
   lines.push("");
 
-  // Collect all schema imports
+  // Collect all schema imports and their corresponding type imports
   const schemaImports = mutations.map((m) => m.requestSchemaName);
+  const typeImports = mutations.map((m) =>
+    schemaNameToTypeName(m.requestSchemaName),
+  );
+
   if (schemaImports.length > 0) {
+    // Import schemas as values and types separately for clarity
     lines.push(
       `import { ${schemaImports.join(", ")} } from "${options.schemaImportPath}"`,
+    );
+    lines.push(
+      `import type { ${typeImports.join(", ")} } from "${options.schemaImportPath}"`,
     );
     lines.push("");
   }
@@ -81,6 +99,7 @@ export function generateFormOptionsCode(
   // Generate form options for each mutation
   for (const mutation of mutations) {
     const formOptionsName = `${toCamelCase(mutation.operationId)}FormOptions`;
+    const typeName = schemaNameToTypeName(mutation.requestSchemaName);
 
     // Generate default values code
     let defaultValuesCode: string;
@@ -90,6 +109,10 @@ export function generateFormOptionsCode(
         defaultCtx,
         "    ",
       );
+      // If we got null (from failed reference resolution), fall back to empty object
+      if (defaultValuesCode === "null") {
+        defaultValuesCode = "{}";
+      }
     } catch (e) {
       warnings.push(
         `Failed to generate default values for ${mutation.operationId}: ${e}`,
@@ -98,7 +121,7 @@ export function generateFormOptionsCode(
     }
 
     lines.push(`export const ${formOptionsName} = formOptions({`);
-    lines.push(`  defaultValues: ${defaultValuesCode},`);
+    lines.push(`  defaultValues: ${defaultValuesCode} as ${typeName},`);
     lines.push(`  validators: {`);
     lines.push(`    onSubmitAsync: ${mutation.requestSchemaName},`);
     lines.push(`  },`);

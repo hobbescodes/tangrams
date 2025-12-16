@@ -4,6 +4,72 @@
  */
 
 /**
+ * Extract complete schema definitions from generated Zod schema content.
+ * Handles multi-line definitions by tracking bracket depth.
+ *
+ * @param content The full generated schema file content
+ * @returns Array of complete schema definition strings (e.g., "export const fooSchema = z.object({...})")
+ */
+export function extractSchemaDefinitions(content: string): string[] {
+  const definitions: string[] = [];
+  const lines = content.split("\n");
+
+  let currentDef = "";
+  let depth = 0;
+  let inDefinition = false;
+
+  for (const line of lines) {
+    // Check if this line starts a new schema definition
+    if (line.startsWith("export const ") && line.includes("Schema")) {
+      // If we were in a definition, save it first
+      if (inDefinition && currentDef) {
+        definitions.push(currentDef.trim());
+      }
+
+      currentDef = line;
+      inDefinition = true;
+
+      // Count brackets in this line to track depth
+      depth = 0;
+      for (const char of line) {
+        if (char === "(" || char === "{" || char === "[") depth++;
+        if (char === ")" || char === "}" || char === "]") depth--;
+      }
+
+      // If depth is 0, this is a single-line definition or a simple alias
+      if (depth === 0) {
+        definitions.push(currentDef.trim());
+        currentDef = "";
+        inDefinition = false;
+      }
+    } else if (inDefinition) {
+      // Continue building the current definition
+      currentDef += "\n" + line;
+
+      // Track bracket depth
+      for (const char of line) {
+        if (char === "(" || char === "{" || char === "[") depth++;
+        if (char === ")" || char === "}" || char === "]") depth--;
+      }
+
+      // If we're back to depth 0, the definition is complete
+      if (depth === 0) {
+        definitions.push(currentDef.trim());
+        currentDef = "";
+        inDefinition = false;
+      }
+    }
+  }
+
+  // Don't forget the last definition if file doesn't end with balanced brackets
+  if (inDefinition && currentDef) {
+    definitions.push(currentDef.trim());
+  }
+
+  return definitions;
+}
+
+/**
  * Parsed representation of a Zod schema for default value generation
  */
 export interface ParsedZodSchema {
@@ -42,7 +108,8 @@ export interface DefaultGenContext {
 }
 
 /**
- * Create a default generation context from generated Zod schema strings
+ * Create a default generation context from generated Zod schema strings.
+ * Accepts complete schema definition strings (which may be multi-line).
  */
 export function createDefaultGenContext(
   zodSchemas: string[],
@@ -50,12 +117,13 @@ export function createDefaultGenContext(
   const schemas = new Map<string, string>();
 
   // Parse schema definitions to extract name -> schema mapping
-  for (const line of zodSchemas) {
-    const match = line.match(/^export const (\w+Schema) = (.+)$/);
+  // Use a regex that handles multi-line definitions by using [\s\S] instead of .
+  for (const definition of zodSchemas) {
+    const match = definition.match(/^export const (\w+Schema) = ([\s\S]+)$/);
     if (match) {
       const [, name, schema] = match;
       if (name && schema) {
-        schemas.set(name, schema);
+        schemas.set(name, schema.trim());
       }
     }
   }

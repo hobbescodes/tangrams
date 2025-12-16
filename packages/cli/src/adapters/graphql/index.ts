@@ -9,6 +9,7 @@ import { loadDocuments } from "@/core/documents";
 import { generateFormOptionsCode } from "@/generators/forms";
 import { generateFunctions } from "@/generators/functions";
 import { generateGraphQLOperations } from "@/generators/operations";
+import { extractSchemaDefinitions } from "@/generators/zod/defaults";
 import { generateGraphQLZodSchemas } from "@/generators/zod/graphql";
 import { toSchemaName } from "@/generators/zod/index";
 import { generateGraphQLClient } from "./client";
@@ -227,10 +228,8 @@ class GraphQLAdapterImpl implements IGraphQLAdapter {
       })
       .filter((op): op is NonNullable<typeof op> => op !== null);
 
-    // Add variable schemas to the generated schemas
-    const allSchemas = schemasResult.content
-      .split("\n")
-      .filter((l) => l.startsWith("export const"));
+    // Extract complete schema definitions (handles multi-line schemas)
+    const allSchemas = extractSchemaDefinitions(schemasResult.content);
 
     // Add the mutation variable schemas
     for (const op of mutationOps) {
