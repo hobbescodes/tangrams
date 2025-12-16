@@ -7,6 +7,7 @@ import consola from "consola";
 import { getAdapter } from "@/adapters";
 import {
   getDbCollectionOverrides,
+  getFormOverrides,
   getScalarsFromSource,
   normalizeGenerates,
 } from "./config";
@@ -497,6 +498,7 @@ async function generateFormFiles(
   const formResult = adapter.generateFormOptions(schema, source, {
     schemaImportPath,
     sourceName: source.name,
+    formOverrides: getFormOverrides(source),
   });
 
   // Log any warnings

@@ -1,5 +1,6 @@
 import type {
   CollectionOverrideConfig,
+  FormOverridesConfig,
   GraphQLSourceConfig,
   OpenAPISourceConfig,
   PredicateMappingPreset,
@@ -121,6 +122,8 @@ export interface FormGenOptions {
   schemaImportPath: string;
   /** The source name */
   sourceName: string;
+  /** Form overrides from config (validator, validationLogic) */
+  formOverrides?: FormOverridesConfig;
 }
 
 // =============================================================================

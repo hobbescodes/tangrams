@@ -85,6 +85,64 @@ export const dbOverridesSchema = z.object({
 
 export type DbOverridesConfig = z.infer<typeof dbOverridesSchema>;
 
+// =============================================================================
+// Form Overrides Configuration Schemas
+// =============================================================================
+
+/**
+ * Form validator timing options
+ *
+ * - "onChange" - Validate on every input change (sync)
+ * - "onChangeAsync" - Validate on every input change (async)
+ * - "onBlur" - Validate when field loses focus (sync)
+ * - "onBlurAsync" - Validate when field loses focus (async)
+ * - "onSubmit" - Validate on form submit (sync)
+ * - "onSubmitAsync" - Validate on form submit (async) - DEFAULT
+ * - "onDynamic" - Dynamic validation with configurable revalidation logic
+ */
+export const formValidatorSchema = z.enum([
+  "onChange",
+  "onChangeAsync",
+  "onBlur",
+  "onBlurAsync",
+  "onSubmit",
+  "onSubmitAsync",
+  "onDynamic",
+]);
+
+export type FormValidator = z.infer<typeof formValidatorSchema>;
+
+/**
+ * Validation logic mode for onDynamic validator
+ */
+export const validationLogicModeSchema = z.enum(["change", "blur", "submit"]);
+
+export type ValidationLogicMode = z.infer<typeof validationLogicModeSchema>;
+
+/**
+ * Validation logic configuration for onDynamic validator
+ */
+export const validationLogicSchema = z.object({
+  /** When to run initial validation (default: "submit") */
+  mode: validationLogicModeSchema.default("submit"),
+  /** When to revalidate after first submission (default: "change") */
+  modeAfterSubmission: validationLogicModeSchema.default("change"),
+});
+
+export type ValidationLogicConfig = z.infer<typeof validationLogicSchema>;
+
+/**
+ * Form-specific overrides
+ */
+export const formOverridesSchema = z.object({
+  /** Validator timing to use for generated form options (default: "onSubmitAsync") */
+  validator: formValidatorSchema.optional(),
+  /** Validation logic configuration (only used with "onDynamic" validator) */
+  validationLogic: validationLogicSchema.optional(),
+});
+
+export type FormOverridesConfig = z.infer<typeof formOverridesSchema>;
+
 /**
  * Source-level overrides configuration
  */
@@ -93,6 +151,8 @@ export const overridesSchema = z.object({
   scalars: z.record(z.string(), z.string()).optional(),
   /** TanStack DB overrides */
   db: dbOverridesSchema.optional(),
+  /** TanStack Form overrides */
+  form: formOverridesSchema.optional(),
 });
 
 export type OverridesConfig = z.infer<typeof overridesSchema>;
@@ -464,4 +524,13 @@ export function getDbCollectionOverrides(
   source: SourceConfig,
 ): Record<string, CollectionOverrideConfig> | undefined {
   return source.overrides?.db?.collections;
+}
+
+/**
+ * Get form overrides from a source
+ */
+export function getFormOverrides(
+  source: SourceConfig,
+): FormOverridesConfig | undefined {
+  return source.overrides?.form;
 }
