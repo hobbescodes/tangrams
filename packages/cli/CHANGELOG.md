@@ -1,5 +1,117 @@
 # tangrams
 
+## 0.6.0
+
+### Minor Changes
+
+- afadab0: TanStack Form generation improvements:
+
+  **Simplified default values:**
+
+  - Use empty object with type assertion (`{} as TypeName`) for `defaultValues` instead of generating default values from Zod schemas
+  - Remove complex default value extraction and generation logic
+  - Simplify both OpenAPI and GraphQL form generation adapters
+  - Remove `defaults.ts` and related code (no longer needed)
+
+  **Configurable form validators:**
+
+  - Add `overrides.form.validator` option to configure which validator timing to use
+  - Supported validators: `onChange`, `onChangeAsync`, `onBlur`, `onBlurAsync`, `onSubmit`, `onSubmitAsync` (default), `onDynamic`
+  - Add `overrides.form.validationLogic` option for `onDynamic` validator with `mode` and `modeAfterSubmission` settings
+  - Default `validationLogic` is `{ mode: "submit", modeAfterSubmission: "change" }` matching TanStack Form's common revalidation pattern
+
+  Example configuration:
+
+  ```typescript
+  // tangrams.config.ts
+  export default defineConfig({
+    sources: [
+      {
+        name: "api",
+        type: "openapi",
+        spec: "./openapi.yaml",
+        generates: ["form"],
+        overrides: {
+          form: {
+            validator: "onDynamic",
+            validationLogic: {
+              mode: "submit",
+              modeAfterSubmission: "change",
+            },
+          },
+        },
+      },
+    ],
+  });
+  ```
+
+- afadab0: Unify GraphQL type generation into schema.ts using Zod inference
+
+  **Breaking Change:** GraphQL sources no longer generate a separate `query/types.ts` file. All types are now inferred from Zod schemas in `schema.ts`.
+
+  Before:
+
+  ```
+  <source>/
+    ├── schema.ts          # Zod schemas (only when form/db enabled)
+    ├── query/
+    │   ├── types.ts       # TypeScript types + enums
+    │   └── operations.ts
+  ```
+
+  After:
+
+  ```
+  <source>/
+    ├── schema.ts          # Zod schemas + inferred types (always when query/form/db enabled)
+    ├── query/
+    │   └── operations.ts
+  ```
+
+  Benefits:
+
+  - Single source of truth for types (Zod schemas)
+  - Consistent type inference between GraphQL and OpenAPI sources
+  - Eliminates type mismatches between enum definitions and Zod schemas
+  - Generated types use `z.infer<typeof schema>` pattern
+
+  Migration:
+
+  - Update imports from `./query/types` to `./schema`
+  - Enum types are now string literal unions (e.g., `"dog" | "cat"` instead of `enum PetCategory { dog = "dog" }`)
+
+### Patch Changes
+
+- afadab0: Fix TanStack DB collection generation and standardize import structure in generated files.
+
+  - Fix path parameter name mismatch in collection mutation handlers (was using entity `keyField` instead of API path parameter name)
+  - Remove unused type imports from generated `collections.ts` files
+  - Standardize import structure across all generated files to match biome.json import ordering:
+    1. External packages (sorted alphabetically)
+    2. Internal imports (sorted alphabetically)
+    3. Type imports (sorted alphabetically)
+
+- afadab0: Fix OpenAPI Zod schema generation issues:
+
+  - Always generate request/response type aliases (e.g., `CreatePetResponse`, `GetPetResponse`) even when they reference existing schemas
+  - Fix topological sorting to ensure schema dependencies are declared before dependents
+  - Fix `import type` syntax in generated operations.ts (was incorrectly generating `import type { type Foo }`)
+
+  Fix TanStack Form options generation:
+
+  - Fix multi-line schema extraction for proper default value generation
+  - Generate proper default values from schema definitions instead of empty objects
+  - Add type assertion with inferred types to ensure proper type widening for default values (fixes array and enum type inference issues)
+
+  Fix unused type imports in generated files:
+
+  - Only import `*Params` types for GET operations in both `functions.ts` and `operations.ts`, since mutation functions inline their parameter types
+
+  Fix GraphQL form generation:
+
+  - Generate operation variable schemas (e.g., `createPetVariablesSchema`) in schema.ts when form generation is enabled
+  - This fixes the missing exports error when forms.ts imports variable schemas from schema.ts
+
 ## 0.5.0
 
 ### Minor Changes
