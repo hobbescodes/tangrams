@@ -1,5 +1,11 @@
 # tangrams
 
+## 0.6.1
+
+### Patch Changes
+
+- ac07b33: Include README.md and LICENSE in published npm package by copying them from the monorepo root during build
+
 ## 0.6.0
 
 ### Minor Changes
