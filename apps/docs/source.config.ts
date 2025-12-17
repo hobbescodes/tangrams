@@ -1,8 +1,6 @@
 import { defineConfig, defineDocs } from "fumadocs-mdx/config";
 
-import type { DocsCollection } from "fumadocs-mdx/config";
-
-export const docs: DocsCollection = defineDocs({
+export const docs = defineDocs({
   dir: "content/docs",
 });
 
