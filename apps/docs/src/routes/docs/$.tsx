@@ -11,7 +11,7 @@ import {
 } from "fumadocs-ui/layouts/docs/page";
 import defaultMdxComponents from "fumadocs-ui/mdx";
 
-import { baseOptions } from "../../../lib/layout.shared";
+import { baseOptions } from "@/lib/layout.shared";
 
 const serverLoader = createServerFn({
   method: "GET",
@@ -19,7 +19,7 @@ const serverLoader = createServerFn({
   .inputValidator((slugs: string[]) => slugs)
   .handler(async ({ data: slugs }) => {
     // Dynamic import to keep this server-only
-    const { source } = await import("../../../lib/source");
+    const { source } = await import("../../lib/source");
     const page = source.getPage(slugs);
     if (!page) throw notFound();
 
