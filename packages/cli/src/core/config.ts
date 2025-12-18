@@ -71,6 +71,11 @@ export const collectionOverrideSchema = z.object({
   syncMode: syncModeSchema.optional(),
   /** Predicate mapping preset for on-demand mode */
   predicateMapping: predicateMappingPresetSchema.optional(),
+  /**
+   * Override the selector path for extracting array from response (default: auto-detected)
+   * Use dot notation for nested paths (e.g., "pets.data", "response.items")
+   */
+  selectorPath: z.string().optional(),
 });
 
 export type CollectionOverrideConfig = z.infer<typeof collectionOverrideSchema>;

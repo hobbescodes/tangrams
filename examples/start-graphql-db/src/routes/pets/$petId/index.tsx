@@ -17,7 +17,7 @@ function PetDetailComponent() {
 
   const pet = pets[0];
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!pet) return;
     if (!confirm("Are you sure you want to delete this pet?")) return;
 

@@ -1,0 +1,48 @@
+# Fragment for common pet fields
+fragment PetFields on Pet {
+  id
+  name
+  status
+  category
+  tags
+  photoUrl
+  createdAt
+  updatedAt
+}
+
+# Basic pet queries using simple filtering
+query GetPets(
+  $status: PetStatus
+  $category: PetCategory
+  $limit: Int
+  $offset: Int
+) {
+  pets(status: $status, category: $category, limit: $limit, offset: $offset) {
+    data {
+      ...PetFields
+    }
+    total
+  }
+}
+
+query GetPetById($id: ID!) {
+  pet(id: $id) {
+    ...PetFields
+  }
+}
+
+mutation CreatePet($input: CreatePetInput!) {
+  createPet(input: $input) {
+    ...PetFields
+  }
+}
+
+mutation UpdatePet($id: ID!, $input: UpdatePetInput!) {
+  updatePet(id: $id, input: $input) {
+    ...PetFields
+  }
+}
+
+mutation DeletePet($id: ID!) {
+  deletePet(id: $id)
+}

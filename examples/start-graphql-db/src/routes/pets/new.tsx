@@ -1,81 +1,52 @@
-import { eq, useLiveQuery } from "@tanstack/react-db";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import type { PetCategory, PetStatus } from "@/generated/api/schema";
 
-export const Route = createFileRoute("/pets/$petId/edit")({
-  component: EditPetComponent,
+export const Route = createFileRoute("/pets/new")({
+  component: NewPetComponent,
 });
 
-function EditPetComponent() {
-  const { petId } = Route.useParams();
+function NewPetComponent() {
   const navigate = useNavigate();
   const { collections } = Route.useRouteContext();
-
-  // Use live query with a filter to get a single pet
-  const { data: pets } = useLiveQuery((q) =>
-    q.from({ pet: collections.pets }).where(({ pet }) => eq(pet.id, petId)),
-  );
-
-  const pet = pets[0];
 
   const [name, setName] = useState("");
   const [status, setStatus] = useState<PetStatus>("available");
   const [category, setCategory] = useState<PetCategory>("dog");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Initialize form with pet data when it loads
-  useEffect(() => {
-    if (pet) {
-      setName(pet.name);
-      setStatus(pet.status);
-      setCategory(pet.category);
-    }
-  }, [pet]);
-
-  if (!pet) {
-    return (
-      <div className="mx-auto max-w-4xl p-8">
-        <p className="text-gray-600">Pet not found</p>
-        <Link to="/pets" className="text-blue-600 hover:underline">
-          Back to pets
-        </Link>
-      </div>
-    );
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
-      // Use collection update for local-first mutation
-      collections.pets.update(pet.id, (draft) => {
-        (draft.name = name),
-          (draft.status = status),
-          (draft.category = category),
-          (draft.updatedAt = new Date().toISOString());
+      // Use collection insert for local-first mutation (synchronous)
+      collections.pets.insert({
+        // TanStack DB will generate a temporary ID that syncs with server
+        id: crypto.randomUUID(),
+        name,
+        status,
+        category,
+        tags: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
 
-      navigate({ to: "/pets/$petId", params: { petId: pet.id } });
+      navigate({ to: "/pets" });
     } catch (error) {
-      console.error("Failed to update pet:", error);
+      console.error("Failed to create pet:", error);
       setIsSubmitting(false);
     }
   };
 
   return (
     <div className="mx-auto max-w-2xl p-8">
-      <Link
-        to="/pets/$petId"
-        params={{ petId }}
-        className="text-sm text-blue-600 hover:underline"
-      >
-        &larr; Back to Pet
+      <Link to="/pets" className="text-sm text-blue-600 hover:underline">
+        &larr; Back to Pets
       </Link>
 
-      <h1 className="mt-4 text-3xl font-bold text-gray-900">Edit {pet.name}</h1>
+      <h1 className="mt-4 text-3xl font-bold text-gray-900">Add New Pet</h1>
 
       <form
         onSubmit={handleSubmit}
@@ -144,11 +115,10 @@ function EditPetComponent() {
             disabled={isSubmitting}
             className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
           >
-            {isSubmitting ? "Saving..." : "Save Changes"}
+            {isSubmitting ? "Creating..." : "Create Pet"}
           </button>
           <Link
-            to="/pets/$petId"
-            params={{ petId }}
+            to="/pets"
             className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50"
           >
             Cancel

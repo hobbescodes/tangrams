@@ -29,45 +29,95 @@ import type { ParsedOperation } from "./schema";
 /** Hardcoded import path for functions (always ../functions from db/) */
 const FUNCTIONS_IMPORT_PATH = "../functions";
 
+/** Maximum depth to search for arrays in nested schemas */
+const MAX_ARRAY_SEARCH_DEPTH = 3;
+
 type OpenAPISchema = OpenAPIV3.SchemaObject | OpenAPIV3_1.SchemaObject;
 type OpenAPIArraySchema =
   | OpenAPIV3.ArraySchemaObject
   | OpenAPIV3_1.ArraySchemaObject;
 
 /**
- * Check if a response schema contains an array (either directly or wrapped)
- * Returns the array schema and selector path if found
+ * Result of finding an array in a schema
  */
-function findArrayInResponse(
-  responseSchema: OpenAPISchema,
-): { arraySchema: OpenAPIArraySchema; selectorPath: string | null } | null {
-  // Direct array response
-  if (responseSchema.type === "array" && "items" in responseSchema) {
+interface ArrayPathResult {
+  /** Path segments to reach the array (e.g., ["data"] or ["response", "items"]) */
+  path: string[];
+  /** The array schema containing the items */
+  arraySchema: OpenAPIArraySchema;
+}
+
+/**
+ * Recursively search a schema for an array field
+ * Returns the path to the array and the array schema
+ */
+function findArrayInSchema(
+  schema: OpenAPISchema,
+  warnings: string[],
+  maxDepth: number = MAX_ARRAY_SEARCH_DEPTH,
+  currentPath: string[] = [],
+  currentDepth: number = 0,
+): ArrayPathResult | null {
+  if (currentDepth >= maxDepth) return null;
+
+  // Direct array - found it!
+  if (schema.type === "array" && "items" in schema) {
     return {
-      arraySchema: responseSchema as OpenAPIArraySchema,
-      selectorPath: null,
+      path: currentPath,
+      arraySchema: schema as OpenAPIArraySchema,
     };
   }
 
-  // Wrapped array response (e.g., { data: Pet[], total: number })
-  if (responseSchema.type === "object" && responseSchema.properties) {
-    // Look for common wrapper property names
-    const wrapperNames = ["data", "items", "results", "records", "rows"];
+  // Object - search properties for arrays
+  if (schema.type === "object" && schema.properties) {
+    const arrayFields: Array<{ propName: string; result: ArrayPathResult }> =
+      [];
 
-    for (const wrapperName of wrapperNames) {
-      const prop = responseSchema.properties[wrapperName] as
-        | OpenAPISchema
-        | undefined;
-      if (prop?.type === "array" && "items" in prop) {
-        return {
-          arraySchema: prop as OpenAPIArraySchema,
-          selectorPath: wrapperName,
-        };
+    for (const [propName, propSchema] of Object.entries(schema.properties)) {
+      const result = findArrayInSchema(
+        propSchema as OpenAPISchema,
+        warnings,
+        maxDepth,
+        [...currentPath, propName],
+        currentDepth + 1,
+      );
+      if (result) {
+        arrayFields.push({ propName, result });
       }
     }
+
+    // If multiple arrays found at this level, warn and take the first
+    if (arrayFields.length > 1) {
+      const firstField = arrayFields[0];
+      const propNames = arrayFields.map((f) => f.propName).join(", ");
+      warnings.push(
+        `Multiple array fields found in response schema: ${propNames}. Using first found: "${firstField?.propName}". ` +
+          `If this is incorrect, configure selectorPath in overrides.db.collections.`,
+      );
+    }
+
+    return arrayFields[0]?.result ?? null;
   }
 
   return null;
+}
+
+/**
+ * Check if a response schema contains an array (either directly or wrapped)
+ * Returns the array schema and selector path if found
+ * Uses schema-walking approach to find arrays at any nesting level
+ */
+function findArrayInResponse(
+  responseSchema: OpenAPISchema,
+  warnings: string[],
+): { arraySchema: OpenAPIArraySchema; selectorPath: string | null } | null {
+  const result = findArrayInSchema(responseSchema, warnings);
+  if (!result) return null;
+
+  return {
+    arraySchema: result.arraySchema,
+    selectorPath: result.path.length > 0 ? result.path.join(".") : null,
+  };
 }
 
 /**
@@ -83,12 +133,14 @@ export function discoverOpenAPIEntities(
 
   // Find all GET operations that return arrays - these are our list queries
   // Support both direct arrays and wrapped arrays (e.g., { data: Pet[] })
+  // Note: We pass an empty warnings array here since we only care about detection,
+  // actual warnings are collected during entity discovery
   const listQueries = operations.filter((op) => {
     if (op.method !== "get") return false;
     if (!op.responseSchema) return false;
 
     // Check if response contains an array (directly or wrapped)
-    return findArrayInResponse(op.responseSchema as OpenAPISchema) !== null;
+    return findArrayInResponse(op.responseSchema as OpenAPISchema, []) !== null;
   });
 
   for (const listQuery of listQueries) {
@@ -124,7 +176,7 @@ function discoverEntityFromListQuery(
   }
 
   // Find the array in the response (direct or wrapped)
-  const arrayInfo = findArrayInResponse(responseSchema);
+  const arrayInfo = findArrayInResponse(responseSchema, warnings);
   if (!arrayInfo) {
     return null;
   }
@@ -138,8 +190,8 @@ function discoverEntityFromListQuery(
     return null;
   }
 
-  // Store the selector path for wrapped responses
-  const selectorPath = arrayInfo.selectorPath;
+  // Store the auto-detected selector path for wrapped responses
+  const autoDetectedSelectorPath = arrayInfo.selectorPath;
 
   // Determine entity name from the path or response schema
   const entityName = inferEntityName(listQuery.path, itemSchema, document);
@@ -152,6 +204,10 @@ function discoverEntityFromListQuery(
 
   // Get overrides for this entity
   const entityOverrides = overrides?.[entityName];
+
+  // Use override for selectorPath if provided, otherwise use auto-detected
+  const selectorPath =
+    entityOverrides?.selectorPath ?? autoDetectedSelectorPath;
 
   // Find key field
   const keyFieldOverride = entityOverrides?.keyField;

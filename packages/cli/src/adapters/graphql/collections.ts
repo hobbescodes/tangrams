@@ -9,6 +9,7 @@
 import {
   GraphQLList,
   GraphQLNonNull,
+  Kind,
   isObjectType,
   isScalarType,
 } from "graphql";
@@ -26,6 +27,7 @@ import {
 } from "./analysis";
 
 import type {
+  FieldNode,
   GraphQLField,
   GraphQLObjectType,
   GraphQLOutputType,
@@ -45,6 +47,33 @@ import type {
 /** Hardcoded import path for functions (always ../functions from db/) */
 const FUNCTIONS_IMPORT_PATH = "../functions";
 
+/** Maximum depth to search for arrays in nested types */
+const MAX_ARRAY_SEARCH_DEPTH = 3;
+
+/**
+ * Result of finding an array in a type
+ */
+interface ArrayPathResult {
+  /** Dot-separated path to the array field (e.g., "data" or "results.items") */
+  path: string;
+  /** The name of the item type in the array */
+  itemTypeName: string;
+}
+
+/**
+ * Extended result from findListQueries including selector path info
+ */
+interface ListQueryMatch {
+  field: GraphQLField<unknown, unknown>;
+  /** The item type name (e.g., "Pet") */
+  typeName: string;
+  operation: ParsedOperation;
+  /** The key used in the response (alias or field name) */
+  responseKey: string;
+  /** Full selector path to extract array from response (e.g., "pets.data") */
+  selectorPath: string | undefined;
+}
+
 /**
  * Discover entities from a GraphQL schema for collection generation
  */
@@ -62,14 +91,27 @@ export function discoverGraphQLEntities(
     return { entities, warnings };
   }
 
-  // Find all queries that return list types
-  const listQueries = findListQueries(queryType, schema.documents);
+  // Find all queries that return list types (direct or wrapped)
+  const listQueries = findListQueries(
+    queryType,
+    schema.schema,
+    schema.documents,
+    warnings,
+  );
 
-  for (const { field, typeName, operation } of listQueries) {
+  for (const {
+    field,
+    typeName,
+    operation,
+    responseKey,
+    selectorPath,
+  } of listQueries) {
     const entity = discoverEntityFromListQuery(
       field,
       typeName,
       operation,
+      responseKey,
+      selectorPath,
       schema.schema,
       schema.documents,
       overrides,
@@ -89,52 +131,174 @@ export function discoverGraphQLEntities(
 }
 
 /**
- * Find all queries that return list types
+ * Find all queries that return list types (directly or wrapped in objects)
  */
 function findListQueries(
   queryType: GraphQLObjectType,
+  schema: GraphQLSchema,
   documents: ParsedDocuments,
-): Array<{
-  field: GraphQLField<unknown, unknown>;
-  typeName: string;
-  operation: ParsedOperation;
-}> {
-  const results: Array<{
-    field: GraphQLField<unknown, unknown>;
-    typeName: string;
-    operation: ParsedOperation;
-  }> = [];
+  warnings: string[],
+): ListQueryMatch[] {
+  const results: ListQueryMatch[] = [];
 
   const fields = queryType.getFields();
 
   for (const [fieldName, field] of Object.entries(fields)) {
-    // Check if this field returns a list type
-    const { isList, itemTypeName } = analyzeReturnType(field.type);
+    // Check if this field returns a list type directly
+    const directListInfo = analyzeReturnType(field.type);
 
-    if (isList && itemTypeName) {
-      // Find the corresponding document operation
-      const operation = documents.operations.find(
-        (op) =>
-          op.operation === "query" &&
-          // Match by field name in the selection set
-          op.node.selectionSet.selections.some(
-            (sel) =>
-              sel.kind === "Field" &&
-              (sel.alias?.value || sel.name.value) === fieldName,
-          ),
+    if (directListInfo.isList && directListInfo.itemTypeName) {
+      // Direct list return - find matching operation
+      const match = findMatchingOperation(
+        fieldName,
+        field,
+        directListInfo.itemTypeName,
+        documents,
+        undefined,
       );
+      if (match) {
+        results.push(match);
+      }
+      continue;
+    }
 
-      if (operation) {
-        results.push({
+    // Check if the return type is an object that contains a list (wrapped response)
+    const unwrappedType = unwrapType(field.type);
+    if (isObjectType(unwrappedType)) {
+      const arrayPath = findArrayInObjectType(
+        unwrappedType,
+        schema,
+        warnings,
+        MAX_ARRAY_SEARCH_DEPTH,
+      );
+      if (arrayPath) {
+        // Found a wrapped array - find matching operation
+        const match = findMatchingOperation(
+          fieldName,
           field,
-          typeName: itemTypeName,
-          operation,
-        });
+          arrayPath.itemTypeName,
+          documents,
+          arrayPath.path,
+        );
+        if (match) {
+          results.push(match);
+        }
       }
     }
   }
 
   return results;
+}
+
+/**
+ * Find the matching document operation for a schema field
+ */
+function findMatchingOperation(
+  schemaFieldName: string,
+  field: GraphQLField<unknown, unknown>,
+  itemTypeName: string,
+  documents: ParsedDocuments,
+  innerPath: string | undefined,
+): ListQueryMatch | null {
+  // Find operation that queries this field
+  for (const op of documents.operations) {
+    if (op.operation !== "query") continue;
+
+    // Find the field selection that matches this schema field
+    for (const sel of op.node.selectionSet.selections) {
+      if (sel.kind !== Kind.FIELD) continue;
+
+      const fieldNode = sel as FieldNode;
+      // Check if this selection targets our schema field
+      if (fieldNode.name.value === schemaFieldName) {
+        // Get the response key (alias if present, otherwise field name)
+        const responseKey = fieldNode.alias?.value || fieldNode.name.value;
+
+        // Build the full selector path
+        const selectorPath = innerPath
+          ? `${responseKey}.${innerPath}`
+          : undefined;
+
+        return {
+          field,
+          typeName: itemTypeName,
+          operation: op,
+          responseKey,
+          selectorPath,
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Recursively search an object type for a list field
+ * Returns the path to the list and the item type name
+ */
+function findArrayInObjectType(
+  type: GraphQLObjectType,
+  schema: GraphQLSchema,
+  warnings: string[],
+  maxDepth: number,
+  currentDepth: number = 0,
+  visitedTypes: Set<string> = new Set(),
+): ArrayPathResult | null {
+  if (currentDepth >= maxDepth) return null;
+
+  // Prevent infinite recursion on cyclic types
+  if (visitedTypes.has(type.name)) return null;
+  visitedTypes.add(type.name);
+
+  const fields = type.getFields();
+  const arrayFields: Array<{ fieldName: string; result: ArrayPathResult }> = [];
+
+  for (const [fieldName, field] of Object.entries(fields)) {
+    // Check if this field is a list
+    const listInfo = analyzeReturnType(field.type);
+    if (listInfo.isList && listInfo.itemTypeName) {
+      arrayFields.push({
+        fieldName,
+        result: { path: fieldName, itemTypeName: listInfo.itemTypeName },
+      });
+      continue;
+    }
+
+    // If it's an object type, recurse
+    const unwrapped = unwrapType(field.type);
+    if (isObjectType(unwrapped)) {
+      const nested = findArrayInObjectType(
+        unwrapped,
+        schema,
+        warnings,
+        maxDepth,
+        currentDepth + 1,
+        visitedTypes,
+      );
+      if (nested) {
+        arrayFields.push({
+          fieldName,
+          result: {
+            path: `${fieldName}.${nested.path}`,
+            itemTypeName: nested.itemTypeName,
+          },
+        });
+      }
+    }
+  }
+
+  // If multiple arrays found at this level, warn and take the first
+  if (arrayFields.length > 1) {
+    const firstField = arrayFields[0];
+    const fieldNames = arrayFields.map((f) => f.fieldName).join(", ");
+    warnings.push(
+      `Multiple array fields found in type "${type.name}": ${fieldNames}. Using first found: "${firstField?.fieldName}". ` +
+        `If this is incorrect, configure selectorPath in overrides.db.collections.`,
+    );
+  }
+
+  return arrayFields[0]?.result ?? null;
 }
 
 /**
@@ -173,6 +337,8 @@ function discoverEntityFromListQuery(
   field: GraphQLField<unknown, unknown>,
   typeName: string,
   operation: ParsedOperation,
+  _responseKey: string,
+  selectorPath: string | undefined,
   graphqlSchema: GraphQLSchema,
   documents: ParsedDocuments,
   overrides?: Record<string, CollectionOverrideConfig>,
@@ -187,6 +353,9 @@ function discoverEntityFromListQuery(
 
   // Get overrides for this entity
   const entityOverrides = overrides?.[typeName];
+
+  // Use override for selectorPath if provided
+  const finalSelectorPath = entityOverrides?.selectorPath ?? selectorPath;
 
   // Find key field
   const keyFieldOverride = entityOverrides?.keyField;
@@ -236,6 +405,7 @@ function discoverEntityFromListQuery(
       operationName: operation.name,
       queryKey: [typeName],
       paramsTypeName: variablesTypeName,
+      selectorPath: finalSelectorPath,
     },
     mutations,
     // On-demand mode properties
@@ -484,6 +654,7 @@ function generateEntityCollectionOptions(
   const listQueryFn = `${toCamelCase(entity.listQuery.operationName)}`;
   const isOnDemand = needsPredicateTranslation(entity);
   const translatorFn = `translate${entity.name}Predicates`;
+  const selectorPath = entity.listQuery.selectorPath;
 
   lines.push("/**");
   lines.push(` * Collection options for ${entity.name}`);
@@ -496,17 +667,29 @@ function generateEntityCollectionOptions(
   lines.push(`    queryCollectionOptions({`);
   lines.push(`      queryKey: ${JSON.stringify(entity.listQuery.queryKey)},`);
 
-  // Generate queryFn based on sync mode
+  // Generate queryFn based on sync mode AND selectorPath
   if (isOnDemand) {
     lines.push(`      syncMode: "on-demand",`);
     lines.push(`      queryFn: async (ctx) => {`);
     lines.push(
       `        const variables = ${translatorFn}(ctx.meta?.loadSubsetOptions)`,
     );
-    lines.push(`        return ${listQueryFn}(variables)`);
+    if (selectorPath) {
+      lines.push(`        const response = await ${listQueryFn}(variables)`);
+      lines.push(`        return response.${selectorPath}`);
+    } else {
+      lines.push(`        return ${listQueryFn}(variables)`);
+    }
     lines.push(`      },`);
   } else {
-    lines.push(`      queryFn: async () => ${listQueryFn}(),`);
+    if (selectorPath) {
+      lines.push(`      queryFn: async () => {`);
+      lines.push(`        const response = await ${listQueryFn}()`);
+      lines.push(`        return response.${selectorPath}`);
+      lines.push(`      },`);
+    } else {
+      lines.push(`      queryFn: async () => ${listQueryFn}(),`);
+    }
   }
 
   lines.push(`      queryClient,`);

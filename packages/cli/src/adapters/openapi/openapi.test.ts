@@ -1988,4 +1988,72 @@ describe("OpenAPI Collection Discovery", () => {
       ).toBe(false);
     });
   });
+
+  describe("wrapped response selectorPath detection", () => {
+    const wrappedConfig: OpenAPISourceConfig = {
+      name: "petstore-wrapped",
+      type: "openapi",
+      generates: ["query", "db"],
+      spec: join(fixturesDir, "petstore-wrapped.json"),
+    };
+
+    it("detects selectorPath for wrapped array responses", async () => {
+      const schema = await openapiAdapter.loadSchema(wrappedConfig);
+      const result = openapiAdapter.discoverCollectionEntities(
+        schema,
+        wrappedConfig,
+      );
+
+      const petEntity = result.entities.find((e) => e.name === "Pet");
+      expect(petEntity).toBeDefined();
+      expect(petEntity?.listQuery.selectorPath).toBe("data");
+    });
+
+    it("detects nested selectorPath", async () => {
+      const schema = await openapiAdapter.loadSchema(wrappedConfig);
+      const result = openapiAdapter.discoverCollectionEntities(
+        schema,
+        wrappedConfig,
+      );
+
+      const itemEntity = result.entities.find((e) => e.name === "Item");
+      expect(itemEntity).toBeDefined();
+      expect(itemEntity?.listQuery.selectorPath).toBe("response.items");
+    });
+
+    it("supports selectorPath override via config", async () => {
+      const schema = await openapiAdapter.loadSchema(wrappedConfig);
+      const result = openapiAdapter.discoverCollectionEntities(
+        schema,
+        wrappedConfig,
+        {
+          Pet: { selectorPath: "results" },
+        },
+      );
+
+      const petEntity = result.entities.find((e) => e.name === "Pet");
+      expect(petEntity?.listQuery.selectorPath).toBe("results");
+    });
+
+    it("generates queryFn with selectorPath for wrapped responses", async () => {
+      const schema = await openapiAdapter.loadSchema(wrappedConfig);
+      const result = openapiAdapter.generateCollections(schema, wrappedConfig, {
+        typesImportPath: "./schema",
+        sourceName: "petstore-wrapped",
+      });
+
+      // Should generate response selector in queryFn
+      expect(result.content).toContain("const response = await listPets()");
+      expect(result.content).toContain("return response.data");
+    });
+
+    it("has no selectorPath for direct array responses", async () => {
+      // Original petstore has direct array responses
+      const schema = await openapiAdapter.loadSchema(config);
+      const result = openapiAdapter.discoverCollectionEntities(schema, config);
+
+      const petEntity = result.entities.find((e) => e.name === "Pet");
+      expect(petEntity?.listQuery.selectorPath).toBeUndefined();
+    });
+  });
 });

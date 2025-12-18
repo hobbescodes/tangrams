@@ -45,17 +45,17 @@ function EditPetComponent() {
     );
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
-      // Use collection update for local-first mutation
+      // Use collection update for local-first mutation (synchronous)
       collections.pets.update(pet.id, (draft) => {
-        (draft.name = name),
-          (draft.status = status),
-          (draft.category = category),
-          (draft.updatedAt = new Date().toISOString());
+        draft.name = name;
+        draft.status = status;
+        draft.category = category;
+        draft.updatedAt = new Date().toISOString();
       });
 
       navigate({ to: "/pets/$petId", params: { petId: pet.id } });

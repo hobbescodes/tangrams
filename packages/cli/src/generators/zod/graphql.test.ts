@@ -195,8 +195,8 @@ describe("GraphQL Zod Generator", () => {
 
       const result = generateGraphQLZodSchemas(testSchema, documents);
 
-      // role is optional in CreateUserInput
-      expect(result.content).toContain("role: userRoleSchema.optional()");
+      // role is optional in CreateUserInput - uses .nullish() for compatibility
+      expect(result.content).toContain("role: userRoleSchema.nullish()");
     });
 
     it("handles scalar mappings", () => {
@@ -208,8 +208,8 @@ describe("GraphQL Zod Generator", () => {
 
       const result = generateGraphQLZodSchemas(testSchema, documents);
 
-      // JSON scalar should map to z.unknown()
-      expect(result.content).toContain("metadata: z.unknown().optional()");
+      // JSON scalar should map to z.unknown() with .nullish() for optional fields
+      expect(result.content).toContain("metadata: z.unknown().nullish()");
     });
 
     it("allows custom scalar mappings", () => {
@@ -353,8 +353,9 @@ describe("GraphQL Zod Generator", () => {
       const result = generateGraphQLZodSchemas(schemaWithScalars, documents);
 
       expect(result.content).toContain("active: z.boolean()");
-      expect(result.content).toContain("limit: z.number().int().optional()");
-      expect(result.content).toContain("offset: z.number().optional()");
+      // Optional fields use .nullish() for compatibility between input/output semantics
+      expect(result.content).toContain("limit: z.number().int().nullish()");
+      expect(result.content).toContain("offset: z.number().nullish()");
     });
 
     it("handles DateTime scalar type", () => {
@@ -409,8 +410,9 @@ describe("GraphQL Zod Generator", () => {
 
       const result = generateGraphQLZodSchemas(schemaWithLists, documents);
 
-      // List type generates z.array() with nullable wrapper
-      expect(result.content).toContain("z.array(z.string()).nullable()");
+      // [String]! = required array of nullable strings
+      // The array is required (no .nullish()), but items use .nullish() for compatibility
+      expect(result.content).toContain("z.array(z.string().nullish())");
     });
 
     it("handles ID scalar type in input fields", () => {
@@ -437,6 +439,64 @@ describe("GraphQL Zod Generator", () => {
       const result = generateGraphQLZodSchemas(schemaWithID, documents);
 
       expect(result.content).toContain("id: z.string()");
+    });
+
+    it("handles list types with non-nullable inner types", () => {
+      const schemaWithLists = buildSchema(`
+				input TagsInput {
+					names: [String!]!
+				}
+
+				type Query {
+					test: String
+				}
+
+				type Mutation {
+					setTags(input: TagsInput!): String
+				}
+			`);
+
+      const documents = createDocuments([
+        createMutationOperation("SetTags", [
+          createVariableDef("input", "TagsInput"),
+        ]),
+      ]);
+
+      const result = generateGraphQLZodSchemas(schemaWithLists, documents);
+
+      // [String!]! = required array of required strings
+      // No .nullable() on items, no .optional() on the field
+      expect(result.content).toContain("names: z.array(z.string())");
+      expect(result.content).not.toContain("z.array(z.string()).nullable()");
+      expect(result.content).not.toContain("z.array(z.string()).optional()");
+    });
+
+    it("handles optional list types", () => {
+      const schemaWithLists = buildSchema(`
+				input TagsInput {
+					names: [String!]
+				}
+
+				type Query {
+					test: String
+				}
+
+				type Mutation {
+					setTags(input: TagsInput!): String
+				}
+			`);
+
+      const documents = createDocuments([
+        createMutationOperation("SetTags", [
+          createVariableDef("input", "TagsInput"),
+        ]),
+      ]);
+
+      const result = generateGraphQLZodSchemas(schemaWithLists, documents);
+
+      // [String!] = optional array of required strings
+      // The array field uses .nullish() for compatibility, items are required
+      expect(result.content).toContain("names: z.array(z.string()).nullish()");
     });
   });
 
@@ -558,8 +618,8 @@ describe("GraphQL Zod Generator", () => {
 
       const result = generateGraphQLZodSchemas(querySchema, documents);
 
-      // user field returns User which is nullable
-      expect(result.content).toContain(".nullable()");
+      // user field returns User which is nullable - uses .nullish() for compatibility
+      expect(result.content).toContain(".nullish()");
     });
 
     it("handles list query results", () => {

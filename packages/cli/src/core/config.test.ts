@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
+  collectionOverrideSchema,
   configSchema,
   defineConfig,
   generateDefaultConfig,
@@ -1056,5 +1057,78 @@ describe("loadTangramsConfig with dotenv", () => {
     const schemaConfig = graphqlSource.schema as GraphQLSchemaUrlConfig;
     expect(schemaConfig.headers?.["x-api-key"]).toBe("override");
     expect(schemaConfig.headers?.["x-other"]).toBe("other");
+  });
+});
+
+describe("collectionOverrideSchema", () => {
+  it("validates keyField override", () => {
+    const result = collectionOverrideSchema.safeParse({ keyField: "uuid" });
+    expect(result.success).toBe(true);
+    expect(result.data?.keyField).toBe("uuid");
+  });
+
+  it("validates syncMode override", () => {
+    const result = collectionOverrideSchema.safeParse({
+      syncMode: "on-demand",
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.syncMode).toBe("on-demand");
+  });
+
+  it("validates predicateMapping override", () => {
+    const result = collectionOverrideSchema.safeParse({
+      predicateMapping: "hasura",
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.predicateMapping).toBe("hasura");
+  });
+
+  it("validates selectorPath override", () => {
+    const result = collectionOverrideSchema.safeParse({
+      selectorPath: "pets.data",
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.selectorPath).toBe("pets.data");
+  });
+
+  it("validates selectorPath with nested path", () => {
+    const result = collectionOverrideSchema.safeParse({
+      selectorPath: "response.results.items",
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.selectorPath).toBe("response.results.items");
+  });
+
+  it("validates combined overrides", () => {
+    const result = collectionOverrideSchema.safeParse({
+      keyField: "id",
+      syncMode: "full",
+      predicateMapping: "rest-simple",
+      selectorPath: "data",
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.keyField).toBe("id");
+    expect(result.data?.syncMode).toBe("full");
+    expect(result.data?.predicateMapping).toBe("rest-simple");
+    expect(result.data?.selectorPath).toBe("data");
+  });
+
+  it("validates empty override object", () => {
+    const result = collectionOverrideSchema.safeParse({});
+    expect(result.success).toBe(true);
+  });
+
+  it("fails with invalid syncMode", () => {
+    const result = collectionOverrideSchema.safeParse({
+      syncMode: "invalid-mode",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("fails with invalid predicateMapping", () => {
+    const result = collectionOverrideSchema.safeParse({
+      predicateMapping: "invalid-preset",
+    });
+    expect(result.success).toBe(false);
   });
 });

@@ -570,6 +570,9 @@ function generateEnumSchema(
 
 /**
  * Generate a Zod schema for a GraphQL input object type
+ *
+ * Uses .nullish() for nullable fields to provide compatibility between
+ * GraphQL input semantics (optional/undefined) and output semantics (nullable/null).
  */
 function generateInputTypeSchema(
   inputType: GraphQLInputObjectType,
@@ -593,7 +596,9 @@ function generateInputTypeSchema(
     if (isRequired) {
       fieldDefs.push(`  ${safeName}: ${zodType}`);
     } else {
-      fieldDefs.push(`  ${safeName}: ${zodType}.optional()`);
+      // Use .nullish() for nullable fields to accept both null and undefined
+      // This provides compatibility with output types that use null
+      fieldDefs.push(`  ${safeName}: ${zodType}.nullish()`);
     }
   }
 
@@ -623,53 +628,68 @@ function processPendingSchemas(ctx: GraphQLZodContext): void {
 
 /**
  * Convert a GraphQL input type to a Zod type string
+ *
+ * @param type - The GraphQL input type to convert
+ * @param ctx - The generation context
+ * @param isTopLevel - Whether this is a top-level field (nullability handled by caller)
+ *
+ * For top-level fields, nullability (.nullish()) is handled by generateInputTypeSchema.
+ * For nested types (e.g., array items), we add .nullish() here when the type is not NonNull.
  */
 function graphqlInputTypeToZod(
   type: GraphQLInputType,
   ctx: GraphQLZodContext,
+  isTopLevel = true,
 ): string {
-  if (isNonNullType(type)) {
-    return graphqlInputTypeToZod(type.ofType, ctx);
-  }
+  // Check if this type is non-null
+  const isRequired = isNonNullType(type);
+  const innerType = isRequired ? type.ofType : type;
 
-  if (isListType(type)) {
-    const innerType = graphqlInputTypeToZod(type.ofType, ctx);
-    return `z.array(${innerType}).nullable()`;
-  }
+  // Generate the base Zod type
+  let zodType: string;
 
-  if (isScalarType(type)) {
-    const zodType = ctx.scalarMappings[type.name];
-    if (zodType) {
-      return zodType;
+  if (isListType(innerType)) {
+    // For arrays, recursively process the item type (not top-level)
+    const itemZodType = graphqlInputTypeToZod(innerType.ofType, ctx, false);
+    zodType = `z.array(${itemZodType})`;
+  } else if (isScalarType(innerType)) {
+    const mapped = ctx.scalarMappings[innerType.name];
+    if (mapped) {
+      zodType = mapped;
+    } else {
+      ctx.warnings.push(
+        `Unknown scalar type "${innerType.name}", using z.unknown(). Consider adding a scalar mapping.`,
+      );
+      zodType = "z.unknown()";
     }
-    ctx.warnings.push(
-      `Unknown scalar type "${type.name}", using z.unknown(). Consider adding a scalar mapping.`,
-    );
-    return "z.unknown()";
-  }
-
-  if (isEnumType(type)) {
+  } else if (isEnumType(innerType)) {
     if (
-      !ctx.generatedSchemas.has(type.name) &&
-      !ctx.pendingSchemas.has(type.name)
+      !ctx.generatedSchemas.has(innerType.name) &&
+      !ctx.pendingSchemas.has(innerType.name)
     ) {
-      ctx.pendingSchemas.set(type.name, type);
+      ctx.pendingSchemas.set(innerType.name, innerType);
     }
-    return toSchemaName(type.name);
-  }
-
-  if (isInputObjectType(type)) {
+    zodType = toSchemaName(innerType.name);
+  } else if (isInputObjectType(innerType)) {
     if (
-      !ctx.generatedSchemas.has(type.name) &&
-      !ctx.pendingSchemas.has(type.name)
+      !ctx.generatedSchemas.has(innerType.name) &&
+      !ctx.pendingSchemas.has(innerType.name)
     ) {
-      ctx.pendingSchemas.set(type.name, type);
+      ctx.pendingSchemas.set(innerType.name, innerType);
     }
-    return toSchemaName(type.name);
+    zodType = toSchemaName(innerType.name);
+  } else {
+    ctx.warnings.push("Unsupported GraphQL input type");
+    zodType = "z.unknown()";
   }
 
-  ctx.warnings.push("Unsupported GraphQL input type");
-  return "z.unknown()";
+  // For non-top-level types (e.g., array items), add .nullish() if not required
+  // This provides compatibility between input (undefined) and output (null) semantics
+  if (!isTopLevel && !isRequired) {
+    zodType = `${zodType}.nullish()`;
+  }
+
+  return zodType;
 }
 
 // ============================================================================
@@ -726,6 +746,9 @@ function generateFragmentSchema(
 
 /**
  * Generate Zod schemas for operation variables
+ *
+ * Uses .nullish() for nullable variables to provide compatibility between
+ * GraphQL input semantics (optional/undefined) and output semantics (nullable/null).
  */
 function generateOperationVariablesSchemas(
   operations: ParsedOperation[],
@@ -757,7 +780,8 @@ function generateOperationVariablesSchemas(
       if (isRequired) {
         fieldDefs.push(`  ${varName}: ${zodType}`);
       } else {
-        fieldDefs.push(`  ${varName}: ${zodType}.optional()`);
+        // Use .nullish() for nullable variables to accept both null and undefined
+        fieldDefs.push(`  ${varName}: ${zodType}.nullish()`);
       }
     }
 
@@ -923,6 +947,9 @@ function generateSelectionSetZodSchema(
 
 /**
  * Extract field definitions from a selection set
+ *
+ * Uses .nullish() for nullable fields to provide compatibility between
+ * GraphQL output semantics (nullable/null) and input semantics (optional/undefined).
  */
 function extractSelectionFields(
   selectionSet: { selections: readonly unknown[] },
@@ -967,7 +994,9 @@ function extractSelectionFields(
       if (isRequired) {
         fields.push(`  ${outputName}: ${zodType}`);
       } else {
-        fields.push(`  ${outputName}: ${zodType}.nullable()`);
+        // Use .nullish() for nullable fields to accept both null and undefined
+        // This provides compatibility with input types that use undefined
+        fields.push(`  ${outputName}: ${zodType}.nullish()`);
       }
     }
 

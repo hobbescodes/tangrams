@@ -1,0 +1,116 @@
+"""
+GraphQL schema with Connection pattern (wrapped array responses)
+Used for testing selectorPath detection in collections
+"""
+type Query {
+  """
+  Get a single pet by ID
+  """
+  pet(id: ID!): Pet
+
+  """
+  List pets with pagination - returns wrapped response
+  """
+  pets(status: PetStatus, limit: Int, offset: Int): PetConnection!
+
+  """
+  List users with pagination - returns wrapped response
+  """
+  users(role: UserRole, limit: Int, offset: Int): UserConnection!
+
+  """
+  Direct array response (no wrapper)
+  """
+  tags: [String!]!
+}
+
+type Mutation {
+  createPet(input: CreatePetInput!): Pet!
+  updatePet(id: ID!, input: UpdatePetInput!): Pet
+  deletePet(id: ID!): Boolean!
+
+  createUser(input: CreateUserInput!): User!
+  updateUser(id: ID!, input: UpdateUserInput!): User
+  deleteUser(id: ID!): Boolean!
+}
+
+"""
+Connection type for paginated Pet responses
+"""
+type PetConnection {
+  data: [Pet!]!
+  total: Int!
+}
+
+"""
+Connection type for paginated User responses
+"""
+type UserConnection {
+  data: [User!]!
+  total: Int!
+  hasMore: Boolean!
+}
+
+type Pet {
+  id: ID!
+  name: String!
+  status: PetStatus!
+  category: PetCategory!
+  tags: [String!]!
+  createdAt: String!
+  updatedAt: String!
+}
+
+type User {
+  id: ID!
+  name: String!
+  email: String!
+  role: UserRole!
+  createdAt: String!
+}
+
+enum PetStatus {
+  available
+  pending
+  sold
+}
+
+enum PetCategory {
+  dog
+  cat
+  bird
+  fish
+  reptile
+}
+
+enum UserRole {
+  admin
+  user
+  guest
+}
+
+input CreatePetInput {
+  name: String!
+  category: PetCategory!
+  status: PetStatus!
+  tags: [String!]
+}
+
+input UpdatePetInput {
+  name: String
+  category: PetCategory
+  status: PetStatus
+  tags: [String!]
+}
+
+input CreateUserInput {
+  name: String!
+  email: String!
+  role: UserRole!
+}
+
+input UpdateUserInput {
+  name: String
+  email: String
+  role: UserRole
+}

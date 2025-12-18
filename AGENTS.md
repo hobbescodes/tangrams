@@ -61,3 +61,8 @@ This is a Bun workspaces monorepo with the following structure:
 ## TanStack Start Server Functions
 - Use `.inputValidator()` not `.validator()` when generating server functions with `createServerFn`
 - Always verify against current TanStack Start documentation when making changes to server function generation
+
+## Type Safety
+- **Never use `as any`** - If there is a complex type mismatch issue, analyze the root cause and bring it to the user's attention for discussion rather than masking it with type assertions
+- Prefer proper type mappings, generics, or schema adjustments over unsafe casts
+- If type issues arise in generated code, the generator logic should be fixed to produce correctly typed output

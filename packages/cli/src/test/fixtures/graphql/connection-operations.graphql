@@ -1,0 +1,88 @@
+# Operations for testing Connection pattern (wrapped array responses)
+
+fragment PetFields on Pet {
+  id
+  name
+  status
+  category
+  tags
+  createdAt
+  updatedAt
+}
+
+fragment UserFields on User {
+  id
+  name
+  email
+  role
+  createdAt
+}
+
+# Query with wrapped response - should detect selectorPath "pets.data"
+query GetPets($status: PetStatus, $limit: Int, $offset: Int) {
+  pets(status: $status, limit: $limit, offset: $offset) {
+    data {
+      ...PetFields
+    }
+    total
+  }
+}
+
+# Query with alias - should detect selectorPath "myPets.data"
+query GetPetsWithAlias($status: PetStatus, $limit: Int, $offset: Int) {
+  myPets: pets(status: $status, limit: $limit, offset: $offset) {
+    data {
+      ...PetFields
+    }
+    total
+  }
+}
+
+query GetPetById($id: ID!) {
+  pet(id: $id) {
+    ...PetFields
+  }
+}
+
+# Query with wrapped response for users
+query GetUsers($role: UserRole, $limit: Int, $offset: Int) {
+  users(role: $role, limit: $limit, offset: $offset) {
+    data {
+      ...UserFields
+    }
+    total
+    hasMore
+  }
+}
+
+mutation CreatePet($input: CreatePetInput!) {
+  createPet(input: $input) {
+    ...PetFields
+  }
+}
+
+mutation UpdatePet($id: ID!, $input: UpdatePetInput!) {
+  updatePet(id: $id, input: $input) {
+    ...PetFields
+  }
+}
+
+mutation DeletePet($id: ID!) {
+  deletePet(id: $id)
+}
+
+mutation CreateUser($input: CreateUserInput!) {
+  createUser(input: $input) {
+    ...UserFields
+  }
+}
+
+mutation UpdateUser($id: ID!, $input: UpdateUserInput!) {
+  updateUser(id: $id, input: $input) {
+    ...UserFields
+  }
+}
+
+mutation DeleteUser($id: ID!) {
+  deleteUser(id: $id)
+}
