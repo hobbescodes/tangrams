@@ -384,22 +384,25 @@ This pattern validates on submit initially, then revalidates on every change aft
 
 | Option | Type | Required | Description |
 |--------|------|----------|-------------|
-| `name` | `string` | Yes | Unique name for this source |
+| `name` | `string` | Yes | Unique name for this source (lowercase alphanumeric with hyphens, starting with a letter) |
 | `type` | `"graphql"` | Yes | Source type |
 | `schema` | `object` | Yes | Schema configuration (URL or file-based) |
 | `documents` | `string \| string[]` | Yes | Glob pattern(s) for `.graphql` files |
 | `generates` | `array` | Yes | Must include `"form"` |
+| `overrides` | `object` | No | Override scalars, DB, and form settings (see [Configuration Reference](/docs#overrides-configuration)) |
 
 ### OpenAPI Source Options
 
 | Option | Type | Required | Description |
 |--------|------|----------|-------------|
-| `name` | `string` | Yes | Unique name for this source |
+| `name` | `string` | Yes | Unique name for this source (lowercase alphanumeric with hyphens, starting with a letter) |
 | `type` | `"openapi"` | Yes | Source type |
 | `spec` | `string` | Yes | Path to OpenAPI spec (local or URL) |
+| `headers` | `Record<string, string>` | No | Headers for fetching remote spec |
 | `include` | `string[]` | No | Glob patterns for paths to include |
 | `exclude` | `string[]` | No | Glob patterns for paths to exclude |
 | `generates` | `array` | Yes | Must include `"form"` |
+| `overrides` | `object` | No | Override DB and form settings (see [Configuration Reference](/docs#overrides-configuration)) |
 
 ### Form Overrides
 

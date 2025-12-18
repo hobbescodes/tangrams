@@ -10,15 +10,15 @@ export const createPetInputSchema = z.object({
   name: z.string(),
   category: petCategorySchema,
   status: petStatusSchema,
-  tags: z.array(z.string()).nullable(),
-  photoUrl: z.string().optional()
+  tags: z.array(z.string()),
+  photoUrl: z.string().nullish()
 })
 export const updatePetInputSchema = z.object({
-  name: z.string().optional(),
-  category: petCategorySchema.optional(),
-  status: petStatusSchema.optional(),
-  tags: z.array(z.string()).nullable().optional(),
-  photoUrl: z.string().optional()
+  name: z.string().nullish(),
+  category: petCategorySchema.nullish(),
+  status: petStatusSchema.nullish(),
+  tags: z.array(z.string()).nullish(),
+  photoUrl: z.string().nullish()
 })
 export const petFieldsFragmentSchema = z.object({
   id: z.string(),
@@ -26,15 +26,15 @@ export const petFieldsFragmentSchema = z.object({
   status: petStatusSchema,
   category: petCategorySchema,
   tags: z.array(z.string()),
-  photoUrl: z.string().nullable(),
+  photoUrl: z.string().nullish(),
   createdAt: z.string(),
   updatedAt: z.string()
 })
 export const getPetsQueryVariablesSchema = z.object({
-  status: petStatusSchema.optional(),
-  category: petCategorySchema.optional(),
-  limit: z.number().int().optional(),
-  offset: z.number().int().optional()
+  status: petStatusSchema.nullish(),
+  category: petCategorySchema.nullish(),
+  limit: z.number().int().nullish(),
+  offset: z.number().int().nullish()
 })
 export const getPetByIdQueryVariablesSchema = z.object({
   id: z.string()
@@ -60,7 +60,7 @@ export const getPetsQuerySchema = z.object({
 export const getPetByIdQuerySchema = z.object({
   pet: z.object({
   ...petFieldsFragmentSchema.shape
-}).nullable()
+}).nullish()
 })
 export const createPetMutationSchema = z.object({
   createPet: z.object({
@@ -70,7 +70,7 @@ export const createPetMutationSchema = z.object({
 export const updatePetMutationSchema = z.object({
   updatePet: z.object({
   ...petFieldsFragmentSchema.shape
-}).nullable()
+}).nullish()
 })
 export const deletePetMutationSchema = z.object({
   deletePet: z.boolean()

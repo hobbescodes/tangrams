@@ -63,7 +63,7 @@ describe("OpenAPI Adapter", () => {
   });
 
   describe("generateClient", () => {
-    it("generates a better-fetch client", async () => {
+    it("generates a better-fetch client with async getClient function", async () => {
       const schema = await openapiAdapter.loadSchema(testConfig);
       const result = openapiAdapter.generateClient(schema, testConfig);
 
@@ -73,6 +73,8 @@ describe("OpenAPI Adapter", () => {
       expect(result.content).toContain("https://api.petstore.example.com/v1");
       expect(result.content).toContain("buildPath");
       expect(result.content).toContain("buildQuery");
+      // Should export async getClient function for dynamic headers
+      expect(result.content).toContain("export const getClient = async ()");
     });
   });
 
@@ -1435,7 +1437,7 @@ describe("generateFunctions (OpenAPI standalone functions)", () => {
     expect(result.content).toContain("GetPetParams");
   });
 
-  it("uses $fetch with output validation in handlers", async () => {
+  it("uses getClient and $fetch with output validation in handlers", async () => {
     const schema = await openapiAdapter.loadSchema(config);
     const result = openapiAdapter.generateFunctions(
       schema,
@@ -1443,7 +1445,8 @@ describe("generateFunctions (OpenAPI standalone functions)", () => {
       functionsOptions,
     );
 
-    // Should use $fetch with output schema
+    // Should use getClient() to get $fetch instance
+    expect(result.content).toContain("const $fetch = await getClient()");
     expect(result.content).toContain("await $fetch");
     expect(result.content).toContain("output:");
     expect(result.content).toContain("if (error) throw error");

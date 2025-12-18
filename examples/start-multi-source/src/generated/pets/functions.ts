@@ -3,18 +3,7 @@
 
 import { getClient } from "./client"
 
-import type {
-	GetPetsQuery,
-	GetPetsQueryVariables,
-	GetPetByIdQuery,
-	GetPetByIdQueryVariables,
-	CreatePetMutation,
-	CreatePetMutationVariables,
-	UpdatePetMutation,
-	UpdatePetMutationVariables,
-	DeletePetMutation,
-	DeletePetMutationVariables,
-} from "./schema"
+import type { CreatePetMutation, CreatePetMutationVariables, DeletePetMutation, DeletePetMutationVariables, GetPetByIdQuery, GetPetByIdQueryVariables, GetPetsQuery, GetPetsQueryVariables, UpdatePetMutation, UpdatePetMutationVariables } from "./schema"
 
 // Fragment Documents
 const PetFieldsFragmentDoc = /* GraphQL */ `

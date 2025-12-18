@@ -36,7 +36,7 @@ export function generateOpenAPIFunctions(
 
   // Import client helpers (internal import)
   lines.push(
-    `import { $fetch, buildPath, buildQuery } from "${options.clientImportPath}"`,
+    `import { getClient, buildPath, buildQuery } from "${options.clientImportPath}"`,
   );
 
   // Schema value imports (internal import)
@@ -169,6 +169,7 @@ function generateQueryFunction(op: ParsedOperation): string {
   // Generate the function
   if (hasQueryParams) {
     return `export const ${fnName} = async (params?: ${paramsType}) => {
+	const $fetch = await getClient()
 	const path = ${pathExpr}${queryExpr}
 	const { data, error } = await $fetch<${responseType}>(url${fetchOptions ? `, ${fetchOptions}` : ""})
 	if (error) throw error
@@ -178,6 +179,7 @@ function generateQueryFunction(op: ParsedOperation): string {
 
   if (hasPathParams) {
     return `export const ${fnName} = async (params: ${paramsType}) => {
+	const $fetch = await getClient()
 	const path = ${pathExpr}
 	const { data, error } = await $fetch<${responseType}>(path${fetchOptions ? `, ${fetchOptions}` : ""})
 	if (error) throw error
@@ -186,6 +188,7 @@ function generateQueryFunction(op: ParsedOperation): string {
   }
 
   return `export const ${fnName} = async () => {
+	const $fetch = await getClient()
 	const { data, error } = await $fetch<${responseType}>(${pathExpr}${fetchOptions ? `, ${fetchOptions}` : ""})
 	if (error) throw error
 	return data
@@ -224,6 +227,7 @@ function generateMutationFunction(op: ParsedOperation): string {
     paramsList.push(`body: ${requestType}`);
 
     return `export const ${fnName} = async ({ ${pathParamNames.join(", ")}, body }: { ${paramsList.join("; ")} }) => {
+	const $fetch = await getClient()
 	const path = buildPath("${op.path}", { ${pathParamsObj} })
 	const { data, error } = await $fetch<${responseType}>(path, {
 		${fetchOptionsBase.join(",\n\t\t")},
@@ -242,6 +246,7 @@ function generateMutationFunction(op: ParsedOperation): string {
     const paramsList = pathParamNames.map((n) => `${n}: string`);
 
     return `export const ${fnName} = async ({ ${pathParamNames.join(", ")} }: { ${paramsList.join("; ")} }) => {
+	const $fetch = await getClient()
 	const path = buildPath("${op.path}", { ${pathParamsObj} })
 	const { data, error } = await $fetch<${responseType}>(path, {
 		${fetchOptionsBase.join(",\n\t\t")},
@@ -253,6 +258,7 @@ function generateMutationFunction(op: ParsedOperation): string {
 
   if (hasBody) {
     return `export const ${fnName} = async ({ body }: { body: ${requestType} }) => {
+	const $fetch = await getClient()
 	const { data, error } = await $fetch<${responseType}>("${op.path}", {
 		${fetchOptionsBase.join(",\n\t\t")},
 		body,
@@ -263,6 +269,7 @@ function generateMutationFunction(op: ParsedOperation): string {
   }
 
   return `export const ${fnName} = async () => {
+	const $fetch = await getClient()
 	const { data, error } = await $fetch<${responseType}>("${op.path}", {
 		${fetchOptionsBase.join(",\n\t\t")},
 	})

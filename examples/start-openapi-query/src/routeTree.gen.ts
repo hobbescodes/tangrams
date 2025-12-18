@@ -12,7 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PetsIndexRouteImport } from './routes/pets/index'
 import { Route as PetsNewRouteImport } from './routes/pets/new'
-import { Route as PetsPetIdRouteImport } from './routes/pets/$petId'
+import { Route as PetsPetIdIndexRouteImport } from './routes/pets/$petId/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -29,44 +29,44 @@ const PetsNewRoute = PetsNewRouteImport.update({
   path: '/pets/new',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PetsPetIdRoute = PetsPetIdRouteImport.update({
-  id: '/pets/$petId',
-  path: '/pets/$petId',
+const PetsPetIdIndexRoute = PetsPetIdIndexRouteImport.update({
+  id: '/pets/$petId/',
+  path: '/pets/$petId/',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/pets/$petId': typeof PetsPetIdRoute
   '/pets/new': typeof PetsNewRoute
   '/pets': typeof PetsIndexRoute
+  '/pets/$petId': typeof PetsPetIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/pets/$petId': typeof PetsPetIdRoute
   '/pets/new': typeof PetsNewRoute
   '/pets': typeof PetsIndexRoute
+  '/pets/$petId': typeof PetsPetIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/pets/$petId': typeof PetsPetIdRoute
   '/pets/new': typeof PetsNewRoute
   '/pets/': typeof PetsIndexRoute
+  '/pets/$petId/': typeof PetsPetIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/pets/$petId' | '/pets/new' | '/pets'
+  fullPaths: '/' | '/pets/new' | '/pets' | '/pets/$petId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/pets/$petId' | '/pets/new' | '/pets'
-  id: '__root__' | '/' | '/pets/$petId' | '/pets/new' | '/pets/'
+  to: '/' | '/pets/new' | '/pets' | '/pets/$petId'
+  id: '__root__' | '/' | '/pets/new' | '/pets/' | '/pets/$petId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  PetsPetIdRoute: typeof PetsPetIdRoute
   PetsNewRoute: typeof PetsNewRoute
   PetsIndexRoute: typeof PetsIndexRoute
+  PetsPetIdIndexRoute: typeof PetsPetIdIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -92,11 +92,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PetsNewRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/pets/$petId': {
-      id: '/pets/$petId'
+    '/pets/$petId/': {
+      id: '/pets/$petId/'
       path: '/pets/$petId'
       fullPath: '/pets/$petId'
-      preLoaderRoute: typeof PetsPetIdRouteImport
+      preLoaderRoute: typeof PetsPetIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -104,9 +104,9 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  PetsPetIdRoute: PetsPetIdRoute,
   PetsNewRoute: PetsNewRoute,
   PetsIndexRoute: PetsIndexRoute,
+  PetsPetIdIndexRoute: PetsPetIdIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -282,16 +282,25 @@ export type User = z.infer<typeof userSchema>
 export type CreateUserRequest = z.infer<typeof createUserRequestSchema>
 ```
 
-**`client.ts`** - A configured `better-fetch` client:
+**`client.ts`** - A configured `better-fetch` client with async `getClient` function:
 
 ```typescript
 import { createFetch } from "@better-fetch/fetch"
 
 const baseURL = "https://api.example.com"
 
-export const $fetch = createFetch({
-  baseURL,
-})
+/**
+ * Returns a configured fetch client.
+ * Customize this function to add dynamic headers (e.g., auth tokens).
+ */
+export const getClient = async () => {
+  return createFetch({
+    baseURL,
+    headers: {
+      // Add your headers here
+    },
+  })
+}
 ```
 
 **`operations.ts`** - Query and mutation options with Zod validation:
@@ -371,12 +380,12 @@ function CreateUserButton() {
 
 | Option | Type | Required | Description |
 |--------|------|----------|-------------|
-| `name` | `string` | Yes | Unique name for this source (lowercase, alphanumeric with hyphens) |
+| `name` | `string` | Yes | Unique name for this source (lowercase alphanumeric with hyphens, starting with a letter) |
 | `type` | `"graphql"` | Yes | Source type |
 | `schema` | `object` | Yes | Schema configuration (see below) |
 | `documents` | `string \| string[]` | Yes | Glob pattern(s) for `.graphql` operation files |
-| `generates` | `array` | Yes | What to generate: `["query"]`, `["query", "form"]`, etc. |
-| `overrides` | `object` | No | Override scalars and DB collection settings |
+| `generates` | `array` | Yes | What to generate: `["query"]`, `["query", "form"]`, `["db"]`, etc. |
+| `overrides` | `object` | No | Override scalars, DB, and form settings (see [Configuration Reference](/docs#overrides-configuration)) |
 
 #### Schema Configuration
 
@@ -397,13 +406,14 @@ function CreateUserButton() {
 
 | Option | Type | Required | Description |
 |--------|------|----------|-------------|
-| `name` | `string` | Yes | Unique name for this source (lowercase, alphanumeric with hyphens) |
+| `name` | `string` | Yes | Unique name for this source (lowercase alphanumeric with hyphens, starting with a letter) |
 | `type` | `"openapi"` | Yes | Source type |
 | `spec` | `string` | Yes | Path to OpenAPI spec (local file or URL) |
 | `headers` | `Record<string, string>` | No | Headers for fetching remote spec |
 | `include` | `string[]` | No | Glob patterns for paths to include |
 | `exclude` | `string[]` | No | Glob patterns for paths to exclude |
-| `generates` | `array` | Yes | What to generate: `["query"]`, `["query", "form"]`, etc. |
+| `generates` | `array` | Yes | What to generate: `["query"]`, `["query", "form"]`, `["db"]`, etc. |
+| `overrides` | `object` | No | Override DB and form settings (see [Configuration Reference](/docs#overrides-configuration)) |
 
 ### Custom Scalars (GraphQL)
 

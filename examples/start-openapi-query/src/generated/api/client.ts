@@ -6,21 +6,17 @@ import { createFetch } from "@better-fetch/fetch"
 const baseURL = "http://localhost:3000/api"
 
 /**
- * Configured fetch client for this API.
- * Customize this instance to add headers, retry logic, etc.
+ * Returns a configured fetch client.
+ * Customize this function to add dynamic headers (e.g., auth tokens).
  */
-export const $fetch = createFetch({
-	baseURL,
-	// Uncomment and customize as needed:
-	// headers: {
-	// 	Authorization: `Bearer ${token}`,
-	// },
-	// retry: {
-	// 	type: "linear",
-	// 	attempts: 3,
-	// 	delay: 1000,
-	// },
-})
+export const getClient = async () => {
+	return createFetch({
+		baseURL,
+		headers: {
+			// Add your headers here
+		},
+	})
+}
 
 /**
  * Helper to build URL paths with path parameters.

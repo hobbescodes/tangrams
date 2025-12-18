@@ -80,6 +80,363 @@ function UserProfile({ id }: { id: string }) {
 }
 ```
 
+## Configuration Reference
+
+Tangrams uses a `tangrams.config.ts` file in your project root. Run `bunx tangrams init` to create one, or create it manually.
+
+### Complete Configuration Example
+
+Here's a comprehensive example showing all available configuration options:
+
+```typescript
+import { defineConfig } from "tangrams"
+
+export default defineConfig({
+  // Output directory for all generated files (default: "./src/generated")
+  output: "./src/generated",
+
+  // Array of data sources to generate from
+  sources: [
+    // ===================
+    // GraphQL Source
+    // ===================
+    {
+      // Unique name for this source (lowercase alphanumeric with hyphens)
+      name: "graphql",
+      // Source type discriminator
+      type: "graphql",
+
+      // Schema configuration - choose ONE of the following:
+
+      // Option A: URL-based (introspection)
+      schema: {
+        url: "http://localhost:4000/graphql",
+        // Optional headers for introspection request
+        headers: {
+          "x-api-key": process.env.API_KEY,
+        },
+      },
+
+      // Option B: File-based (local SDL files)
+      // schema: {
+      //   file: "./schema.graphql",
+      //   // Or multiple files with glob patterns:
+      //   // file: ["./schema.graphql", "./extensions/**/*.graphql"],
+      // },
+
+      // Glob pattern(s) for GraphQL document files (.graphql)
+      documents: "./src/graphql/**/*.graphql",
+      // Or multiple patterns:
+      // documents: ["./src/graphql/**/*.graphql", "./src/queries/**/*.graphql"],
+
+      // What to generate from this source
+      // Options: "query", "form", "db"
+      // Note: "db" automatically enables "query"
+      generates: ["query", "form", "db"],
+
+      // Optional overrides
+      overrides: {
+        // Custom scalar type mappings (GraphQL only)
+        scalars: {
+          DateTime: "Date",
+          JSON: "unknown",
+          BigInt: "bigint",
+        },
+
+        // TanStack DB overrides
+        db: {
+          collections: {
+            // Key is the entity name (e.g., "User", "Post")
+            User: {
+              // Override the key field (default: auto-detected "id")
+              keyField: "rowId",
+              // Sync mode: "full" (default) or "on-demand"
+              syncMode: "on-demand",
+              // Predicate mapping preset for on-demand mode
+              // Options: "hasura", "prisma", "rest-simple", "jsonapi"
+              predicateMapping: "hasura",
+              // Override selector path for extracting array from response
+              // Use dot notation for nested paths
+              selectorPath: "users.data",
+            },
+          },
+        },
+
+        // TanStack Form overrides
+        form: {
+          // Validator timing (default: "onSubmitAsync")
+          // Options: "onChange", "onChangeAsync", "onBlur", "onBlurAsync",
+          //          "onSubmit", "onSubmitAsync", "onDynamic"
+          validator: "onDynamic",
+          // Validation logic (only used with "onDynamic" validator)
+          validationLogic: {
+            // When to run initial validation: "change", "blur", "submit"
+            mode: "submit",
+            // When to revalidate after first submission
+            modeAfterSubmission: "change",
+          },
+        },
+      },
+    },
+
+    // ===================
+    // OpenAPI Source
+    // ===================
+    {
+      name: "api",
+      type: "openapi",
+
+      // OpenAPI spec - local file path or remote URL
+      spec: "./openapi.yaml",
+      // spec: "https://api.example.com/openapi.json",
+
+      // Optional headers for fetching remote spec
+      headers: {
+        Authorization: `Bearer ${process.env.API_TOKEN}`,
+      },
+
+      // Optional path filtering with glob patterns
+      include: ["/users/**", "/posts/**"],
+      exclude: ["/internal/**", "/admin/**"],
+
+      generates: ["query", "form"],
+
+      overrides: {
+        db: {
+          collections: {
+            Pet: {
+              keyField: "petId",
+              syncMode: "on-demand",
+              predicateMapping: "rest-simple",
+            },
+          },
+        },
+        form: {
+          validator: "onBlurAsync",
+        },
+      },
+    },
+  ],
+})
+```
+
+### Root Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `output` | `string` | `"./src/generated"` | Output directory for all generated files |
+| `sources` | `SourceConfig[]` | (required) | Array of data sources (minimum 1 required) |
+
+### GraphQL Source Options
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `name` | `string` | Yes | Unique source name (lowercase alphanumeric with hyphens, starting with a letter) |
+| `type` | `"graphql"` | Yes | Source type discriminator |
+| `schema` | `object` | Yes | Schema configuration ([see below](#graphql-schema-options)) |
+| `documents` | `string \| string[]` | Yes | Glob pattern(s) for `.graphql` operation files |
+| `generates` | `array` | Yes | What to generate: `["query"]`, `["query", "form"]`, `["db"]`, etc. |
+| `overrides` | `object` | No | Override scalars, DB, and form settings ([see below](#overrides-configuration)) |
+
+### GraphQL Schema Options
+
+Configure your GraphQL schema using **one** of these approaches:
+
+**URL-based (introspection):**
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `schema.url` | `string` | Yes | GraphQL endpoint URL for introspection |
+| `schema.headers` | `Record<string, string>` | No | Headers to send with introspection request |
+
+**File-based (local SDL files):**
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `schema.file` | `string \| string[]` | Yes | Path or glob pattern(s) for `.graphql` schema files |
+
+### OpenAPI Source Options
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `name` | `string` | Yes | Unique source name (lowercase alphanumeric with hyphens, starting with a letter) |
+| `type` | `"openapi"` | Yes | Source type discriminator |
+| `spec` | `string` | Yes | Path to OpenAPI spec (local file or URL) |
+| `headers` | `Record<string, string>` | No | Headers for fetching remote spec |
+| `include` | `string[]` | No | Glob patterns for paths to include (e.g., `["/users/**"]`) |
+| `exclude` | `string[]` | No | Glob patterns for paths to exclude |
+| `generates` | `array` | Yes | What to generate: `["query"]`, `["query", "form"]`, `["db"]`, etc. |
+| `overrides` | `object` | No | Override DB and form settings ([see below](#overrides-configuration)) |
+
+### Generates Options
+
+The `generates` array specifies which TanStack artifacts to generate:
+
+| Value | Description | Dependencies |
+|-------|-------------|--------------|
+| `"query"` | TanStack Query (`queryOptions`, `mutationOptions`) | None |
+| `"form"` | TanStack Form (`formOptions` with Zod validation) | None |
+| `"db"` | TanStack DB (`queryCollectionOptions`) | Auto-enables `"query"` |
+
+**Examples:**
+```typescript
+generates: ["query"]              // Query only
+generates: ["query", "form"]      // Query and Form
+generates: ["db"]                 // DB (auto-enables Query)
+generates: ["query", "form", "db"] // All three
+```
+
+### Overrides Configuration
+
+#### Scalars (GraphQL only)
+
+Map GraphQL scalars to TypeScript types:
+
+```typescript
+overrides: {
+  scalars: {
+    DateTime: "Date",
+    JSON: "Record<string, unknown>",
+    BigInt: "bigint",
+  },
+}
+```
+
+**Default Scalar Mappings:**
+
+| GraphQL Scalar | TypeScript Type |
+|----------------|-----------------|
+| `ID` | `string` |
+| `String` | `string` |
+| `Int` | `number` |
+| `Float` | `number` |
+| `Boolean` | `boolean` |
+| `DateTime` | `string` |
+| `Date` | `string` |
+| `JSON` | `unknown` |
+| `BigInt` | `bigint` |
+| `UUID` | `string` |
+
+#### DB Overrides
+
+Configure TanStack DB collection generation:
+
+```typescript
+overrides: {
+  db: {
+    collections: {
+      EntityName: {
+        keyField: "uuid",           // Override key field (default: auto-detected "id")
+        syncMode: "on-demand",      // "full" (default) or "on-demand"
+        predicateMapping: "hasura", // Preset for on-demand mode
+        selectorPath: "data.items", // Path to extract array from response
+      },
+    },
+  },
+}
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `keyField` | `string` | Auto-detected `"id"` | Field to use as unique key |
+| `syncMode` | `"full" \| "on-demand"` | `"full"` | Data sync strategy |
+| `predicateMapping` | `string` | Auto-detected | Predicate translation preset |
+| `selectorPath` | `string` | Auto-detected | Dot-notation path to extract array from response |
+
+**Predicate Mapping Presets:**
+
+| Preset | Use Case | Example Output |
+|--------|----------|----------------|
+| `"hasura"` | GraphQL Hasura | `where: { field: { _eq: value } }` |
+| `"prisma"` | GraphQL Prisma | `where: { field: { equals: value } }` |
+| `"rest-simple"` | REST APIs | `field_eq=value`, `sort=field:asc` |
+| `"jsonapi"` | JSON:API | `filter[field]=value`, `sort=-field` |
+
+#### Form Overrides
+
+Configure TanStack Form generation:
+
+```typescript
+overrides: {
+  form: {
+    validator: "onDynamic",
+    validationLogic: {
+      mode: "submit",
+      modeAfterSubmission: "change",
+    },
+  },
+}
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `validator` | `string` | `"onSubmitAsync"` | When validation runs |
+| `validationLogic` | `object` | - | Config for `"onDynamic"` validator only |
+| `validationLogic.mode` | `string` | `"submit"` | Initial validation trigger |
+| `validationLogic.modeAfterSubmission` | `string` | `"change"` | Revalidation trigger after first submit |
+
+**Available Validators:**
+
+| Validator | Description |
+|-----------|-------------|
+| `"onChange"` | Validate on every change (sync) |
+| `"onChangeAsync"` | Validate on every change (async) |
+| `"onBlur"` | Validate when field loses focus (sync) |
+| `"onBlurAsync"` | Validate when field loses focus (async) |
+| `"onSubmit"` | Validate on form submit (sync) |
+| `"onSubmitAsync"` | Validate on form submit (async) - **default** |
+| `"onDynamic"` | Dynamic validation with `revalidateLogic` |
+
+### Output Directory Structure
+
+Generated files are organized by source name:
+
+```
+src/generated/
+└── <source-name>/
+    ├── client.ts          # API client (GraphQL or REST)
+    ├── schema.ts          # Zod schemas + TypeScript types
+    ├── functions.ts       # Standalone fetch functions
+    ├── query/
+    │   └── operations.ts  # queryOptions, mutationOptions
+    ├── form/
+    │   └── forms.ts       # formOptions
+    └── db/
+        └── collections.ts # TanStack DB collections
+```
+
+## CLI Reference
+
+### `tangrams init`
+
+Initialize a new `tangrams.config.ts` file:
+
+```bash
+tangrams init [options]
+
+Options:
+  -f, --force    Overwrite existing config file
+```
+
+### `tangrams generate`
+
+Generate code from your configured sources:
+
+```bash
+tangrams generate [options]
+
+Options:
+  -c, --config <path>    Path to config file
+  -f, --force            Force regeneration of all files including client
+  -w, --watch            Watch for file changes and regenerate
+  --env-file <path>      Path to env file (can be specified multiple times)
+  --no-dotenv            Disable automatic .env file loading
+```
+
+**Watch Mode:**
+
+When using `--watch`, Tangrams watches your config file, GraphQL documents, and OpenAPI specs for changes. Press `r` to force a full refresh, or `q` to quit.
+
 ## Next Steps
 
 Choose your TanStack library to get started:

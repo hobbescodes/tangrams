@@ -285,12 +285,12 @@ function UserList({ queryClient }: { queryClient: QueryClient }) {
 
 | Option | Type | Required | Description |
 |--------|------|----------|-------------|
-| `name` | `string` | Yes | Unique name for this source (lowercase, alphanumeric with hyphens) |
+| `name` | `string` | Yes | Unique name for this source (lowercase alphanumeric with hyphens, starting with a letter) |
 | `type` | `"graphql"` | Yes | Source type |
 | `schema` | `object` | Yes | Schema configuration (see below) |
 | `documents` | `string \| string[]` | Yes | Glob pattern(s) for `.graphql` operation files |
 | `generates` | `array` | Yes | Must include `"db"` (automatically enables `"query"`) |
-| `overrides` | `object` | No | Override scalars and DB collection settings |
+| `overrides` | `object` | No | Override scalars, DB, and form settings (see [Configuration Reference](/docs#overrides-configuration)) |
 
 #### Schema Configuration
 
@@ -311,14 +311,14 @@ function UserList({ queryClient }: { queryClient: QueryClient }) {
 
 | Option | Type | Required | Description |
 |--------|------|----------|-------------|
-| `name` | `string` | Yes | Unique name for this source (lowercase, alphanumeric with hyphens) |
+| `name` | `string` | Yes | Unique name for this source (lowercase alphanumeric with hyphens, starting with a letter) |
 | `type` | `"openapi"` | Yes | Source type |
 | `spec` | `string` | Yes | Path to OpenAPI spec (local file or URL) |
 | `headers` | `Record<string, string>` | No | Headers for fetching remote spec |
 | `include` | `string[]` | No | Glob patterns for paths to include |
 | `exclude` | `string[]` | No | Glob patterns for paths to exclude |
 | `generates` | `array` | Yes | Must include `"db"` (automatically enables `"query"`) |
-| `overrides` | `object` | No | Override DB collection settings |
+| `overrides` | `object` | No | Override DB and form settings (see [Configuration Reference](/docs#overrides-configuration)) |
 
 ### Custom Scalars (GraphQL)
 
@@ -395,6 +395,7 @@ export default defineConfig({
             Product: {
               syncMode: "on-demand",
               predicateMapping: "rest-simple", // Optional: auto-detected by default
+              selectorPath: "data.products",   // Optional: path to extract array from response
             },
           },
         },
@@ -403,6 +404,15 @@ export default defineConfig({
   ],
 })
 ```
+
+### Collection Override Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `keyField` | `string` | Auto-detected `"id"` | Field to use as unique key for items |
+| `syncMode` | `"full" \| "on-demand"` | `"full"` | Data synchronization strategy |
+| `predicateMapping` | `string` | Auto-detected | Predicate translation preset for on-demand mode |
+| `selectorPath` | `string` | Auto-detected | Dot-notation path to extract array from wrapped responses (e.g., `"data.items"`) |
 
 ### Predicate Mapping Presets
 
