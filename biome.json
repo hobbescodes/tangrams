@@ -33,7 +33,6 @@
     "ignoreUnknown": false,
     "includes": [
       "**",
-      "!!.beads",
       "!!**/generated",
       "!!.changeset",
       "!!**/test/fixtures/graphql/anonymous.graphql",
