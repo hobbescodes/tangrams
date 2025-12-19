@@ -131,15 +131,18 @@ class GraphQLAdapterImpl implements IGraphQLAdapter {
     _config: GraphQLSourceConfig,
     options: OperationGenOptions,
   ): GeneratedFile {
-    const content = generateGraphQLOperations({
+    const result = generateGraphQLOperations({
       documents: schema.documents,
       typesImportPath: options.typesImportPath,
       sourceName: options.sourceName,
+      schema: schema.schema,
+      queryOverrides: options.queryOverrides,
     });
 
     return {
       filename: "options.ts",
-      content,
+      content: result.content,
+      warnings: result.warnings.length > 0 ? result.warnings : undefined,
     };
   }
 

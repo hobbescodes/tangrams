@@ -189,6 +189,176 @@ describe("OpenAPI Adapter", () => {
       expect(result.content).toContain('from "../functions"');
     });
   });
+
+  describe("generateOperations - infinite queries", () => {
+    const paginationConfig: OpenAPISourceConfig = {
+      name: "pagination",
+      type: "openapi",
+      generates: ["query"],
+      spec: join(fixturesDir, "pagination.json"),
+    };
+
+    it("generates infiniteQueryOptions for cursor-based pagination", async () => {
+      const schema = await openapiAdapter.loadSchema(paginationConfig);
+      const result = openapiAdapter.generateOperations(
+        schema,
+        paginationConfig,
+        {
+          typesImportPath: "./types",
+          sourceName: "api",
+        },
+      );
+
+      expect(result.content).toContain("infiniteQueryOptions");
+      expect(result.content).toContain("listPetsCursorInfiniteQueryOptions");
+      expect(result.content).toContain("initialPageParam: undefined");
+      expect(result.content).toContain("lastPage.nextCursor");
+    });
+
+    it("generates infiniteQueryOptions for offset-based pagination with total", async () => {
+      const schema = await openapiAdapter.loadSchema(paginationConfig);
+      const result = openapiAdapter.generateOperations(
+        schema,
+        paginationConfig,
+        {
+          typesImportPath: "./types",
+          sourceName: "api",
+        },
+      );
+
+      expect(result.content).toContain("listPetsOffsetInfiniteQueryOptions");
+      expect(result.content).toContain("initialPageParam: 0");
+      expect(result.content).toContain("lastPage.total");
+    });
+
+    it("generates infiniteQueryOptions for page-based pagination with hasMore", async () => {
+      const schema = await openapiAdapter.loadSchema(paginationConfig);
+      const result = openapiAdapter.generateOperations(
+        schema,
+        paginationConfig,
+        {
+          typesImportPath: "./types",
+          sourceName: "api",
+        },
+      );
+
+      expect(result.content).toContain("listPetsPageInfiniteQueryOptions");
+      expect(result.content).toContain("initialPageParam: 1");
+      expect(result.content).toContain("lastPage.hasMore");
+    });
+
+    it("generates infiniteQueryOptions for Relay-style pagination", async () => {
+      const schema = await openapiAdapter.loadSchema(paginationConfig);
+      const result = openapiAdapter.generateOperations(
+        schema,
+        paginationConfig,
+        {
+          typesImportPath: "./types",
+          sourceName: "api",
+        },
+      );
+
+      expect(result.content).toContain("listPetsRelayInfiniteQueryOptions");
+      expect(result.content).toContain("pageInfo?.hasNextPage");
+      expect(result.content).toContain("pageInfo?.endCursor");
+    });
+
+    it("skips infiniteQueryOptions when response cannot be analyzed", async () => {
+      const schema = await openapiAdapter.loadSchema(paginationConfig);
+      const result = openapiAdapter.generateOperations(
+        schema,
+        paginationConfig,
+        {
+          typesImportPath: "./types",
+          sourceName: "api",
+        },
+      );
+
+      // listPetsNoInfo has cursor param but returns plain array
+      expect(result.content).not.toContain(
+        "listPetsNoInfoInfiniteQueryOptions",
+      );
+      expect(result.warnings).toBeDefined();
+      expect(result.warnings).toContainEqual(
+        expect.stringContaining("listPetsNoInfo"),
+      );
+    });
+
+    it('includes "infinite" segment in query key', async () => {
+      const schema = await openapiAdapter.loadSchema(paginationConfig);
+      const result = openapiAdapter.generateOperations(
+        schema,
+        paginationConfig,
+        {
+          typesImportPath: "./types",
+          sourceName: "api",
+        },
+      );
+
+      expect(result.content).toContain('"infinite"');
+    });
+
+    it("uses Omit type for params excluding page param", async () => {
+      const schema = await openapiAdapter.loadSchema(paginationConfig);
+      const result = openapiAdapter.generateOperations(
+        schema,
+        paginationConfig,
+        {
+          typesImportPath: "./types",
+          sourceName: "api",
+        },
+      );
+
+      // Cursor pagination should omit the cursor param
+      expect(result.content).toContain('Omit<ListPetsCursorParams, "cursor">');
+    });
+
+    it("respects disabled override", async () => {
+      const schema = await openapiAdapter.loadSchema(paginationConfig);
+      const result = openapiAdapter.generateOperations(
+        schema,
+        paginationConfig,
+        {
+          typesImportPath: "./types",
+          sourceName: "api",
+          queryOverrides: {
+            operations: {
+              listPetsCursor: {
+                disabled: true,
+              },
+            },
+          },
+        },
+      );
+
+      expect(result.content).not.toContain(
+        "listPetsCursorInfiniteQueryOptions",
+      );
+    });
+
+    it("respects getNextPageParamPath override", async () => {
+      const schema = await openapiAdapter.loadSchema(paginationConfig);
+      const result = openapiAdapter.generateOperations(
+        schema,
+        paginationConfig,
+        {
+          typesImportPath: "./types",
+          sourceName: "api",
+          queryOverrides: {
+            operations: {
+              listPetsNoInfo: {
+                getNextPageParamPath: "meta.nextCursor",
+              },
+            },
+          },
+        },
+      );
+
+      // Should now generate infinite query options
+      expect(result.content).toContain("listPetsNoInfoInfiniteQueryOptions");
+      expect(result.content).toContain("lastPage.meta?.nextCursor");
+    });
+  });
 });
 
 describe("OpenAPI Schema Loading", () => {

@@ -48,7 +48,7 @@ type User {
   updatedAt: String!
 }
 
-# Pagination
+# Pagination - Simple offset-based
 type PetConnection {
   data: [Pet!]!
   total: Int!
@@ -57,6 +57,25 @@ type PetConnection {
 type UserConnection {
   data: [User!]!
   total: Int!
+}
+
+# Pagination - Relay-style cursor-based
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+type PetEdge {
+  node: Pet!
+  cursor: String!
+}
+
+type PetRelayConnection {
+  edges: [PetEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
 }
 
 # Input Types for Mutations
@@ -188,6 +207,16 @@ type Query {
     limit: Int = 20
     offset: Int = 0
   ): PetConnection!
+
+  """
+  List pets with Relay-style cursor pagination
+  """
+  petsConnection(
+    status: PetStatus
+    category: PetCategory
+    first: Int = 20
+    after: String
+  ): PetRelayConnection!
 
   """
   List pets with Hasura-style filtering (for TanStack DB)

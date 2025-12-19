@@ -10,7 +10,7 @@ import { createNewUser, resetAllUsers } from "../functions"
 
 import type { CreateNewUserMutationVariables } from "./types"
 
-// Operations
+// Mutation Options
 export const createNewUserMutationOptions = () =>
   mutationOptions({
   mutationKey: ["test", "CreateNewUser"],
@@ -36,7 +36,7 @@ import { getAllUsers, getUserById } from "../functions"
 
 import type { GetUserByIdQueryVariables } from "./types"
 
-// Operations
+// Query Options
 export const getUserByIdQueryOptions = (variables: GetUserByIdQueryVariables) =>
   queryOptions({
   queryKey: ["test", "GetUserById", variables],
@@ -62,7 +62,7 @@ import { createUser, deleteUser, getUser, listUsers, updateUser } from "../funct
 
 import type { CreateUserMutationVariables, DeleteUserMutationVariables, GetUserQueryVariables, ListUsersQueryVariables, UpdateUserMutationVariables } from "./types"
 
-// Operations
+// Query Options
 export const getUserQueryOptions = (variables: GetUserQueryVariables) =>
   queryOptions({
   queryKey: ["test", "GetUser", variables],
@@ -75,6 +75,7 @@ export const listUsersQueryOptions = (variables?: ListUsersQueryVariables) =>
   queryFn: () => listUsers(variables),
 })
 
+// Mutation Options
 export const createUserMutationOptions = () =>
   mutationOptions({
   mutationKey: ["test", "CreateUser"],

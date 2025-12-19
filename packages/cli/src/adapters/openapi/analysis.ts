@@ -12,9 +12,12 @@ import type { PredicateMappingPreset } from "@/core/config";
 import type {
   FilterCapabilities,
   PaginationCapabilities,
+  PaginationResponseInfo,
   QueryCapabilities,
   SortCapabilities,
 } from "../types";
+
+type OpenAPISchema = OpenAPIV3.SchemaObject | OpenAPIV3_1.SchemaObject;
 
 type ParameterObject = OpenAPIV3.ParameterObject | OpenAPIV3_1.ParameterObject;
 
@@ -346,4 +349,176 @@ export function hasQueryCapabilities(capabilities: QueryCapabilities): boolean {
     capabilities.sort.hasSorting ||
     capabilities.pagination.style !== "none"
   );
+}
+
+// =============================================================================
+// Pagination Response Analysis (for infinite query generation)
+// =============================================================================
+
+/** Common cursor field names in responses */
+const cursorFieldNames = [
+  "nextCursor",
+  "cursor",
+  "endCursor",
+  "after",
+  "nextPageToken",
+  "next_cursor",
+  "next_page_token",
+];
+
+/** Common hasMore field names in responses */
+const hasMoreFieldNames = [
+  "hasMore",
+  "hasNextPage",
+  "hasNext",
+  "moreResults",
+  "has_more",
+  "has_next_page",
+  "has_next",
+];
+
+/** Common total count field names in responses */
+const totalFieldNames = [
+  "total",
+  "totalCount",
+  "count",
+  "totalItems",
+  "totalResults",
+  "total_count",
+  "total_items",
+];
+
+/**
+ * Analyze response schema to detect pagination structure for infinite queries
+ *
+ * Detects common patterns:
+ * - Cursor-based: { data: T[], nextCursor?: string }
+ * - Relay-style: { edges: [...], pageInfo: { hasNextPage, endCursor } }
+ * - HasMore-based: { items: T[], hasMore: boolean }
+ * - Offset-based with total: { data: T[], total: number }
+ */
+export function analyzePaginationResponse(
+  responseSchema: OpenAPISchema | undefined,
+): PaginationResponseInfo {
+  if (!responseSchema) {
+    return { style: "none" };
+  }
+
+  if (responseSchema.type !== "object" || !responseSchema.properties) {
+    return { style: "none" };
+  }
+
+  const props = responseSchema.properties;
+  const propNames = Object.keys(props);
+
+  // Check for pageInfo object (Relay-style)
+  const pageInfoKey = propNames.find((p) => p.toLowerCase() === "pageinfo");
+  if (pageInfoKey) {
+    const pageInfo = props[pageInfoKey] as OpenAPISchema;
+    if (pageInfo.type === "object" && pageInfo.properties) {
+      const piPropNames = Object.keys(pageInfo.properties);
+
+      const hasNextPageKey = piPropNames.find(
+        (p) => p.toLowerCase() === "hasnextpage",
+      );
+      const endCursorKey = piPropNames.find(
+        (p) => p.toLowerCase() === "endcursor",
+      );
+
+      return {
+        style: "relay",
+        nextCursorPath: endCursorKey ? [pageInfoKey, endCursorKey] : undefined,
+        hasMorePath: hasNextPageKey ? [pageInfoKey, hasNextPageKey] : undefined,
+      };
+    }
+  }
+
+  // Check for cursor fields at root level
+  const cursorField = propNames.find((p) =>
+    cursorFieldNames.some((c) => p.toLowerCase() === c.toLowerCase()),
+  );
+  if (cursorField) {
+    return { style: "cursor", nextCursorField: cursorField };
+  }
+
+  // Check for hasMore boolean at root level
+  const hasMoreField = propNames.find((p) =>
+    hasMoreFieldNames.some((h) => p.toLowerCase() === h.toLowerCase()),
+  );
+  if (hasMoreField) {
+    // Check the type to make sure it's a boolean
+    const hasMoreSchema = props[hasMoreField] as OpenAPISchema;
+    if (hasMoreSchema.type === "boolean") {
+      return { style: "hasMore", hasMoreField };
+    }
+  }
+
+  // Check for total count (enables offset calculation)
+  const totalField = propNames.find((p) =>
+    totalFieldNames.some((t) => p.toLowerCase() === t.toLowerCase()),
+  );
+  if (totalField) {
+    const totalSchema = props[totalField] as OpenAPISchema;
+    if (totalSchema.type === "integer" || totalSchema.type === "number") {
+      return { style: "offset", totalField };
+    }
+  }
+
+  return { style: "none" };
+}
+
+/**
+ * Determine the page parameter name from pagination capabilities
+ */
+export function getPageParamName(
+  pagination: PaginationCapabilities,
+): string | undefined {
+  switch (pagination.style) {
+    case "cursor":
+      // Try to find a cursor param - common names
+      return "cursor";
+    case "relay":
+      return "after";
+    case "offset":
+      return pagination.offsetParam ?? "offset";
+    case "page":
+      return pagination.pageParam ?? "page";
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Determine the page parameter name from query parameter names
+ */
+export function detectPageParamFromQueryParams(
+  queryParams: ParameterObject[],
+  paginationStyle: PaginationCapabilities["style"],
+): string | undefined {
+  const paramNames = queryParams.map((p) => p.name);
+
+  switch (paginationStyle) {
+    case "cursor":
+    case "relay": {
+      // Look for cursor-like params
+      const cursorParams = ["cursor", "after", "before", "pageToken"];
+      return paramNames.find((p) =>
+        cursorParams.some((c) => p.toLowerCase() === c.toLowerCase()),
+      );
+    }
+    case "offset": {
+      // Look for offset params
+      return paramNames.find((p) =>
+        offsetParamNames.some((o) => p.toLowerCase() === o.toLowerCase()),
+      );
+    }
+    case "page": {
+      // Look for page params
+      return paramNames.find((p) =>
+        pageParamNames.some((pg) => p.toLowerCase() === pg.toLowerCase()),
+      );
+    }
+    default:
+      return undefined;
+  }
 }

@@ -4,6 +4,7 @@ import type {
   GraphQLSourceConfig,
   OpenAPISourceConfig,
   PredicateMappingPreset,
+  QueryOverridesConfig,
   SourceConfig,
   SyncMode,
   ValidatorLibrary,
@@ -68,6 +69,37 @@ export interface PaginationCapabilities {
 }
 
 /**
+ * Detected pagination structure from response schema
+ * Used for generating infiniteQueryOptions
+ */
+export interface PaginationResponseInfo {
+  /** Pagination pattern detected from response schema */
+  style: "cursor" | "offset" | "page" | "relay" | "hasMore" | "none";
+  /** Field containing the next cursor/page token (e.g., "nextCursor") */
+  nextCursorField?: string;
+  /** Path to next cursor if nested (e.g., ["pageInfo", "endCursor"]) */
+  nextCursorPath?: string[];
+  /** Field indicating if there are more pages (e.g., "hasMore") */
+  hasMoreField?: string;
+  /** Path to hasMore if nested (e.g., ["pageInfo", "hasNextPage"]) */
+  hasMorePath?: string[];
+  /** Total count field if present (for offset calculation) */
+  totalField?: string;
+}
+
+/**
+ * Combined pagination info for infinite query generation
+ */
+export interface InfiniteQueryPaginationInfo {
+  /** Pagination params detected from query parameters/arguments */
+  params: PaginationCapabilities;
+  /** Pagination structure detected from response schema */
+  response: PaginationResponseInfo;
+  /** The query param name used for pagination (cursor, offset, page, etc.) */
+  pageParamName: string;
+}
+
+/**
  * Combined analysis result for an entity's query capabilities
  */
 export interface QueryCapabilities {
@@ -103,6 +135,8 @@ export interface OperationGenOptions {
   typesImportPath: string;
   /** The source name to include in query/mutation keys */
   sourceName: string;
+  /** Query overrides from config (for infinite query generation) */
+  queryOverrides?: QueryOverridesConfig;
 }
 
 /**

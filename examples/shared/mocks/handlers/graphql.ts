@@ -168,6 +168,12 @@ type GetPetsVariables = {
   limit?: number;
   offset?: number;
 };
+type GetPetsConnectionVariables = {
+  status?: PetStatus;
+  category?: PetCategory;
+  first?: number;
+  after?: string;
+};
 type ListPetsFilteredVariables = {
   where?: BoolExp;
   order_by?: Array<Record<string, string>>;
@@ -259,6 +265,59 @@ export const graphqlHandlers: GraphQLHandler[] = [
     const { id } = variables as GetPetByIdVariables;
     const pet = getPetById(id);
     return HttpResponse.json({ data: { pet } });
+  }),
+
+  graphql.query("GetPetsConnection", ({ variables }) => {
+    const {
+      status,
+      category,
+      first = 20,
+      after,
+    } = variables as GetPetsConnectionVariables;
+
+    let pets: Pet[];
+    if (status) {
+      pets = getPetsByStatus(status);
+    } else if (category) {
+      pets = getPetsByCategory(category);
+    } else {
+      pets = getPets();
+    }
+
+    const totalCount = pets.length;
+
+    // Find starting index based on cursor
+    let startIndex = 0;
+    if (after) {
+      const cursorIndex = pets.findIndex((p) => p.id === after);
+      if (cursorIndex !== -1) {
+        startIndex = cursorIndex + 1;
+      }
+    }
+
+    const paginatedPets = pets.slice(startIndex, startIndex + first);
+    const hasNextPage = startIndex + first < totalCount;
+    const hasPreviousPage = startIndex > 0;
+
+    const edges = paginatedPets.map((pet) => ({
+      node: pet,
+      cursor: pet.id,
+    }));
+
+    return HttpResponse.json({
+      data: {
+        petsConnection: {
+          edges,
+          pageInfo: {
+            hasNextPage,
+            hasPreviousPage,
+            startCursor: edges[0]?.cursor ?? null,
+            endCursor: edges[edges.length - 1]?.cursor ?? null,
+          },
+          totalCount,
+        },
+      },
+    });
   }),
 
   graphql.query("ListPetsFiltered", ({ variables }) => {

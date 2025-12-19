@@ -7,18 +7,27 @@
  * - Pagination capabilities (offset, relay-style cursor)
  */
 
-import { isInputObjectType, isListType, isNonNullType } from "graphql";
+import {
+  getNamedType,
+  getNullableType,
+  isInputObjectType,
+  isListType,
+  isNonNullType,
+  isObjectType,
+} from "graphql";
 
 import type {
   GraphQLArgument,
   GraphQLField,
   GraphQLInputObjectType,
   GraphQLInputType,
+  GraphQLOutputType,
 } from "graphql";
 import type { PredicateMappingPreset } from "@/core/config";
 import type {
   FilterCapabilities,
   PaginationCapabilities,
+  PaginationResponseInfo,
   QueryCapabilities,
   SortCapabilities,
 } from "../types";
@@ -363,4 +372,115 @@ export function inferPredicateMappingPreset(
   }
 
   return undefined;
+}
+
+// =============================================================================
+// Relay Connection Analysis (for infinite query generation)
+// =============================================================================
+
+/**
+ * Analyze a GraphQL return type to detect Relay connection pattern
+ *
+ * Detects patterns like:
+ * ```graphql
+ * type PostConnection {
+ *   edges: [PostEdge!]!
+ *   pageInfo: PageInfo!
+ * }
+ * type PostEdge {
+ *   node: Post!
+ *   cursor: String!
+ * }
+ * type PageInfo {
+ *   hasNextPage: Boolean!
+ *   endCursor: String
+ * }
+ * ```
+ */
+export function analyzeRelayConnection(
+  returnType: GraphQLOutputType,
+): PaginationResponseInfo {
+  const namedType = getNamedType(returnType);
+
+  if (!isObjectType(namedType)) {
+    return { style: "none" };
+  }
+
+  const fields = namedType.getFields();
+
+  // Check for edges field (required for Relay connection)
+  const edgesField = fields.edges;
+  if (!edgesField) {
+    return { style: "none" };
+  }
+
+  // Verify edges is a list type
+  const edgesType = getNullableType(edgesField.type);
+  if (!isListType(edgesType)) {
+    return { style: "none" };
+  }
+
+  // Check for pageInfo field (required for Relay connection)
+  const pageInfoField = fields.pageInfo;
+  if (!pageInfoField) {
+    return { style: "none" };
+  }
+
+  // Get pageInfo type and check for hasNextPage/endCursor
+  const pageInfoType = getNamedType(pageInfoField.type);
+  if (!isObjectType(pageInfoType)) {
+    return { style: "none" };
+  }
+
+  const pageInfoFields = pageInfoType.getFields();
+
+  // Build the result based on what pageInfo fields exist
+  const result: PaginationResponseInfo = {
+    style: "relay",
+  };
+
+  if (pageInfoFields.hasNextPage) {
+    result.hasMorePath = ["pageInfo", "hasNextPage"];
+  }
+
+  if (pageInfoFields.endCursor) {
+    result.nextCursorPath = ["pageInfo", "endCursor"];
+  }
+
+  return result;
+}
+
+/**
+ * Determine the page parameter name from GraphQL pagination capabilities
+ */
+export function getGraphQLPageParamName(
+  pagination: PaginationCapabilities,
+  args: readonly GraphQLArgument[],
+): string | undefined {
+  const argNames = args.map((a) => a.name.toLowerCase());
+
+  switch (pagination.style) {
+    case "relay": {
+      // Prefer "after" for forward pagination
+      if (argNames.includes("after")) {
+        return args.find((a) => a.name.toLowerCase() === "after")?.name;
+      }
+      if (argNames.includes("before")) {
+        return args.find((a) => a.name.toLowerCase() === "before")?.name;
+      }
+      return undefined;
+    }
+    case "offset": {
+      // For offset pagination, use skip/offset
+      if (pagination.offsetParam) {
+        return pagination.offsetParam;
+      }
+      const offsetArg = args.find((a) =>
+        offsetArgNames.some((o) => a.name.toLowerCase() === o.toLowerCase()),
+      );
+      return offsetArg?.name;
+    }
+    default:
+      return undefined;
+  }
 }

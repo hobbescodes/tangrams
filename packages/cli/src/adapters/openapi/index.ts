@@ -83,7 +83,15 @@ class OpenAPIAdapterImpl implements IOpenAPIAdapter {
     options: OperationGenOptions,
   ): GeneratedFile {
     const operations = extractOperations(schema.document);
-    return generateOpenAPIOperations(schema, config, operations, options);
+    const result = generateOpenAPIOperations(schema, config, operations, {
+      ...options,
+      queryOverrides: options.queryOverrides,
+    });
+    return {
+      filename: result.filename,
+      content: result.content,
+      warnings: result.warnings.length > 0 ? result.warnings : undefined,
+    };
   }
 
   /**

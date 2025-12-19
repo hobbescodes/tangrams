@@ -148,6 +148,44 @@ export const formOverridesSchema = z.object({
 
 export type FormOverridesConfig = z.infer<typeof formOverridesSchema>;
 
+// =============================================================================
+// Query Overrides Configuration Schemas
+// =============================================================================
+
+/**
+ * Per-operation infinite query override configuration
+ */
+export const infiniteQueryOverrideSchema = z.object({
+  /**
+   * Initial page param value (default: inferred from pagination style)
+   * - cursor/relay: undefined
+   * - offset: 0
+   * - page: 1
+   */
+  initialPageParam: z.unknown().optional(),
+  /**
+   * Path to extract next page param from response (dot notation)
+   * e.g., "pageInfo.endCursor", "meta.nextCursor"
+   */
+  getNextPageParamPath: z.string().optional(),
+  /** Disable infinite query generation for this operation */
+  disabled: z.boolean().optional(),
+});
+
+export type InfiniteQueryOverrideConfig = z.infer<
+  typeof infiniteQueryOverrideSchema
+>;
+
+/**
+ * Query-specific overrides
+ */
+export const queryOverridesSchema = z.object({
+  /** Per-operation infinite query overrides (key: operationId/operationName) */
+  operations: z.record(z.string(), infiniteQueryOverrideSchema).optional(),
+});
+
+export type QueryOverridesConfig = z.infer<typeof queryOverridesSchema>;
+
 /**
  * Source-level overrides configuration
  */
@@ -158,6 +196,8 @@ export const overridesSchema = z.object({
   db: dbOverridesSchema.optional(),
   /** TanStack Form overrides */
   form: formOverridesSchema.optional(),
+  /** TanStack Query overrides */
+  query: queryOverridesSchema.optional(),
 });
 
 export type OverridesConfig = z.infer<typeof overridesSchema>;
@@ -560,4 +600,23 @@ export function getFormOverrides(
   source: SourceConfig,
 ): FormOverridesConfig | undefined {
   return source.overrides?.form;
+}
+
+/**
+ * Get query overrides from a source
+ */
+export function getQueryOverrides(
+  source: SourceConfig,
+): QueryOverridesConfig | undefined {
+  return source.overrides?.query;
+}
+
+/**
+ * Get infinite query override for a specific operation
+ */
+export function getInfiniteQueryOverride(
+  source: SourceConfig,
+  operationId: string,
+): InfiniteQueryOverrideConfig | undefined {
+  return source.overrides?.query?.operations?.[operationId];
 }

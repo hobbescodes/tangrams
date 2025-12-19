@@ -5,9 +5,18 @@
 import SwaggerParser from "@apidevtools/swagger-parser";
 import micromatch from "micromatch";
 
+import {
+  analyzePaginationCapabilities,
+  analyzePaginationResponse,
+  detectPageParamFromQueryParams,
+} from "./analysis";
+
 import type { OpenAPIV3, OpenAPIV3_1 } from "openapi-types";
 import type { OpenAPISourceConfig } from "@/core/config";
-import type { OpenAPIAdapterSchema } from "../types";
+import type {
+  InfiniteQueryPaginationInfo,
+  OpenAPIAdapterSchema,
+} from "../types";
 
 export type OpenAPIDocument = OpenAPIV3.Document | OpenAPIV3_1.Document;
 
@@ -138,6 +147,8 @@ export interface ParsedOperation {
   requestBody?: OpenAPIV3.SchemaObject | OpenAPIV3_1.SchemaObject;
   /** Response schema (for success response) */
   responseSchema?: OpenAPIV3.SchemaObject | OpenAPIV3_1.SchemaObject;
+  /** Pagination info for infinite query generation (GET operations only) */
+  paginationInfo?: InfiniteQueryPaginationInfo;
 }
 
 const httpMethods = ["get", "post", "put", "patch", "delete"] as const;
@@ -217,6 +228,28 @@ export function extractOperations(
         }
       }
 
+      // Analyze pagination for GET operations
+      let paginationInfo: InfiniteQueryPaginationInfo | undefined;
+      if (method === "get" && queryParams.length > 0) {
+        const paginationParams = analyzePaginationCapabilities(queryParams);
+
+        if (paginationParams.style !== "none") {
+          const paginationResponse = analyzePaginationResponse(responseSchema);
+          const pageParamName = detectPageParamFromQueryParams(
+            queryParams,
+            paginationParams.style,
+          );
+
+          if (pageParamName) {
+            paginationInfo = {
+              params: paginationParams,
+              response: paginationResponse,
+              pageParamName,
+            };
+          }
+        }
+      }
+
       operations.push({
         path,
         method,
@@ -226,6 +259,7 @@ export function extractOperations(
         queryParams,
         requestBody,
         responseSchema,
+        paginationInfo,
       });
     }
   }
