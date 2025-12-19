@@ -19,6 +19,7 @@ All examples are TanStack Start applications that demonstrate various combinatio
 | `start-openapi-query` | OpenAPI | `["query"]`               | SSR  | Basic OpenAPI/REST with TanStack Query |
 | `start-openapi-form`  | OpenAPI | `["query", "form"]`       | SSR  | OpenAPI + TanStack Form validation     |
 | `start-openapi-db`    | OpenAPI | `["db"]`                  | SPA  | Local-first with full sync             |
+| `start-graphql-db`    | OpenAPI | `["db"]`                  | SPA  | Local-first with full sync             |
 | `start-multi-source`  | Both    | `["query", "form"]`       | SSR  | Multiple data sources in one app       |
 | `start-full-stack`    | OpenAPI | `["query", "form", "db"]` | SPA  | All generators combined                |
 

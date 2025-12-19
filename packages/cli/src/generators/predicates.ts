@@ -144,9 +144,9 @@ function ${fnName}(
 			.join(",")
 	}
 
-	// Map pagination
+	// Map pagination (limit from parsed, offset from original options)
 	if (parsed.limit != null) params["${limitParam}"] = parsed.limit
-	if (parsed.offset != null) params["${offsetParam}"] = parsed.offset
+	if (options.offset != null) params["${offsetParam}"] = options.offset
 
 	return params as ${returnType}
 }`;
@@ -215,9 +215,9 @@ function ${fnName}(
 			.join(",")
 	}
 
-	// Map pagination
+	// Map pagination (limit from parsed, offset from original options)
 	if (parsed.limit != null) params["${limitParam}"] = parsed.limit
-	if (parsed.offset != null) params["${offsetParam}"] = parsed.offset
+	if (options.offset != null) params["${offsetParam}"] = options.offset
 
 	return params as ${returnType}
 }`;
@@ -319,9 +319,9 @@ function ${fnName}(
 		)
 	}
 
-	// Map pagination
+	// Map pagination (limit from parsed, offset from original options)
 	if (parsed.limit != null) variables["${limitParam}"] = parsed.limit
-	if (parsed.offset != null) variables["${offsetParam}"] = parsed.offset
+	if (options.offset != null) variables["${offsetParam}"] = options.offset
 
 	return variables as ${returnType}
 }
@@ -414,9 +414,9 @@ function ${fnName}(
 		)
 	}
 
-	// Map pagination
+	// Map pagination (limit from parsed, offset from original options)
 	if (parsed.limit != null) variables["${limitParam}"] = parsed.limit
-	if (parsed.offset != null) variables["${offsetParam}"] = parsed.offset
+	if (options.offset != null) variables["${offsetParam}"] = options.offset
 
 	return variables as ${returnType}
 }
@@ -446,7 +446,7 @@ function buildNestedObject(
  */
 export function getPredicateImports(): string {
   return `import { parseLoadSubsetOptions } from "@tanstack/query-db-collection"
-import type { LoadSubsetOptions } from "@tanstack/query-db-collection"`;
+import type { LoadSubsetOptions } from "@tanstack/db"`;
 }
 
 /**

@@ -519,13 +519,35 @@ Tangrams automatically detects the appropriate predicate mapping preset by analy
 
 You only need to specify `predicateMapping` if you want to override the auto-detected preset.
 
+### Additional Peer Dependency for On-Demand Mode
+
+When using on-demand sync mode, you also need `@tanstack/db` for the `LoadSubsetOptions` type:
+
+<Tabs items={['bun', 'npm', 'pnpm']}>
+  <Tab value="bun">
+```bash
+bun add @tanstack/db
+```
+  </Tab>
+  <Tab value="npm">
+```bash
+npm install @tanstack/db
+```
+  </Tab>
+  <Tab value="pnpm">
+```bash
+pnpm add @tanstack/db
+```
+  </Tab>
+</Tabs>
+
 ### Generated On-Demand Collection
 
 When on-demand mode is enabled, the generated collection includes a predicate translator function:
 
 ```typescript
 import { parseLoadSubsetOptions } from "@tanstack/query-db-collection"
-import type { LoadSubsetOptions } from "@tanstack/query-db-collection"
+import type { LoadSubsetOptions } from "@tanstack/db"
 
 function translateProductPredicates(
   options?: LoadSubsetOptions
