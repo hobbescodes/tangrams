@@ -472,6 +472,142 @@ Map GraphQL scalars to TypeScript types using `overrides.scalars`:
 | `BigInt` | `bigint` |
 | `UUID` | `string` |
 
+## Infinite Query Options
+
+Tangrams automatically generates `infiniteQueryOptions` for paginated queries alongside the regular `queryOptions`. This enables seamless integration with TanStack Query's `useInfiniteQuery` hook for "load more" or "infinite scroll" patterns.
+
+### Supported Pagination Styles
+
+Tangrams detects pagination patterns from your schema and generates the appropriate `getNextPageParam` logic:
+
+| Style | Parameters | Response Fields | Example |
+|-------|------------|-----------------|---------|
+| **Cursor** | `cursor`, `after` | `nextCursor`, `endCursor` | GraphQL Relay connections |
+| **Offset** | `offset` + `limit` | `total` | REST APIs with total count |
+| **Page** | `page` + `pageSize`/`perPage` | `totalPages` | Traditional pagination |
+| **Relay** | `first`/`last` + `after`/`before` | `pageInfo.hasNextPage`, `pageInfo.endCursor` | GraphQL Relay spec |
+
+### Generated Output
+
+For a paginated operation like `listPets` with offset pagination:
+
+```typescript
+// Regular query options (always generated)
+export const listPetsQueryOptions = (params?: ListPetsParams) =>
+  queryOptions({
+    queryKey: ["api", "listPets", params],
+    queryFn: () => listPets(params),
+  })
+
+// Infinite query options (auto-generated for paginated operations)
+export const listPetsInfiniteQueryOptions = (params?: Omit<ListPetsParams, "offset">) =>
+  infiniteQueryOptions({
+    queryKey: ["api", "listPets", "infinite", params],
+    queryFn: ({ pageParam }) => listPets({ ...params, offset: pageParam }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, _allPages, lastPageParam) =>
+      (lastPageParam ?? 0) + (params?.limit ?? 20) < lastPage.total
+        ? (lastPageParam ?? 0) + (params?.limit ?? 20)
+        : undefined,
+  })
+```
+
+For Relay-style cursor pagination (GraphQL):
+
+```typescript
+export const getPetsConnectionInfiniteQueryOptions = (
+  variables?: Omit<GetPetsConnectionQueryVariables, "after">
+) =>
+  infiniteQueryOptions({
+    queryKey: ["api", "GetPetsConnection", "infinite", variables],
+    queryFn: ({ pageParam }) => getPetsConnection({ ...variables, after: pageParam }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) =>
+      lastPage.petsConnection?.pageInfo?.hasNextPage
+        ? lastPage.petsConnection?.pageInfo?.endCursor
+        : undefined,
+  })
+```
+
+### Usage
+
+```typescript
+import { useInfiniteQuery } from "@tanstack/react-query"
+import { listPetsInfiniteQueryOptions } from "./tangrams/api/query/options"
+
+function PetList() {
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery(listPetsInfiniteQueryOptions({ limit: 10 }))
+
+  return (
+    <div>
+      {data?.pages.map((page) =>
+        page.data.map((pet) => <PetCard key={pet.id} pet={pet} />)
+      )}
+
+      <button
+        onClick={() => fetchNextPage()}
+        disabled={!hasNextPage || isFetchingNextPage}
+      >
+        {isFetchingNextPage ? "Loading..." : hasNextPage ? "Load More" : "No more pets"}
+      </button>
+    </div>
+  )
+}
+```
+
+### Configuration
+
+You can customize or disable infinite query generation per operation:
+
+```typescript
+import { defineConfig } from "tangrams"
+
+export default defineConfig({
+  sources: [
+    {
+      name: "api",
+      type: "openapi",
+      spec: "./openapi.yaml",
+      generates: ["query"],
+      overrides: {
+        query: {
+          operations: {
+            // Custom getNextPageParam path
+            listPets: {
+              getNextPageParamPath: "meta.pagination.nextCursor",
+            },
+            // Disable infinite query for specific operation
+            searchUsers: {
+              disabled: true,
+            },
+          },
+        },
+      },
+    },
+  ],
+})
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `getNextPageParamPath` | `string` | Dot-notation path to the next page cursor in the response (e.g., `"meta.nextCursor"`) |
+| `initialPageParam` | `string \| number` | Override the initial page parameter value |
+| `disabled` | `boolean` | Disable infinite query generation for this operation |
+
+### Requirements
+
+For automatic infinite query generation, Tangrams needs to detect:
+
+1. **Pagination parameters** in the request (e.g., `offset`, `cursor`, `page`, `after`)
+2. **Pagination response fields** that indicate how to get the next page (e.g., `total`, `nextCursor`, `hasNextPage`)
+
+If Tangrams cannot detect the response structure, it will skip infinite query generation and log a warning. You can use `overrides.query.operations.<operationName>.getNextPageParamPath` to explicitly configure the path.
+
 ## TanStack DB Integration
 
 Tangrams can also generate TanStack DB collections for local-first data synchronization with optimistic updates. When `"db"` is specified in `generates`, query generation is automatically enabled as well.

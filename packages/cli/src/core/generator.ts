@@ -8,6 +8,7 @@ import { getAdapter } from "@/adapters";
 import {
   getDbCollectionOverrides,
   getFormOverrides,
+  getQueryOverrides,
   getScalarsFromSource,
   normalizeGenerates,
 } from "./config";
@@ -397,6 +398,7 @@ async function generateQueryFiles(
   const optionsResult = adapter.generateOperations(schema, source, {
     typesImportPath,
     sourceName: source.name,
+    queryOverrides: getQueryOverrides(source),
   });
   await writeFile(optionsPath, optionsResult.content, "utf-8");
   consola.success(`Generated ${source.name}/query/${FILES.query.options}`);

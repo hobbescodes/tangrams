@@ -1,22 +1,22 @@
 /* eslint-disable */
 /* OpenAPI Client - Generated once by tangrams. Customize as needed. */
 
-import { createFetch } from "@better-fetch/fetch";
+import { createFetch } from "@better-fetch/fetch"
 
-const baseURL = "http://localhost:3000/api";
+const baseURL = "http://localhost:3000/api"
 
 /**
  * Returns a configured fetch client.
  * Customize this function to add dynamic headers (e.g., auth tokens).
  */
 export const getClient = async () => {
-  return createFetch({
-    baseURL,
-    headers: {
-      // Add your headers here
-    },
-  });
-};
+	return createFetch({
+		baseURL,
+		headers: {
+			// Add your headers here
+		},
+	})
+}
 
 /**
  * Helper to build URL paths with path parameters.
@@ -28,14 +28,14 @@ export const getClient = async () => {
  * buildPath("/users/{id}", { id: "123" }) // "/users/123"
  */
 export function buildPath(
-  template: string,
-  params: Record<string, string | number>,
+	template: string,
+	params: Record<string, string | number>,
 ): string {
-  let path = template;
-  for (const [key, value] of Object.entries(params)) {
-    path = path.replace(`{${key}}`, String(value));
-  }
-  return path;
+	let path = template
+	for (const [key, value] of Object.entries(params)) {
+		path = path.replace(`{${key}}`, String(value))
+	}
+	return path
 }
 
 /**
@@ -47,15 +47,13 @@ export function buildPath(
  * buildQuery({ page: 1, limit: 10 }) // "page=1&limit=10"
  */
 export function buildQuery(
-  params: Record<string, string | number | boolean | null | undefined>,
+	params: Record<string, string | number | boolean | null | undefined>,
 ): string {
-  const entries = Object.entries(params).filter(
-    ([, v]) => v !== undefined && v !== null,
-  );
-  if (entries.length === 0) return "";
-  return entries
-    .map(
-      ([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`,
-    )
-    .join("&");
+	const entries = Object.entries(params).filter(
+		([, v]) => v !== undefined && v !== null,
+	)
+	if (entries.length === 0) return ""
+	return entries
+		.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+		.join("&")
 }

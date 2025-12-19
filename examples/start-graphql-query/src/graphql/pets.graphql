@@ -46,3 +46,32 @@ mutation UpdatePet($id: ID!, $input: UpdatePetInput!) {
 mutation DeletePet($id: ID!) {
   deletePet(id: $id)
 }
+
+# Relay-style cursor pagination
+query GetPetsConnection(
+  $status: PetStatus
+  $category: PetCategory
+  $first: Int
+  $after: String
+) {
+  petsConnection(
+    status: $status
+    category: $category
+    first: $first
+    after: $after
+  ) {
+    edges {
+      node {
+        ...PetFields
+      }
+      cursor
+    }
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+    }
+    totalCount
+  }
+}

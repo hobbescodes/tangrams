@@ -86,3 +86,12 @@ export function toMutationVariablesTypeName(operationName: string): string {
 export function toFragmentTypeName(fragmentName: string): string {
   return `${toPascalCase(fragmentName)}Fragment`;
 }
+
+/**
+ * Convert an operation name to an infiniteQueryOptions function name
+ * e.g., "listPets" -> "listPetsInfiniteQueryOptions"
+ * e.g., "GetPosts" -> "getPostsInfiniteQueryOptions"
+ */
+export function toInfiniteQueryOptionsName(operationName: string): string {
+  return `${toCamelCase(operationName)}InfiniteQueryOptions`;
+}
