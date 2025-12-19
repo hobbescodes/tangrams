@@ -1,5 +1,31 @@
 # tangrams
 
+## 0.7.0
+
+### Minor Changes
+
+- ec3a7a3: Add multi-validator support with Zod, Valibot, and ArkType
+
+  - Add `validator` config option to choose between `"zod"` (default), `"valibot"`, or `"arktype"` for schema generation
+  - Implement IR (Intermediate Representation) architecture that decouples spec parsing from code generation
+  - Add dedicated emitters for each validator library with proper syntax and type inference
+  - All three validators implement Standard Schema, ensuring compatibility with TanStack Form
+  - Add `valibot` and `arktype` as optional peer dependencies
+  - Update `buildQuery` function type to accept `null` values for nullish optional fields
+  - Update documentation with validator configuration examples
+
+### Patch Changes
+
+- ec3a7a3: Fix ArkType emitter to generate nullish optional fields matching Zod/Valibot behavior
+- 872b25e: Change OpenAPI client from static `$fetch` instance to async `getClient()` function pattern, matching the GraphQL client approach. This allows users to add dynamic headers (e.g., auth tokens) that require async operations.
+
+  **Breaking Change:** If you have customized your OpenAPI `client.ts` file, you will need to migrate from the `$fetch` export to the new `getClient()` async function pattern.
+
+- ec3a7a3: Fix validator schema generation issues discovered through runtime validation testing
+
+  - Fix Valibot datetime format to use `v.pipe(v.string(), v.isoTimestamp())` instead of `v.isoDateTime()` for proper ISO 8601 validation with seconds and timezone
+  - Fix property name double-quoting where names with special characters (e.g., `special-name`) were incorrectly quoted twice in generated schemas
+
 ## 0.6.2
 
 ### Patch Changes
