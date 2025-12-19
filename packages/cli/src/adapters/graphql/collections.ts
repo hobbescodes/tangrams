@@ -20,12 +20,14 @@ import {
   needsPredicateTranslation,
 } from "@/generators/predicates";
 import { toCamelCase, toPascalCase } from "@/utils/naming";
+import { createWriter, writeImport } from "@/utils/writer";
 import {
   analyzeGraphQLQueryCapabilities,
   hasQueryCapabilities,
   inferPredicateMappingPreset,
 } from "./analysis";
 
+import type CodeBlockWriter from "code-block-writer";
 import type {
   FieldNode,
   GraphQLField,
@@ -561,19 +563,19 @@ export function generateGraphQLCollections(
   entities: CollectionEntity[],
   options: CollectionGenOptions,
 ): GeneratedFile {
-  const lines: string[] = [];
+  const writer = createWriter();
 
   // Check if any entities need predicate translation (on-demand mode)
   const hasOnDemandEntities = entities.some(needsPredicateTranslation);
 
   // External imports (sorted alphabetically by package)
-  lines.push(
-    'import { queryCollectionOptions } from "@tanstack/query-db-collection"',
-  );
+  writeImport(writer, "@tanstack/query-db-collection", [
+    "queryCollectionOptions",
+  ]);
   if (hasOnDemandEntities) {
-    lines.push(getPredicateImports());
+    writer.writeLine(getPredicateImports());
   }
-  lines.push('import { createCollection } from "@tanstack/react-db"');
+  writeImport(writer, "@tanstack/react-db", ["createCollection"]);
 
   // Internal imports (sorted alphabetically)
   const queryFnImports = entities.map(
@@ -587,10 +589,8 @@ export function generateGraphQLCollections(
   ].sort();
 
   if (allFunctionImports.length > 0) {
-    lines.push("");
-    lines.push(
-      `import { ${allFunctionImports.join(", ")} } from "${FUNCTIONS_IMPORT_PATH}"`,
-    );
+    writer.blankLine();
+    writeImport(writer, FUNCTIONS_IMPORT_PATH, allFunctionImports);
   }
 
   // Type imports (sorted alphabetically, always last with blank line)
@@ -603,132 +603,166 @@ export function generateGraphQLCollections(
     .filter((name): name is string => !!name)
     .sort();
 
-  lines.push("");
-  lines.push(
-    `import type { ${typeImports.join(", ")} } from "@tanstack/react-query"`,
-  );
+  writer.blankLine();
+  writeImport(writer, "@tanstack/react-query", typeImports, true);
 
   if (variablesTypeNames.length > 0) {
-    lines.push(
-      `import type { ${variablesTypeNames.join(", ")} } from "${options.typesImportPath}"`,
-    );
+    writeImport(writer, options.typesImportPath, variablesTypeNames, true);
   }
 
-  lines.push("");
+  writer.blankLine();
 
   // Generate predicate translators for on-demand entities
   for (const entity of entities) {
     if (needsPredicateTranslation(entity)) {
-      lines.push(
+      writer.writeLine(
         generatePredicateTranslator(
           entity,
           entity.listQuery.paramsTypeName,
           "graphql",
         ),
       );
-      lines.push("");
+      writer.blankLine();
     }
   }
 
   // Generate collection options for each entity
   for (const entity of entities) {
-    lines.push(generateEntityCollectionOptions(entity, options));
-    lines.push("");
+    writeEntityCollectionOptions(writer, entity);
+    writer.blankLine();
   }
 
   return {
     filename: "collections.ts",
-    content: lines.join("\n"),
+    content: writer.toString(),
   };
 }
 
 /**
- * Generate collection options for a single entity
+ * Write collection options for a single entity
  */
-function generateEntityCollectionOptions(
+function writeEntityCollectionOptions(
+  writer: CodeBlockWriter,
   entity: CollectionEntity,
-  _options: CollectionGenOptions,
-): string {
-  const lines: string[] = [];
+): void {
   const collectionName = `${toCamelCase(entity.name)}CollectionOptions`;
   const listQueryFn = `${toCamelCase(entity.listQuery.operationName)}`;
   const isOnDemand = needsPredicateTranslation(entity);
   const translatorFn = `translate${entity.name}Predicates`;
   const selectorPath = entity.listQuery.selectorPath;
 
-  lines.push("/**");
-  lines.push(` * Collection options for ${entity.name}`);
+  // JSDoc comment
+  writer.writeLine("/**");
+  writer.writeLine(` * Collection options for ${entity.name}`);
   if (isOnDemand) {
-    lines.push(` * @remarks Uses on-demand sync mode with predicate push-down`);
-  }
-  lines.push(" */");
-  lines.push(`export const ${collectionName} = (queryClient: QueryClient) =>`);
-  lines.push(`  createCollection(`);
-  lines.push(`    queryCollectionOptions({`);
-  lines.push(`      queryKey: ${JSON.stringify(entity.listQuery.queryKey)},`);
-
-  // Generate queryFn based on sync mode AND selectorPath
-  if (isOnDemand) {
-    lines.push(`      syncMode: "on-demand",`);
-    lines.push(`      queryFn: async (ctx) => {`);
-    lines.push(
-      `        const variables = ${translatorFn}(ctx.meta?.loadSubsetOptions)`,
+    writer.writeLine(
+      " * @remarks Uses on-demand sync mode with predicate push-down",
     );
-    if (selectorPath) {
-      lines.push(`        const response = await ${listQueryFn}(variables)`);
-      lines.push(`        return response.${selectorPath}`);
-    } else {
-      lines.push(`        return ${listQueryFn}(variables)`);
-    }
-    lines.push(`      },`);
-  } else {
-    if (selectorPath) {
-      lines.push(`      queryFn: async () => {`);
-      lines.push(`        const response = await ${listQueryFn}()`);
-      lines.push(`        return response.${selectorPath}`);
-      lines.push(`      },`);
-    } else {
-      lines.push(`      queryFn: async () => ${listQueryFn}(),`);
-    }
   }
+  writer.writeLine(" */");
 
-  lines.push(`      queryClient,`);
-  lines.push(`      getKey: (item) => item.${entity.keyField},`);
+  // Export const declaration
+  writer.write(
+    `export const ${collectionName} = (queryClient: QueryClient) =>`,
+  );
+  writer.newLine();
+  writer.indent(() => {
+    writer.write("createCollection(");
+    writer.newLine();
+    writer.indent(() => {
+      writer.write("queryCollectionOptions({");
+      writer.newLine();
+      writer.indent(() => {
+        writer.writeLine(
+          `queryKey: ${JSON.stringify(entity.listQuery.queryKey)},`,
+        );
 
-  // Add persistence handlers for mutations
-  const insertMutation = entity.mutations.find((m) => m.type === "insert");
-  const updateMutation = entity.mutations.find((m) => m.type === "update");
-  const deleteMutation = entity.mutations.find((m) => m.type === "delete");
+        // Generate queryFn based on sync mode AND selectorPath
+        if (isOnDemand) {
+          writer.writeLine(`syncMode: "on-demand",`);
+          writer.write("queryFn: async (ctx) => ");
+          writer.inlineBlock(() => {
+            writer.writeLine(
+              `const variables = ${translatorFn}(ctx.meta?.loadSubsetOptions)`,
+            );
+            if (selectorPath) {
+              writer.writeLine(
+                `const response = await ${listQueryFn}(variables)`,
+              );
+              writer.writeLine(`return response.${selectorPath}`);
+            } else {
+              writer.writeLine(`return ${listQueryFn}(variables)`);
+            }
+          });
+          writer.write(",");
+          writer.newLine();
+        } else {
+          if (selectorPath) {
+            writer.write("queryFn: async () => ");
+            writer.inlineBlock(() => {
+              writer.writeLine(`const response = await ${listQueryFn}()`);
+              writer.writeLine(`return response.${selectorPath}`);
+            });
+            writer.write(",");
+            writer.newLine();
+          } else {
+            writer.writeLine(`queryFn: async () => ${listQueryFn}(),`);
+          }
+        }
 
-  if (insertMutation) {
-    const insertFn = toCamelCase(insertMutation.operationName);
-    lines.push(`      onInsert: async ({ transaction }) => {`);
-    lines.push(
-      `        await Promise.all(transaction.mutations.map((m) => ${insertFn}({ input: m.modified })))`,
-    );
-    lines.push(`      },`);
-  }
+        writer.writeLine("queryClient,");
+        writer.writeLine(`getKey: (item) => item.${entity.keyField},`);
 
-  if (updateMutation) {
-    const updateFn = toCamelCase(updateMutation.operationName);
-    lines.push(`      onUpdate: async ({ transaction }) => {`);
-    lines.push(
-      `        await Promise.all(transaction.mutations.map((m) => ${updateFn}({ ${entity.keyField}: m.original.${entity.keyField}, input: m.changes })))`,
-    );
-    lines.push(`      },`);
-  }
+        // Add persistence handlers for mutations
+        const insertMutation = entity.mutations.find(
+          (m) => m.type === "insert",
+        );
+        const updateMutation = entity.mutations.find(
+          (m) => m.type === "update",
+        );
+        const deleteMutation = entity.mutations.find(
+          (m) => m.type === "delete",
+        );
 
-  if (deleteMutation) {
-    const deleteFn = toCamelCase(deleteMutation.operationName);
-    lines.push(`      onDelete: async ({ transaction }) => {`);
-    lines.push(
-      `        await Promise.all(transaction.mutations.map((m) => ${deleteFn}({ ${entity.keyField}: m.key })))`,
-    );
-    lines.push(`      },`);
-  }
+        if (insertMutation) {
+          const insertFn = toCamelCase(insertMutation.operationName);
+          writer.write("onInsert: async ({ transaction }) => ");
+          writer.inlineBlock(() => {
+            writer.writeLine(
+              `await Promise.all(transaction.mutations.map((m) => ${insertFn}({ input: m.modified })))`,
+            );
+          });
+          writer.write(",");
+          writer.newLine();
+        }
 
-  lines.push(`    })`);
-  lines.push(`  )`);
+        if (updateMutation) {
+          const updateFn = toCamelCase(updateMutation.operationName);
+          writer.write("onUpdate: async ({ transaction }) => ");
+          writer.inlineBlock(() => {
+            writer.writeLine(
+              `await Promise.all(transaction.mutations.map((m) => ${updateFn}({ ${entity.keyField}: m.original.${entity.keyField}, input: m.changes })))`,
+            );
+          });
+          writer.write(",");
+          writer.newLine();
+        }
 
-  return lines.join("\n");
+        if (deleteMutation) {
+          const deleteFn = toCamelCase(deleteMutation.operationName);
+          writer.write("onDelete: async ({ transaction }) => ");
+          writer.inlineBlock(() => {
+            writer.writeLine(
+              `await Promise.all(transaction.mutations.map((m) => ${deleteFn}({ ${entity.keyField}: m.key })))`,
+            );
+          });
+          writer.write(",");
+          writer.newLine();
+        }
+      });
+      writer.write("})");
+      writer.newLine();
+    });
+    writer.write(")");
+  });
 }

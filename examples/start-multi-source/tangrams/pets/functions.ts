@@ -31,8 +31,7 @@ fragment PetFields on Pet {
 `;
 
 // Documents
-const GetPetsDocument =
-  /* GraphQL */ `
+const GetPetsDocument = /* GraphQL */ `
 query GetPets(
   $status: PetStatus
   $category: PetCategory
@@ -46,34 +45,31 @@ query GetPets(
     total
   }
 }
-` + PetFieldsFragmentDoc;
+${PetFieldsFragmentDoc}`;
 
-const GetPetByIdDocument =
-  /* GraphQL */ `
+const GetPetByIdDocument = /* GraphQL */ `
 query GetPetById($id: ID!) {
   pet(id: $id) {
     ...PetFields
   }
 }
-` + PetFieldsFragmentDoc;
+${PetFieldsFragmentDoc}`;
 
-const CreatePetDocument =
-  /* GraphQL */ `
+const CreatePetDocument = /* GraphQL */ `
 mutation CreatePet($input: CreatePetInput!) {
   createPet(input: $input) {
     ...PetFields
   }
 }
-` + PetFieldsFragmentDoc;
+${PetFieldsFragmentDoc}`;
 
-const UpdatePetDocument =
-  /* GraphQL */ `
+const UpdatePetDocument = /* GraphQL */ `
 mutation UpdatePet($id: ID!, $input: UpdatePetInput!) {
   updatePet(id: $id, input: $input) {
     ...PetFields
   }
 }
-` + PetFieldsFragmentDoc;
+${PetFieldsFragmentDoc}`;
 
 const DeletePetDocument = /* GraphQL */ `
 mutation DeletePet($id: ID!) {

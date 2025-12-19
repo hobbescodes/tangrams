@@ -58,6 +58,7 @@ export type GetMixedFieldsQuery = {
     avatar: string | null
   } | null
 }
+
 "
 `;
 
@@ -113,6 +114,7 @@ export type GetNodeWithFragmentQueryVariables = {
 export type GetNodeWithFragmentQuery = {
   node: { __typename: "User" } | { __typename: "Post" } | null
 }
+
 "
 `;
 
@@ -139,7 +141,6 @@ export type UpdateUserInput = {
   email?: string
   avatarUrl?: string
 }
-
 
 // Fragment Types
 export type UserFieldsFragment = {
@@ -221,6 +222,7 @@ export type CreatePostMutationVariables = {
 export type CreatePostMutation = {
   createPost: PostFieldsFragment
 }
+
 "
 `;
 
@@ -240,7 +242,6 @@ export type UpdateUserInput = {
   email?: string
   avatarUrl?: string
 }
-
 
 // Fragment Types
 export type UserFieldsFragment = {
@@ -293,6 +294,7 @@ export type DeleteUserMutationVariables = {
 export type DeleteUserMutation = {
   deleteUser: boolean
 }
+
 "
 `;
 
@@ -312,7 +314,6 @@ export type UpdateUserInput = {
   email?: string
   avatarUrl?: string
 }
-
 
 // Fragment Types
 export type UserFieldsFragment = {
@@ -365,6 +366,7 @@ export type DeleteUserMutationVariables = {
 export type DeleteUserMutation = {
   deleteUser: boolean
 }
+
 "
 `;
 
@@ -398,5 +400,6 @@ export type SearchMinimalQueryVariables = {
 export type SearchMinimalQuery = {
   search: Array<{ __typename: "User" } | { __typename: "Post" }>
 }
+
 "
 `;

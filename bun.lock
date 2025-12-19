@@ -296,7 +296,7 @@
     },
     "packages/cli": {
       "name": "tangrams",
-      "version": "0.7.0",
+      "version": "0.8.0",
       "bin": {
         "tangrams": "./dist/cli.js",
       },
@@ -305,6 +305,7 @@
         "c12": "^3.3.2",
         "chokidar": "^5.0.0",
         "citty": "^0.1.6",
+        "code-block-writer": "^13.0.3",
         "consola": "^3.4.0",
         "fast-glob": "^3.3.3",
         "graphql": "^16.10.0",
@@ -1096,6 +1097,8 @@
     "cliui": ["cliui@8.0.1", "", { "dependencies": { "string-width": "^4.2.0", "strip-ansi": "^6.0.1", "wrap-ansi": "^7.0.0" } }, "sha512-BSeNnyus75C4//NQ9gQt1/csTXyo/8Sb+afLAkzAptFuMsod9HFokGNudZpi/oQV73hnVK+sR+5PVRMd+Dr7YQ=="],
 
     "clsx": ["clsx@2.1.1", "", {}, "sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA=="],
+
+    "code-block-writer": ["code-block-writer@13.0.3", "", {}, "sha512-Oofo0pq3IKnsFtuHqSF7TqBfr71aeyZDVJ0HpmqB7FBM2qEigL0iPONSCZSO9pE9dZTAxANe5XHG9Uy0YMv8cg=="],
 
     "collapse-white-space": ["collapse-white-space@2.1.0", "", {}, "sha512-loKTxY1zCOuG4j9f6EPnuyyYkf58RnhhWTvRoZEokgB+WbdXehfjFviyOVYkqzEWz1Q5kRiZdBYS5SwxbQYwzw=="],
 

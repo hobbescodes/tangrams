@@ -87,8 +87,9 @@ describe("generateFunctions", () => {
       typesImportPath: "./schema",
     });
 
-    // Operations that use UserFields fragment should concatenate it
-    expect(result).toContain("` + UserFieldsFragmentDoc");
+    // Operations that use UserFields fragment should interpolate it via template literal
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: testing for literal template string output
+    expect(result).toContain("${UserFieldsFragmentDoc}`");
   });
 
   it("generates standalone query functions", async () => {

@@ -26,10 +26,11 @@ mutation ResetAllUsers {
 
 // Functions
 export const createNewUser = async (variables: CreateNewUserMutationVariables) =>
-	(await getClient()).request<CreateNewUserMutation>(CreateNewUserDocument, variables)
+  (await getClient()).request<CreateNewUserMutation>(CreateNewUserDocument, variables)
 
 export const resetAllUsers = async () =>
-	(await getClient()).request<ResetAllUsersMutation>(ResetAllUsersDocument)
+  (await getClient()).request<ResetAllUsersMutation>(ResetAllUsersDocument)
+
 "
 `;
 
@@ -62,10 +63,11 @@ query GetAllUsers {
 
 // Functions
 export const getUserById = async (variables: GetUserByIdQueryVariables) =>
-	(await getClient()).request<GetUserByIdQuery>(GetUserByIdDocument, variables ?? undefined)
+  (await getClient()).request<GetUserByIdQuery>(GetUserByIdDocument, variables ?? undefined)
 
 export const getAllUsers = async () =>
-	(await getClient()).request<GetAllUsersQuery>(GetAllUsersDocument)
+  (await getClient()).request<GetAllUsersQuery>(GetAllUsersDocument)
+
 "
 `;
 
@@ -95,7 +97,7 @@ query GetUser($id: ID!) {
     ...UserFields
   }
 }
-\` + UserFieldsFragmentDoc
+\${UserFieldsFragmentDoc}\`
 
 const ListUsersDocument = /* GraphQL */ \`
 query ListUsers($limit: Int, $offset: Int) {
@@ -103,7 +105,7 @@ query ListUsers($limit: Int, $offset: Int) {
     ...UserFields
   }
 }
-\` + UserFieldsFragmentDoc
+\${UserFieldsFragmentDoc}\`
 
 const CreateUserDocument = /* GraphQL */ \`
 mutation CreateUser($input: CreateUserInput!) {
@@ -111,7 +113,7 @@ mutation CreateUser($input: CreateUserInput!) {
     ...UserFields
   }
 }
-\` + UserFieldsFragmentDoc
+\${UserFieldsFragmentDoc}\`
 
 const UpdateUserDocument = /* GraphQL */ \`
 mutation UpdateUser($id: ID!, $input: UpdateUserInput!) {
@@ -119,7 +121,7 @@ mutation UpdateUser($id: ID!, $input: UpdateUserInput!) {
     ...UserFields
   }
 }
-\` + UserFieldsFragmentDoc
+\${UserFieldsFragmentDoc}\`
 
 const DeleteUserDocument = /* GraphQL */ \`
 mutation DeleteUser($id: ID!) {
@@ -129,18 +131,19 @@ mutation DeleteUser($id: ID!) {
 
 // Functions
 export const getUser = async (variables: GetUserQueryVariables) =>
-	(await getClient()).request<GetUserQuery>(GetUserDocument, variables ?? undefined)
+  (await getClient()).request<GetUserQuery>(GetUserDocument, variables ?? undefined)
 
 export const listUsers = async (variables?: ListUsersQueryVariables) =>
-	(await getClient()).request<ListUsersQuery>(ListUsersDocument, variables ?? undefined)
+  (await getClient()).request<ListUsersQuery>(ListUsersDocument, variables ?? undefined)
 
 export const createUser = async (variables: CreateUserMutationVariables) =>
-	(await getClient()).request<CreateUserMutation>(CreateUserDocument, variables)
+  (await getClient()).request<CreateUserMutation>(CreateUserDocument, variables)
 
 export const updateUser = async (variables: UpdateUserMutationVariables) =>
-	(await getClient()).request<UpdateUserMutation>(UpdateUserDocument, variables)
+  (await getClient()).request<UpdateUserMutation>(UpdateUserDocument, variables)
 
 export const deleteUser = async (variables: DeleteUserMutationVariables) =>
-	(await getClient()).request<DeleteUserMutation>(DeleteUserDocument, variables)
+  (await getClient()).request<DeleteUserMutation>(DeleteUserDocument, variables)
+
 "
 `;

@@ -29,7 +29,7 @@ This is a Bun workspaces monorepo with the following structure:
 
 ## Code Style (Biome)
 
-- Tabs for indentation, double quotes, no semicolons (except when required)
+- 2 spaces for indentation, double quotes, no semicolons (except when required)
 - Imports are auto-organized; use `@/*` alias for `./src/*` (CLI package)
 - Use `type` imports for type-only imports (`import type { X } from "y"`)
 

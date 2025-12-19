@@ -500,10 +500,10 @@ describe("generatePredicateTranslator - code structure", () => {
 
     const result = generatePredicateTranslator(entity, undefined, "openapi");
 
-    // Should use tabs, not spaces for indentation
-    expect(result).toContain("\tif (!options) return {}");
+    // Should use 2-space indentation (code-block-writer standard)
+    expect(result).toContain("  if (!options) return {}");
     expect(result).toContain(
-      "\tconst parsed = parseLoadSubsetOptions(options)",
+      "  const parsed = parseLoadSubsetOptions(options)",
     );
   });
 

@@ -12,16 +12,17 @@ import type { CreateNewUserMutationVariables } from "./types"
 
 // Operations
 export const createNewUserMutationOptions = () =>
-	mutationOptions({
-		mutationKey: ["test", "CreateNewUser"],
-		mutationFn: (variables: CreateNewUserMutationVariables) => createNewUser(variables),
-	})
+  mutationOptions({
+  mutationKey: ["test", "CreateNewUser"],
+  mutationFn: (variables: CreateNewUserMutationVariables) => createNewUser(variables),
+})
 
 export const resetAllUsersMutationOptions = () =>
-	mutationOptions({
-		mutationKey: ["test", "ResetAllUsers"],
-		mutationFn: () => resetAllUsers(),
-	})
+  mutationOptions({
+  mutationKey: ["test", "ResetAllUsers"],
+  mutationFn: () => resetAllUsers(),
+})
+
 "
 `;
 
@@ -37,16 +38,17 @@ import type { GetUserByIdQueryVariables } from "./types"
 
 // Operations
 export const getUserByIdQueryOptions = (variables: GetUserByIdQueryVariables) =>
-	queryOptions({
-		queryKey: ["test", "GetUserById", variables],
-		queryFn: () => getUserById(variables),
-	})
+  queryOptions({
+  queryKey: ["test", "GetUserById", variables],
+  queryFn: () => getUserById(variables),
+})
 
 export const getAllUsersQueryOptions = () =>
-	queryOptions({
-		queryKey: ["test", "GetAllUsers"],
-		queryFn: () => getAllUsers(),
-	})
+  queryOptions({
+  queryKey: ["test", "GetAllUsers"],
+  queryFn: () => getAllUsers(),
+})
+
 "
 `;
 
@@ -62,33 +64,34 @@ import type { CreateUserMutationVariables, DeleteUserMutationVariables, GetUserQ
 
 // Operations
 export const getUserQueryOptions = (variables: GetUserQueryVariables) =>
-	queryOptions({
-		queryKey: ["test", "GetUser", variables],
-		queryFn: () => getUser(variables),
-	})
+  queryOptions({
+  queryKey: ["test", "GetUser", variables],
+  queryFn: () => getUser(variables),
+})
 
 export const listUsersQueryOptions = (variables?: ListUsersQueryVariables) =>
-	queryOptions({
-		queryKey: ["test", "ListUsers", variables],
-		queryFn: () => listUsers(variables),
-	})
+  queryOptions({
+  queryKey: ["test", "ListUsers", variables],
+  queryFn: () => listUsers(variables),
+})
 
 export const createUserMutationOptions = () =>
-	mutationOptions({
-		mutationKey: ["test", "CreateUser"],
-		mutationFn: (variables: CreateUserMutationVariables) => createUser(variables),
-	})
+  mutationOptions({
+  mutationKey: ["test", "CreateUser"],
+  mutationFn: (variables: CreateUserMutationVariables) => createUser(variables),
+})
 
 export const updateUserMutationOptions = () =>
-	mutationOptions({
-		mutationKey: ["test", "UpdateUser"],
-		mutationFn: (variables: UpdateUserMutationVariables) => updateUser(variables),
-	})
+  mutationOptions({
+  mutationKey: ["test", "UpdateUser"],
+  mutationFn: (variables: UpdateUserMutationVariables) => updateUser(variables),
+})
 
 export const deleteUserMutationOptions = () =>
-	mutationOptions({
-		mutationKey: ["test", "DeleteUser"],
-		mutationFn: (variables: DeleteUserMutationVariables) => deleteUser(variables),
-	})
+  mutationOptions({
+  mutationKey: ["test", "DeleteUser"],
+  mutationFn: (variables: DeleteUserMutationVariables) => deleteUser(variables),
+})
+
 "
 `;

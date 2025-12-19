@@ -33,7 +33,7 @@
     "ignoreUnknown": false,
     "includes": [
       "**",
-      "!!**/generated",
+      "!!**/tangrams",
       "!!.changeset",
       "!!**/test/fixtures/graphql/anonymous.graphql",
       "!!apps/docs/.source",
