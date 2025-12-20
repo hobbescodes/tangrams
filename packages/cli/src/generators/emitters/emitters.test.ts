@@ -582,7 +582,7 @@ describe("Effect Emitter", () => {
       expect(result.content).toContain("id: Schema.String");
       expect(result.content).toContain("name: Schema.String");
       expect(result.content).toContain(
-        "email: Schema.NullishOr(Schema.String)",
+        "email: Schema.optional(Schema.NullOr(Schema.String))",
       );
     });
 

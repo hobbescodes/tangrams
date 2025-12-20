@@ -63,7 +63,7 @@ const validatorPatterns: Record<
     string: "Schema.String",
     enum: "Schema.Union(Schema.Literal(",
     array: "Schema.Array(",
-    nullable: "Schema.NullishOr(",
+    nullable: "Schema.optional(Schema.NullOr(",
   },
 };
 

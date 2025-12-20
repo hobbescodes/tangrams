@@ -124,6 +124,8 @@ export interface FunctionsGenOptions {
   clientImportPath: string;
   /** Relative import path to the types/schema file */
   typesImportPath: string;
+  /** Validation library (needed for Effect's Standard Schema wrapper) */
+  validatorLibrary?: ValidatorLibrary;
 }
 
 /**

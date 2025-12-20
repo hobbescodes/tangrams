@@ -127,19 +127,19 @@ export type CreatePostInput = {
   title: string
   content: string
   authorId: string
-  tags?: Array<string> | null
+  tags?: Array<string> | null | null
 }
 
 export type CreateUserInput = {
   name: string
   email: string
-  avatarUrl?: string
+  avatarUrl?: string | null
 }
 
 export type UpdateUserInput = {
-  name?: string
-  email?: string
-  avatarUrl?: string
+  name?: string | null
+  email?: string | null
+  avatarUrl?: string | null
 }
 
 // Fragment Types
@@ -234,13 +234,13 @@ exports[`generateTypes > matches snapshot for user operations 1`] = `
 export type CreateUserInput = {
   name: string
   email: string
-  avatarUrl?: string
+  avatarUrl?: string | null
 }
 
 export type UpdateUserInput = {
-  name?: string
-  email?: string
-  avatarUrl?: string
+  name?: string | null
+  email?: string | null
+  avatarUrl?: string | null
 }
 
 // Fragment Types
@@ -306,13 +306,13 @@ exports[`generateTypes > matches snapshot with custom scalars 1`] = `
 export type CreateUserInput = {
   name: string
   email: string
-  avatarUrl?: string
+  avatarUrl?: string | null
 }
 
 export type UpdateUserInput = {
-  name?: string
-  email?: string
-  avatarUrl?: string
+  name?: string | null
+  email?: string | null
+  avatarUrl?: string | null
 }
 
 // Fragment Types

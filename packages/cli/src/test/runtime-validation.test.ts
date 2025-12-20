@@ -7,11 +7,20 @@
  * 3. Dynamically importing the modules
  * 4. Testing parse behavior with valid/invalid data
  *
+ * Also tests TypeScript compilation of all generated artifacts:
+ * - client.ts
+ * - functions.ts
+ * - schema.ts
+ * - form/options.ts
+ * - db/collections.ts
+ *
  * Covers both OpenAPI and GraphQL schemas across all supported validators.
  */
 
+import { exec } from "node:child_process";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { promisify } from "node:util";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -22,6 +31,8 @@ import { supportedValidators } from "@/generators/emitters";
 import type { SchemaGenOptions } from "@/adapters/types";
 import type { GraphQLSourceConfig, OpenAPISourceConfig } from "@/core/config";
 import type { ValidatorLibrary } from "@/generators/emitters";
+
+const execAsync = promisify(exec);
 
 // ============================================================================
 // Test Configuration
@@ -38,7 +49,7 @@ const cacheDir = join(
 const petstoreConfig: OpenAPISourceConfig = {
   name: "petstore",
   type: "openapi",
-  generates: ["query"],
+  generates: ["query", "form", "db"],
   spec: join(openapiFixturesDir, "petstore.json"),
 };
 
@@ -55,7 +66,8 @@ const graphqlConfig: GraphQLSourceConfig = {
   type: "graphql",
   schema: { file: join(graphqlFixturesDir, "schema.graphql") },
   documents: join(graphqlFixturesDir, "user.graphql"),
-  generates: ["query"],
+  generates: ["query", "form", "db"],
+  url: "https://api.example.com/graphql",
 };
 
 // ============================================================================
@@ -123,7 +135,7 @@ async function parseWithValidator(
 }
 
 /**
- * Generate OpenAPI schema file for a validator
+ * Generate OpenAPI schema file for a validator (for runtime parsing tests)
  */
 async function generateOpenAPISchema(
   config: OpenAPISourceConfig,
@@ -142,7 +154,7 @@ async function generateOpenAPISchema(
 }
 
 /**
- * Generate GraphQL schema file for a validator
+ * Generate GraphQL schema file for a validator (for runtime parsing tests)
  */
 async function generateGraphQLSchema(
   validator: ValidatorLibrary,
@@ -160,6 +172,174 @@ async function generateGraphQLSchema(
 
   const filePath = join(validatorDir, "graphql-schema.ts");
   await writeFile(filePath, result.content);
+}
+
+/**
+ * Generate full OpenAPI artifact set for TypeScript compilation tests
+ */
+async function generateOpenAPIArtifacts(
+  config: OpenAPISourceConfig,
+  validator: ValidatorLibrary,
+  baseDir: string,
+): Promise<void> {
+  const schema = await openapiAdapter.loadSchema(config);
+
+  // Create directories
+  await mkdir(join(baseDir, "form"), { recursive: true });
+  await mkdir(join(baseDir, "db"), { recursive: true });
+  await mkdir(join(baseDir, "query"), { recursive: true });
+
+  // Generate client.ts
+  const clientResult = openapiAdapter.generateClient(schema, config);
+  await writeFile(join(baseDir, "client.ts"), clientResult.content);
+
+  // Generate schema.ts
+  const schemaResult = openapiAdapter.generateSchemas(schema, config, {
+    validator,
+  });
+  await writeFile(join(baseDir, "schema.ts"), schemaResult.content);
+
+  // Generate functions.ts
+  const functionsResult = openapiAdapter.generateFunctions(schema, config, {
+    clientImportPath: "./client",
+    typesImportPath: "./schema",
+    validatorLibrary: validator,
+  });
+  await writeFile(join(baseDir, "functions.ts"), functionsResult.content);
+
+  // Generate form/options.ts
+  const formResult = openapiAdapter.generateFormOptions(schema, config, {
+    schemaImportPath: "../schema",
+    sourceName: config.name,
+    validatorLibrary: validator,
+  });
+  await writeFile(join(baseDir, "form/options.ts"), formResult.content);
+
+  // Generate db/collections.ts
+  const collectionsResult = openapiAdapter.generateCollections(schema, config, {
+    typesImportPath: "../schema",
+    sourceName: config.name,
+  });
+  await writeFile(
+    join(baseDir, "db/collections.ts"),
+    collectionsResult.content,
+  );
+
+  // Generate query/options.ts
+  const queryResult = openapiAdapter.generateOperations(schema, config, {
+    typesImportPath: "../schema",
+    sourceName: config.name,
+  });
+  await writeFile(join(baseDir, "query/options.ts"), queryResult.content);
+}
+
+/**
+ * Generate full GraphQL artifact set for TypeScript compilation tests
+ */
+async function generateGraphQLArtifacts(
+  config: GraphQLSourceConfig,
+  validator: ValidatorLibrary,
+  baseDir: string,
+): Promise<void> {
+  const schema = await graphqlAdapter.loadSchema(config);
+
+  // Create directories
+  await mkdir(join(baseDir, "form"), { recursive: true });
+  await mkdir(join(baseDir, "db"), { recursive: true });
+  await mkdir(join(baseDir, "query"), { recursive: true });
+
+  // Generate client.ts
+  const clientResult = graphqlAdapter.generateClient(schema, config);
+  await writeFile(join(baseDir, "client.ts"), clientResult.content);
+
+  // Generate types.ts
+  const typesResult = graphqlAdapter.generateTypes(schema, config, {});
+  await writeFile(join(baseDir, "types.ts"), typesResult.content);
+
+  // Generate schema.ts
+  const schemaResult = graphqlAdapter.generateSchemas(schema, config, {
+    validator,
+  });
+  await writeFile(join(baseDir, "schema.ts"), schemaResult.content);
+
+  // Generate functions.ts
+  const functionsResult = graphqlAdapter.generateFunctions(schema, config, {
+    clientImportPath: "./client",
+    typesImportPath: "./types",
+  });
+  await writeFile(join(baseDir, "functions.ts"), functionsResult.content);
+
+  // Generate form/options.ts
+  const formResult = graphqlAdapter.generateFormOptions(schema, config, {
+    schemaImportPath: "../schema",
+    sourceName: config.name,
+    validatorLibrary: validator,
+  });
+  await writeFile(join(baseDir, "form/options.ts"), formResult.content);
+
+  // Generate db/collections.ts
+  const collectionsResult = graphqlAdapter.generateCollections(schema, config, {
+    typesImportPath: "../types",
+    sourceName: config.name,
+  });
+  await writeFile(
+    join(baseDir, "db/collections.ts"),
+    collectionsResult.content,
+  );
+
+  // Generate query/options.ts
+  const queryResult = graphqlAdapter.generateOperations(schema, config, {
+    typesImportPath: "../types",
+    sourceName: config.name,
+  });
+  await writeFile(join(baseDir, "query/options.ts"), queryResult.content);
+}
+
+/**
+ * Generate tsconfig.json for TypeScript compilation tests
+ */
+async function generateTsConfig(validatorDir: string): Promise<void> {
+  const tsconfig = {
+    compilerOptions: {
+      target: "ES2022",
+      module: "ESNext",
+      moduleResolution: "bundler",
+      strict: true,
+      noEmit: true,
+      skipLibCheck: true,
+      esModuleInterop: true,
+      resolveJsonModule: true,
+      isolatedModules: true,
+      jsx: "react-jsx",
+    },
+    include: ["openapi/**/*.ts", "graphql/**/*.ts"],
+  };
+
+  await writeFile(
+    join(validatorDir, "tsconfig.json"),
+    JSON.stringify(tsconfig, null, 2),
+  );
+}
+
+/**
+ * Run TypeScript type-check on generated files
+ */
+async function runTypeCheck(
+  validatorDir: string,
+): Promise<{ success: boolean; output: string }> {
+  try {
+    const { stdout, stderr } = await execAsync(
+      `npx tsc --project ${join(validatorDir, "tsconfig.json")}`,
+      { cwd: validatorDir, timeout: 30000 },
+    );
+    return { success: true, output: stdout || stderr || "No output" };
+  } catch (error) {
+    const execError = error as { stdout?: string; stderr?: string };
+    return {
+      success: false,
+      output: execError.stderr || execError.stdout || String(error),
+    };
+  }
 }
 
 // ============================================================================
@@ -306,16 +486,33 @@ const validUpdateUserInputEmpty = {
 // ============================================================================
 
 describe("Runtime Validation", () => {
-  // Setup: generate all schemas for all validators
+  // Setup: generate all schemas and artifacts for all validators
   beforeAll(async () => {
     await mkdir(cacheDir, { recursive: true });
 
-    // Generate all schemas in parallel
+    // Generate all schemas in parallel (for runtime parsing tests)
     await Promise.all(
       supportedValidators.flatMap((validator) => [
         generateOpenAPISchema(petstoreConfig, validator, "petstore-schema.ts"),
         generateOpenAPISchema(extendedConfig, validator, "extended-schema.ts"),
         generateGraphQLSchema(validator),
+      ]),
+    );
+
+    // Generate full artifact sets in parallel (for TypeScript compilation tests)
+    await Promise.all(
+      supportedValidators.flatMap((validator) => [
+        generateOpenAPIArtifacts(
+          petstoreConfig,
+          validator,
+          join(cacheDir, validator, "openapi"),
+        ),
+        generateGraphQLArtifacts(
+          graphqlConfig,
+          validator,
+          join(cacheDir, validator, "graphql"),
+        ),
+        generateTsConfig(join(cacheDir, validator)),
       ]),
     );
   });
@@ -829,6 +1026,28 @@ describe("Runtime Validation", () => {
           expect(result.success).toBe(true);
         });
       });
+    });
+  });
+
+  // ==========================================================================
+  // TypeScript Compilation Tests
+  // ==========================================================================
+
+  describe("TypeScript Compilation", () => {
+    describe.each(
+      supportedValidators,
+    )("%s validator", (validator: ValidatorLibrary) => {
+      it("all generated files pass TypeScript type-check", async () => {
+        const validatorDir = join(cacheDir, validator);
+        const result = await runTypeCheck(validatorDir);
+
+        if (!result.success) {
+          // Include tsc output in test failure for debugging
+          expect.fail(`TypeScript errors:\n${result.output}`);
+        }
+
+        expect(result.success).toBe(true);
+      }, 30000); // 30 second timeout for tsc
     });
   });
 });

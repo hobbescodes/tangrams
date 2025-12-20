@@ -71,6 +71,7 @@ class OpenAPIAdapterImpl implements IOpenAPIAdapter {
     return generateOpenAPIFunctions(operations, {
       clientImportPath: options.clientImportPath,
       schemaImportPath: options.typesImportPath,
+      validatorLibrary: options.validatorLibrary,
     });
   }
 

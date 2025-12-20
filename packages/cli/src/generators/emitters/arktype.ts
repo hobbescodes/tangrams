@@ -184,6 +184,11 @@ function emitString(schema: StringSchemaIR): string {
 
 /**
  * Emit object schema
+ *
+ * For ArkType, we cannot spread `.infer` inside `type({})` because `.infer` gives
+ * a TypeScript type, not the schema definition. Instead:
+ * - If only fragment spreads: merge them with `.and()`
+ * - If fragments + properties: build the properties object and merge with fragments using `.and()`
  */
 function emitObject(schema: ObjectSchemaIR, warnings: string[]): string {
   // Check for fragment spreads (stored as metadata by GraphQL parser)
@@ -191,14 +196,29 @@ function emitObject(schema: ObjectSchemaIR, warnings: string[]): string {
     schema as ObjectSchemaIR & { _fragmentSpreads?: string[] }
   )._fragmentSpreads;
 
-  const fields: string[] = [];
+  const hasFragmentSpreads = fragmentSpreads && fragmentSpreads.length > 0;
+  const hasProperties = Object.keys(schema.properties).length > 0;
+  const hasAdditionalProperties =
+    schema.additionalProperties === true ||
+    (typeof schema.additionalProperties === "object" &&
+      schema.additionalProperties !== null);
 
-  // Add fragment spreads first (using spread syntax)
-  if (fragmentSpreads && fragmentSpreads.length > 0) {
-    for (const fragmentName of fragmentSpreads) {
-      fields.push(`...${toFragmentSchemaName(fragmentName)}.infer`);
+  // Case 1: Only fragment spreads, no additional properties
+  if (hasFragmentSpreads && !hasProperties && !hasAdditionalProperties) {
+    // Merge all fragments using .and()
+    if (fragmentSpreads.length === 1) {
+      return toFragmentSchemaName(fragmentSpreads[0]!);
     }
+    // Multiple fragments: chain with .and()
+    let result = toFragmentSchemaName(fragmentSpreads[0]!);
+    for (let i = 1; i < fragmentSpreads.length; i++) {
+      result = `${result}.and(${toFragmentSchemaName(fragmentSpreads[i]!)})`;
+    }
+    return result;
   }
+
+  // Build the properties object
+  const fields: string[] = [];
 
   // Add regular properties
   for (const [propName, prop] of Object.entries(schema.properties)) {
@@ -230,7 +250,17 @@ function emitObject(schema: ObjectSchemaIR, warnings: string[]): string {
     fields.push(`"[string]": ${valueTypeStr}`);
   }
 
-  return `type({\n${fields.map((f) => `  ${f}`).join(",\n")}\n})`;
+  // Build the base object schema
+  let result = `type({\n${fields.map((f) => `  ${f}`).join(",\n")}\n})`;
+
+  // Case 2: Merge with fragment spreads if present
+  if (hasFragmentSpreads) {
+    for (const fragmentName of fragmentSpreads) {
+      result = `${toFragmentSchemaName(fragmentName)}.and(${result})`;
+    }
+  }
+
+  return result;
 }
 
 /**

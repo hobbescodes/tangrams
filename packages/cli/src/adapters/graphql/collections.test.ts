@@ -124,7 +124,7 @@ describe("GraphQL Collection Discovery", () => {
       expect(userEntity).toBeDefined();
     });
 
-    it("has no selectorPath for direct array responses", async () => {
+    it("has selectorPath matching the response key for direct array responses", async () => {
       const schema = await graphqlAdapter.loadSchema(directArrayConfig);
       const result = graphqlAdapter.discoverCollectionEntities(
         schema,
@@ -132,8 +132,9 @@ describe("GraphQL Collection Discovery", () => {
       );
 
       const userEntity = result.entities.find((e) => e.name === "User");
-      // Direct arrays should have undefined selectorPath
-      expect(userEntity?.listQuery.selectorPath).toBeUndefined();
+      // Direct arrays should have selectorPath equal to the response key (field name)
+      // because GraphQL responses are always { fieldName: data }, not just data
+      expect(userEntity?.listQuery.selectorPath).toBe("users");
     });
   });
 

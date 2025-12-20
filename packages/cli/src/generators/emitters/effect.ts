@@ -228,8 +228,12 @@ function emitObject(schema: ObjectSchemaIR, warnings: string[]): string {
     if (prop.required) {
       fields.push(`${safeName}: ${propCode}`);
     } else {
-      // Use Schema.NullishOr for optional fields to handle both null and undefined
-      fields.push(`${safeName}: Schema.NullishOr(${propCode})`);
+      // Use Schema.optional(Schema.NullOr(...)) for optional fields.
+      // This makes the key truly optional in TypeScript (key?: T | null | undefined)
+      // which is required for compatibility with Partial<T> used by TanStack DB.
+      // Schema.NullishOr would make the key required but accept null/undefined values,
+      // which has different TypeScript semantics.
+      fields.push(`${safeName}: Schema.optional(Schema.NullOr(${propCode}))`);
     }
   }
 
@@ -257,10 +261,14 @@ function emitObject(schema: ObjectSchemaIR, warnings: string[]): string {
 
 /**
  * Emit array schema
+ *
+ * We wrap with Schema.mutable() to produce mutable array types (T[] instead of readonly T[]).
+ * This is required for compatibility with TanStack DB collections which expect mutable arrays.
+ * The runtime behavior is unchanged - only the inferred TypeScript type is affected.
  */
 function emitArray(schema: ArraySchemaIR, warnings: string[]): string {
   const itemCode = emitSchemaIR(schema.items, warnings);
-  return `Schema.Array(${itemCode})`;
+  return `Schema.mutable(Schema.Array(${itemCode}))`;
 }
 
 /**

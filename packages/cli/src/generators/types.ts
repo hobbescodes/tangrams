@@ -180,6 +180,10 @@ function generateEnumType(type: GraphQLEnumType): string {
 
 /**
  * Generate a TypeScript type from GraphQL input type
+ *
+ * Optional input fields use `| null | undefined` to be compatible with both:
+ * - Fragment types that use `| null` for nullable fields
+ * - TypeScript optional parameters that accept `undefined`
  */
 function generateInputType(
   type: GraphQLInputObjectType,
@@ -189,8 +193,10 @@ function generateInputType(
   const fieldDefs = Object.values(fields)
     .map((field) => {
       const tsType = graphqlTypeToTS(field.type, scalars);
+      // Optional fields accept both null and undefined for compatibility
       const optional = !isNonNullType(field.type) ? "?" : "";
-      return `  ${field.name}${optional}: ${tsType}`;
+      const nullish = !isNonNullType(field.type) ? " | null" : "";
+      return `  ${field.name}${optional}: ${tsType}${nullish}`;
     })
     .join("\n");
 

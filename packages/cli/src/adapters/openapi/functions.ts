@@ -14,6 +14,7 @@ import {
 } from "@/utils/writer";
 
 import type CodeBlockWriter from "code-block-writer";
+import type { ValidatorLibrary } from "@/core/config";
 import type { GeneratedFile } from "../types";
 import type { ParsedOperation } from "./schema";
 
@@ -22,6 +23,8 @@ export interface OpenAPIFunctionsGenOptions {
   clientImportPath: string;
   /** Relative import path to the schema file */
   schemaImportPath: string;
+  /** Validation library (needed for Effect's Standard Schema wrapper) */
+  validatorLibrary?: ValidatorLibrary;
 }
 
 /**
@@ -32,8 +35,15 @@ export function generateOpenAPIFunctions(
   options: OpenAPIFunctionsGenOptions,
 ): GeneratedFile {
   const writer = createWriter();
+  const isEffect = options.validatorLibrary === "effect";
 
   writeHeader(writer);
+
+  // Effect needs Schema import for standardSchemaV1 wrapper
+  if (isEffect) {
+    writer.writeLine('import { Schema } from "effect"');
+    writer.blankLine();
+  }
 
   // Separate operations by type
   const queries = operations.filter((op) => ["get"].includes(op.method));
@@ -65,7 +75,7 @@ export function generateOpenAPIFunctions(
   if (queries.length > 0) {
     writeSectionComment(writer, "Query Functions (GET operations)");
     for (const op of queries) {
-      writeQueryFunction(writer, op);
+      writeQueryFunction(writer, op, isEffect);
       writer.blankLine();
     }
   }
@@ -77,7 +87,7 @@ export function generateOpenAPIFunctions(
       "Mutation Functions (POST/PUT/PATCH/DELETE operations)",
     );
     for (const op of mutations) {
-      writeMutationFunction(writer, op);
+      writeMutationFunction(writer, op, isEffect);
       writer.blankLine();
     }
   }
@@ -132,6 +142,7 @@ function generateImports(operations: ParsedOperation[]): {
 function writeQueryFunction(
   writer: CodeBlockWriter,
   op: ParsedOperation,
+  isEffect: boolean,
 ): void {
   const baseName = toPascalCase(op.operationId);
   const fnName = toCamelCase(op.operationId);
@@ -142,9 +153,14 @@ function writeQueryFunction(
 
   const paramsType = hasParams ? `${baseName}Params` : null;
   const responseType = hasResponse ? `${baseName}Response` : "unknown";
-  const responseSchema = hasResponse
+  const rawResponseSchema = hasResponse
     ? toSchemaName(`${baseName}Response`)
     : null;
+  // Effect schemas need to be wrapped with Schema.standardSchemaV1() for Standard Schema compliance
+  const responseSchema =
+    rawResponseSchema && isEffect
+      ? `Schema.standardSchemaV1(${rawResponseSchema})`
+      : rawResponseSchema;
 
   // Build path expression
   let pathExpr: string;
@@ -234,6 +250,7 @@ function writeQueryFunction(
 function writeMutationFunction(
   writer: CodeBlockWriter,
   op: ParsedOperation,
+  isEffect: boolean,
 ): void {
   const baseName = toPascalCase(op.operationId);
   const fnName = toCamelCase(op.operationId);
@@ -243,9 +260,14 @@ function writeMutationFunction(
 
   const requestType = hasBody ? `${baseName}Request` : null;
   const responseType = hasResponse ? `${baseName}Response` : "unknown";
-  const responseSchema = hasResponse
+  const rawResponseSchema = hasResponse
     ? toSchemaName(`${baseName}Response`)
     : null;
+  // Effect schemas need to be wrapped with Schema.standardSchemaV1() for Standard Schema compliance
+  const responseSchema =
+    rawResponseSchema && isEffect
+      ? `Schema.standardSchemaV1(${rawResponseSchema})`
+      : rawResponseSchema;
 
   // Build fetch options
   const writeFetchOptions = (w: CodeBlockWriter, includeBody: boolean) => {

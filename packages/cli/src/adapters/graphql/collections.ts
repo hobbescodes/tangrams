@@ -48,9 +48,6 @@ import type {
 /** Hardcoded import path for functions (always ../functions from db/) */
 const FUNCTIONS_IMPORT_PATH = "../functions";
 
-/** Maximum depth to search for arrays in nested types */
-const MAX_ARRAY_SEARCH_DEPTH = 3;
-
 /**
  * Result of finding an array in a type
  */
@@ -132,11 +129,19 @@ export function discoverGraphQLEntities(
 }
 
 /**
- * Find all queries that return list types (directly or wrapped in objects)
+ * Find all queries that return list types (directly or wrapped in pagination objects)
+ *
+ * This function identifies queries that are suitable for collection generation:
+ * 1. Fields that return a list directly (e.g., `users: [User!]!`)
+ * 2. Fields that return a wrapper object with a data/items array (e.g., pagination wrappers)
+ *
+ * It does NOT consider nested arrays on returned objects as list queries.
+ * For example, `user(id: ID!): User` where `User` has `posts: [Post!]!` is NOT
+ * a list query for Posts - it's a single-item query that happens to have a nested array.
  */
 function findListQueries(
   queryType: GraphQLObjectType,
-  schema: GraphQLSchema,
+  _schema: GraphQLSchema,
   documents: ParsedDocuments,
   warnings: string[],
 ): ListQueryMatch[] {
@@ -150,12 +155,13 @@ function findListQueries(
 
     if (directListInfo.isList && directListInfo.itemTypeName) {
       // Direct list return - find matching operation
-      const match = findMatchingOperation(
+      // For direct lists, the selectorPath is just the response key
+      // e.g., `query { users { id } }` returns `{ users: [...] }` -> selectorPath = "users"
+      const match = findMatchingOperationForDirectList(
         fieldName,
         field,
         directListInfo.itemTypeName,
         documents,
-        undefined,
       );
       if (match) {
         results.push(match);
@@ -163,23 +169,24 @@ function findListQueries(
       continue;
     }
 
-    // Check if the return type is an object that contains a list (wrapped response)
+    // Check if the return type is a wrapper object (like a pagination envelope)
+    // that contains a data/items array field
+    //
+    // NOTE: We only look for pagination-style wrappers, NOT arbitrary nested arrays.
+    // A query like `user(id: ID!): User` where User has `posts: [Post!]!` should NOT
+    // be treated as a list query for Posts - that would require a dedicated `posts` query.
     const unwrappedType = unwrapType(field.type);
     if (isObjectType(unwrappedType)) {
-      const arrayPath = findArrayInObjectType(
-        unwrappedType,
-        schema,
-        warnings,
-        MAX_ARRAY_SEARCH_DEPTH,
-      );
+      // Only look for common pagination wrapper patterns (data, items, edges, nodes, results)
+      const arrayPath = findPaginationArrayField(unwrappedType, warnings);
       if (arrayPath) {
-        // Found a wrapped array - find matching operation
+        // Found a pagination wrapper - find matching operation
         const match = findMatchingOperation(
           fieldName,
           field,
           arrayPath.itemTypeName,
           documents,
-          arrayPath.path,
+          `${fieldName}.${arrayPath.path}`,
         );
         if (match) {
           results.push(match);
@@ -192,40 +199,90 @@ function findListQueries(
 }
 
 /**
- * Find the matching document operation for a schema field
+ * Find a pagination-style array field in an object type
+ * Only looks for common wrapper patterns like { data: [...] }, { items: [...] }, etc.
+ *
+ * This is more conservative than findArrayInObjectType - it doesn't recursively
+ * search nested objects for arrays, which prevents incorrectly treating single-item
+ * queries with nested arrays as list queries.
  */
-function findMatchingOperation(
+function findPaginationArrayField(
+  type: GraphQLObjectType,
+  warnings: string[],
+): ArrayPathResult | null {
+  const fields = type.getFields();
+  const arrayFields: Array<{ fieldName: string; result: ArrayPathResult }> = [];
+
+  // Common pagination wrapper field names
+  const paginationFieldNames = new Set([
+    "data",
+    "items",
+    "edges",
+    "nodes",
+    "results",
+    "records",
+    "list",
+    "rows",
+  ]);
+
+  for (const [fieldName, field] of Object.entries(fields)) {
+    // Only consider known pagination field names
+    if (!paginationFieldNames.has(fieldName.toLowerCase())) {
+      continue;
+    }
+
+    // Check if this field is a list
+    const listInfo = analyzeReturnType(field.type);
+    if (listInfo.isList && listInfo.itemTypeName) {
+      arrayFields.push({
+        fieldName,
+        result: { path: fieldName, itemTypeName: listInfo.itemTypeName },
+      });
+    }
+  }
+
+  // If multiple arrays found, warn and take the first
+  if (arrayFields.length > 1) {
+    const firstField = arrayFields[0];
+    const fieldNames = arrayFields.map((f) => f.fieldName).join(", ");
+    warnings.push(
+      `Multiple pagination array fields found in type "${type.name}": ${fieldNames}. Using first found: "${firstField?.fieldName}". ` +
+        `If this is incorrect, configure selectorPath in overrides.db.collections.`,
+    );
+  }
+
+  return arrayFields[0]?.result ?? null;
+}
+
+/**
+ * Find the matching document operation for a schema field that returns a direct list.
+ * The selectorPath is just the response key (field name or alias).
+ *
+ * e.g., `query { users { id } }` returns `{ users: [...] }` -> selectorPath = "users"
+ */
+function findMatchingOperationForDirectList(
   schemaFieldName: string,
   field: GraphQLField<unknown, unknown>,
   itemTypeName: string,
   documents: ParsedDocuments,
-  innerPath: string | undefined,
 ): ListQueryMatch | null {
-  // Find operation that queries this field
   for (const op of documents.operations) {
     if (op.operation !== "query") continue;
 
-    // Find the field selection that matches this schema field
     for (const sel of op.node.selectionSet.selections) {
       if (sel.kind !== Kind.FIELD) continue;
 
       const fieldNode = sel as FieldNode;
-      // Check if this selection targets our schema field
       if (fieldNode.name.value === schemaFieldName) {
-        // Get the response key (alias if present, otherwise field name)
         const responseKey = fieldNode.alias?.value || fieldNode.name.value;
-
-        // Build the full selector path
-        const selectorPath = innerPath
-          ? `${responseKey}.${innerPath}`
-          : undefined;
 
         return {
           field,
           typeName: itemTypeName,
           operation: op,
           responseKey,
-          selectorPath,
+          // For direct lists, the selectorPath is just the response key
+          selectorPath: responseKey,
         };
       }
     }
@@ -235,71 +292,48 @@ function findMatchingOperation(
 }
 
 /**
- * Recursively search an object type for a list field
- * Returns the path to the list and the item type name
+ * Find the matching document operation for a schema field with a nested/wrapped array.
+ * The selectorPath includes the full path to the array.
+ *
+ * e.g., pagination wrapper: `query { users { data { id } } }` returns
+ * `{ users: { data: [...] } }` -> selectorPath = "users.data"
  */
-function findArrayInObjectType(
-  type: GraphQLObjectType,
-  schema: GraphQLSchema,
-  warnings: string[],
-  maxDepth: number,
-  currentDepth: number = 0,
-  visitedTypes: Set<string> = new Set(),
-): ArrayPathResult | null {
-  if (currentDepth >= maxDepth) return null;
+function findMatchingOperation(
+  schemaFieldName: string,
+  field: GraphQLField<unknown, unknown>,
+  itemTypeName: string,
+  documents: ParsedDocuments,
+  selectorPath: string,
+): ListQueryMatch | null {
+  for (const op of documents.operations) {
+    if (op.operation !== "query") continue;
 
-  // Prevent infinite recursion on cyclic types
-  if (visitedTypes.has(type.name)) return null;
-  visitedTypes.add(type.name);
+    for (const sel of op.node.selectionSet.selections) {
+      if (sel.kind !== Kind.FIELD) continue;
 
-  const fields = type.getFields();
-  const arrayFields: Array<{ fieldName: string; result: ArrayPathResult }> = [];
+      const fieldNode = sel as FieldNode;
+      if (fieldNode.name.value === schemaFieldName) {
+        const responseKey = fieldNode.alias?.value || fieldNode.name.value;
 
-  for (const [fieldName, field] of Object.entries(fields)) {
-    // Check if this field is a list
-    const listInfo = analyzeReturnType(field.type);
-    if (listInfo.isList && listInfo.itemTypeName) {
-      arrayFields.push({
-        fieldName,
-        result: { path: fieldName, itemTypeName: listInfo.itemTypeName },
-      });
-      continue;
-    }
+        // For wrapped arrays, replace the schema field name with the response key in the path
+        // e.g., if field is "users" but aliased as "allUsers", and selectorPath is "users.data",
+        // we want "allUsers.data"
+        const adjustedPath = selectorPath.startsWith(schemaFieldName)
+          ? responseKey + selectorPath.slice(schemaFieldName.length)
+          : selectorPath;
 
-    // If it's an object type, recurse
-    const unwrapped = unwrapType(field.type);
-    if (isObjectType(unwrapped)) {
-      const nested = findArrayInObjectType(
-        unwrapped,
-        schema,
-        warnings,
-        maxDepth,
-        currentDepth + 1,
-        visitedTypes,
-      );
-      if (nested) {
-        arrayFields.push({
-          fieldName,
-          result: {
-            path: `${fieldName}.${nested.path}`,
-            itemTypeName: nested.itemTypeName,
-          },
-        });
+        return {
+          field,
+          typeName: itemTypeName,
+          operation: op,
+          responseKey,
+          selectorPath: adjustedPath,
+        };
       }
     }
   }
 
-  // If multiple arrays found at this level, warn and take the first
-  if (arrayFields.length > 1) {
-    const firstField = arrayFields[0];
-    const fieldNames = arrayFields.map((f) => f.fieldName).join(", ");
-    warnings.push(
-      `Multiple array fields found in type "${type.name}": ${fieldNames}. Using first found: "${firstField?.fieldName}". ` +
-        `If this is incorrect, configure selectorPath in overrides.db.collections.`,
-    );
-  }
-
-  return arrayFields[0]?.result ?? null;
+  return null;
 }
 
 /**
