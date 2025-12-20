@@ -143,11 +143,12 @@ export default defineConfig({
 
       // Optional overrides
       overrides: {
-        // Custom scalar type mappings (GraphQL only)
+        // Custom scalar mappings (GraphQL only)
+        // Values must be valid expressions for the configured validator
         scalars: {
-          DateTime: "Date",
-          JSON: "unknown",
-          BigInt: "bigint",
+          DateTime: "z.string()",  // Use z.coerce.date() for Date objects
+          JSON: "z.unknown()",
+          Cursor: "z.string()",
         },
 
         // TanStack DB overrides
@@ -350,32 +351,62 @@ generates: ["query", "form", "db"] // All three
 
 #### Scalars (GraphQL only)
 
-Map GraphQL scalars to TypeScript types:
+Map custom GraphQL scalars to validator expressions. Values must be valid expressions for your configured validator library:
 
+<Tabs items={['Zod', 'Valibot', 'ArkType']}>
+  <Tab value="Zod">
 ```typescript
 overrides: {
   scalars: {
-    DateTime: "Date",
-    JSON: "Record<string, unknown>",
-    BigInt: "bigint",
+    DateTime: "z.string()",      // ISO date string
+    JSON: "z.unknown()",         // Unknown JSON data
+    Cursor: "z.string()",        // Pagination cursor
   },
 }
 ```
+  </Tab>
+  <Tab value="Valibot">
+```typescript
+overrides: {
+  scalars: {
+    DateTime: "v.string()",
+    JSON: "v.unknown()",
+    Cursor: "v.string()",
+  },
+}
+```
+  </Tab>
+  <Tab value="ArkType">
+```typescript
+overrides: {
+  scalars: {
+    DateTime: 'type("string")',
+    JSON: 'type("unknown")',
+    Cursor: 'type("string")',
+  },
+}
+```
+  </Tab>
+</Tabs>
 
-**Default Scalar Mappings:**
+> **Note:** Scalar values must start with a valid prefix for your validator: `z.` for Zod, `v.` for Valibot, or `type(` / `type.` for ArkType. Using raw TypeScript types like `"string"` or `"Date"` will throw a validation error with a helpful suggestion.
 
-| GraphQL Scalar | TypeScript Type |
-|----------------|-----------------|
-| `ID` | `string` |
-| `String` | `string` |
-| `Int` | `number` |
-| `Float` | `number` |
-| `Boolean` | `boolean` |
-| `DateTime` | `string` |
-| `Date` | `string` |
-| `JSON` | `unknown` |
-| `BigInt` | `bigint` |
-| `UUID` | `string` |
+**Built-in Scalar Mappings:**
+
+The following GraphQL scalars are handled automatically and don't need to be configured:
+
+| GraphQL Scalar | Generated Schema |
+|----------------|------------------|
+| `ID` | `z.string()` |
+| `String` | `z.string()` |
+| `Int` | `z.number()` |
+| `Float` | `z.number()` |
+| `Boolean` | `z.boolean()` |
+| `DateTime` | `z.string()` |
+| `Date` | `z.string()` |
+| `JSON` | `z.unknown()` |
+| `BigInt` | `z.bigint()` |
+| `UUID` | `z.string()` |
 
 #### DB Overrides
 

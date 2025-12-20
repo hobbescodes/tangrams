@@ -439,8 +439,10 @@ function CreateUserButton() {
 
 ### Custom Scalars (GraphQL)
 
-Map GraphQL scalars to TypeScript types using `overrides.scalars`:
+Map custom GraphQL scalars to validator expressions. Values must be valid expressions for your configured validator:
 
+<Tabs items={['Zod', 'Valibot', 'ArkType']}>
+  <Tab value="Zod">
 ```typescript
 {
   name: "graphql",
@@ -450,27 +452,67 @@ Map GraphQL scalars to TypeScript types using `overrides.scalars`:
   generates: ["query"],
   overrides: {
     scalars: {
-      DateTime: "Date",
-      JSON: "Record<string, unknown>",
+      DateTime: "z.string()",
+      Cursor: "z.string()",
     },
   },
 }
 ```
+  </Tab>
+  <Tab value="Valibot">
+```typescript
+{
+  name: "graphql",
+  type: "graphql",
+  schema: { url: "..." },
+  documents: "...",
+  generates: ["query"],
+  overrides: {
+    scalars: {
+      DateTime: "v.string()",
+      Cursor: "v.string()",
+    },
+  },
+}
+```
+  </Tab>
+  <Tab value="ArkType">
+```typescript
+{
+  name: "graphql",
+  type: "graphql",
+  schema: { url: "..." },
+  documents: "...",
+  generates: ["query"],
+  overrides: {
+    scalars: {
+      DateTime: 'type("string")',
+      Cursor: 'type("string")',
+    },
+  },
+}
+```
+  </Tab>
+</Tabs>
 
-#### Default Scalar Mappings
+> **Note:** Scalar values must start with a valid prefix for your validator: `z.` for Zod, `v.` for Valibot, or `type(` / `type.` for ArkType.
 
-| GraphQL Scalar | TypeScript Type |
-|----------------|-----------------|
-| `ID` | `string` |
-| `String` | `string` |
-| `Int` | `number` |
-| `Float` | `number` |
-| `Boolean` | `boolean` |
-| `DateTime` | `string` |
-| `Date` | `string` |
-| `JSON` | `unknown` |
-| `BigInt` | `bigint` |
-| `UUID` | `string` |
+#### Built-in Scalar Mappings
+
+The following GraphQL scalars are handled automatically and don't need custom mappings:
+
+| GraphQL Scalar | Generated Schema |
+|----------------|------------------|
+| `ID` | `z.string()` |
+| `String` | `z.string()` |
+| `Int` | `z.number()` |
+| `Float` | `z.number()` |
+| `Boolean` | `z.boolean()` |
+| `DateTime` | `z.string()` |
+| `Date` | `z.string()` |
+| `JSON` | `z.unknown()` |
+| `BigInt` | `z.bigint()` |
+| `UUID` | `z.string()` |
 
 ## Infinite Query Options
 
