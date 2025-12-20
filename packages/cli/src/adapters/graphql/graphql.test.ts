@@ -291,11 +291,12 @@ describe("GraphQL Adapter", () => {
   });
 
   describe("generateClient with file-based schema", () => {
-    it("generates a client with placeholder URL for file-based schema", () => {
+    it("generates a client with url from config for file-based schema", () => {
       const fileConfig: GraphQLSourceConfig = {
         name: "test-api",
         type: "graphql",
         schema: { file: "./schema.graphql" },
+        url: "http://localhost:4000/graphql",
         documents: join(fixturesDir, "*.graphql"),
         generates: ["query"],
       };
@@ -308,8 +309,51 @@ describe("GraphQL Adapter", () => {
       const result = graphqlAdapter.generateClient(schema, fileConfig);
 
       expect(result.filename).toBe("client.ts");
-      expect(result.content).toContain("YOUR_GRAPHQL_ENDPOINT");
-      expect(result.content).toContain("TODO: Set your GraphQL endpoint URL");
+      expect(result.content).toContain("http://localhost:4000/graphql");
+      expect(result.content).not.toContain("YOUR_GRAPHQL_ENDPOINT");
+    });
+
+    it("generates a client with env var template", () => {
+      const fileConfig: GraphQLSourceConfig = {
+        name: "test-api",
+        type: "graphql",
+        schema: { file: "./schema.graphql" },
+        url: "${API_URL}/graphql",
+        documents: join(fixturesDir, "*.graphql"),
+        generates: ["query"],
+      };
+
+      const schema: GraphQLAdapterSchema = {
+        schema: testSchema,
+        documents: { operations: [], fragments: [] },
+      };
+
+      const result = graphqlAdapter.generateClient(schema, fileConfig);
+
+      expect(result.filename).toBe("client.ts");
+      expect(result.content).toContain("${process.env.API_URL}/graphql");
+      expect(result.content).toContain("`"); // Template literal
+    });
+
+    it("url overrides schema.url for URL-based schema", () => {
+      const config: GraphQLSourceConfig = {
+        name: "test-api",
+        type: "graphql",
+        schema: { url: "http://localhost:4000/graphql" },
+        url: "${PROD_API_URL}",
+        documents: join(fixturesDir, "*.graphql"),
+        generates: ["query"],
+      };
+
+      const schema: GraphQLAdapterSchema = {
+        schema: testSchema,
+        documents: { operations: [], fragments: [] },
+      };
+
+      const result = graphqlAdapter.generateClient(schema, config);
+
+      expect(result.content).toContain("${process.env.PROD_API_URL}");
+      expect(result.content).not.toContain("http://localhost:4000/graphql");
     });
   });
 });

@@ -9,11 +9,9 @@ import { loadDocuments } from "@/core/documents";
 import { getEmitter } from "@/generators/emitters";
 import { generateFormOptionsCode } from "@/generators/form-options";
 import { generateFunctions } from "@/generators/functions";
-import {
-  parseGraphQLToIR,
-  toMutationVariablesSchemaName,
-} from "@/generators/ir";
+import { parseGraphQLToIR } from "@/generators/ir";
 import { generateGraphQLOperations } from "@/generators/query-options";
+import { toMutationVariablesSchemaName } from "@/utils/naming";
 import { generateGraphQLClient } from "./client";
 import {
   discoverGraphQLEntities,
@@ -254,7 +252,7 @@ export const graphqlAdapter = new GraphQLAdapterImpl();
 // Re-export types and utilities
 export type { GraphQLAdapterSchema };
 
-export { loadDocuments } from "./documents";
+export { loadDocuments } from "@/core/documents";
 export {
   introspectSchema,
   isFileSchemaConfig,

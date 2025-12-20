@@ -141,6 +141,32 @@ describe("OpenAPI Adapter", () => {
       // Should export async getClient function for dynamic headers
       expect(result.content).toContain("export const getClient = async ()");
     });
+
+    it("uses config.baseUrl over spec servers when provided", async () => {
+      const configWithBaseUrl: OpenAPISourceConfig = {
+        ...testConfig,
+        baseUrl: "https://custom-api.example.com/v2",
+      };
+      const schema = await openapiAdapter.loadSchema(configWithBaseUrl);
+      const result = openapiAdapter.generateClient(schema, configWithBaseUrl);
+
+      expect(result.content).toContain("https://custom-api.example.com/v2");
+      expect(result.content).not.toContain(
+        "https://api.petstore.example.com/v1",
+      );
+    });
+
+    it("generates client with env var template in baseUrl", async () => {
+      const configWithEnvVar: OpenAPISourceConfig = {
+        ...testConfig,
+        baseUrl: "${API_BASE_URL}/v1",
+      };
+      const schema = await openapiAdapter.loadSchema(configWithEnvVar);
+      const result = openapiAdapter.generateClient(schema, configWithEnvVar);
+
+      expect(result.content).toContain("${process.env.API_BASE_URL}/v1");
+      expect(result.content).toContain("`"); // Template literal
+    });
   });
 
   describe("generateOperations", () => {

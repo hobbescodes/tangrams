@@ -1,17 +1,27 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  getSafePropertyName,
+  isValidIdentifier,
   toCamelCase,
   toDocumentName,
   toFragmentDocName,
+  toFragmentSchemaName,
   toFragmentTypeName,
   toMutationOptionsName,
+  toMutationResponseSchemaName,
+  toMutationResponseTypeName,
   toMutationTypeName,
+  toMutationVariablesSchemaName,
   toMutationVariablesTypeName,
   toPascalCase,
   toQueryOptionsName,
+  toQueryResponseSchemaName,
+  toQueryResponseTypeName,
   toQueryTypeName,
+  toQueryVariablesSchemaName,
   toQueryVariablesTypeName,
+  toSchemaName,
 } from "./naming";
 
 describe("toPascalCase", () => {
@@ -167,5 +177,143 @@ describe("toFragmentTypeName", () => {
 
   it("handles lowercase input", () => {
     expect(toFragmentTypeName("postData")).toBe("PostDataFragment");
+  });
+});
+
+// ============================================================================
+// Response Type Names (aliases)
+// ============================================================================
+
+describe("toQueryResponseTypeName", () => {
+  it("is an alias for toQueryTypeName", () => {
+    expect(toQueryResponseTypeName("GetPets")).toBe("GetPetsQuery");
+    expect(toQueryResponseTypeName("GetPets")).toBe(toQueryTypeName("GetPets"));
+  });
+});
+
+describe("toMutationResponseTypeName", () => {
+  it("is an alias for toMutationTypeName", () => {
+    expect(toMutationResponseTypeName("CreatePet")).toBe("CreatePetMutation");
+    expect(toMutationResponseTypeName("CreatePet")).toBe(
+      toMutationTypeName("CreatePet"),
+    );
+  });
+});
+
+// ============================================================================
+// Schema Naming Utilities
+// ============================================================================
+
+describe("toSchemaName", () => {
+  it("converts type name to schema variable name", () => {
+    expect(toSchemaName("User")).toBe("userSchema");
+  });
+
+  it("handles complex names", () => {
+    expect(toSchemaName("CreateUserRequest")).toBe("createUserRequestSchema");
+  });
+
+  it("handles already lowercase first char", () => {
+    expect(toSchemaName("user")).toBe("userSchema");
+  });
+});
+
+describe("toQueryVariablesSchemaName", () => {
+  it("converts operation name to query variables schema name", () => {
+    expect(toQueryVariablesSchemaName("GetPets")).toBe(
+      "getPetsQueryVariablesSchema",
+    );
+  });
+
+  it("handles complex names", () => {
+    expect(toQueryVariablesSchemaName("ListAllUsers")).toBe(
+      "listAllUsersQueryVariablesSchema",
+    );
+  });
+});
+
+describe("toMutationVariablesSchemaName", () => {
+  it("converts operation name to mutation variables schema name", () => {
+    expect(toMutationVariablesSchemaName("CreatePet")).toBe(
+      "createPetMutationVariablesSchema",
+    );
+  });
+
+  it("handles complex names", () => {
+    expect(toMutationVariablesSchemaName("UpdateUserProfile")).toBe(
+      "updateUserProfileMutationVariablesSchema",
+    );
+  });
+});
+
+describe("toQueryResponseSchemaName", () => {
+  it("converts operation name to query response schema name", () => {
+    expect(toQueryResponseSchemaName("GetPets")).toBe("getPetsQuerySchema");
+  });
+
+  it("handles complex names", () => {
+    expect(toQueryResponseSchemaName("ListAllUsers")).toBe(
+      "listAllUsersQuerySchema",
+    );
+  });
+});
+
+describe("toMutationResponseSchemaName", () => {
+  it("converts operation name to mutation response schema name", () => {
+    expect(toMutationResponseSchemaName("CreatePet")).toBe(
+      "createPetMutationSchema",
+    );
+  });
+
+  it("handles complex names", () => {
+    expect(toMutationResponseSchemaName("DeleteUserAccount")).toBe(
+      "deleteUserAccountMutationSchema",
+    );
+  });
+});
+
+describe("toFragmentSchemaName", () => {
+  it("converts fragment name to fragment schema name", () => {
+    expect(toFragmentSchemaName("PetFields")).toBe("petFieldsFragmentSchema");
+  });
+
+  it("handles lowercase input", () => {
+    expect(toFragmentSchemaName("userFields")).toBe("userFieldsFragmentSchema");
+  });
+});
+
+// ============================================================================
+// Property Naming Utilities
+// ============================================================================
+
+describe("isValidIdentifier", () => {
+  it("returns true for valid identifiers", () => {
+    expect(isValidIdentifier("foo")).toBe(true);
+    expect(isValidIdentifier("_foo")).toBe(true);
+    expect(isValidIdentifier("$foo")).toBe(true);
+    expect(isValidIdentifier("foo123")).toBe(true);
+    expect(isValidIdentifier("FOO_BAR")).toBe(true);
+  });
+
+  it("returns false for invalid identifiers", () => {
+    expect(isValidIdentifier("123foo")).toBe(false);
+    expect(isValidIdentifier("foo-bar")).toBe(false);
+    expect(isValidIdentifier("foo bar")).toBe(false);
+    expect(isValidIdentifier("foo.bar")).toBe(false);
+    expect(isValidIdentifier("")).toBe(false);
+  });
+});
+
+describe("getSafePropertyName", () => {
+  it("returns valid identifiers as-is", () => {
+    expect(getSafePropertyName("foo")).toBe("foo");
+    expect(getSafePropertyName("_foo")).toBe("_foo");
+    expect(getSafePropertyName("foo123")).toBe("foo123");
+  });
+
+  it("quotes invalid identifiers", () => {
+    expect(getSafePropertyName("foo-bar")).toBe('"foo-bar"');
+    expect(getSafePropertyName("123foo")).toBe('"123foo"');
+    expect(getSafePropertyName("foo bar")).toBe('"foo bar"');
   });
 });

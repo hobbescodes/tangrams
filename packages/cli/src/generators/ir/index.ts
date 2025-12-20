@@ -23,28 +23,13 @@ export {
   isStringSchema,
   isUnionSchema,
 } from "./types";
-// Utilities
+// IR-specific utilities (dependency extraction, sorting, builders)
 export {
   createNamedSchema,
   extractDependencies,
-  getSafePropertyName,
   ir,
-  isValidIdentifier,
   makeNullable,
   makeNullish,
-  toCamelCase,
-  toFragmentSchemaName,
-  toFragmentTypeName,
-  toMutationResponseSchemaName,
-  toMutationResponseTypeName,
-  toMutationVariablesSchemaName,
-  toMutationVariablesTypeName,
-  toPascalCase,
-  toQueryResponseSchemaName,
-  toQueryResponseTypeName,
-  toQueryVariablesSchemaName,
-  toQueryVariablesTypeName,
-  toSchemaName,
   topologicalSortSchemas,
 } from "./utils";
 

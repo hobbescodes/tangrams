@@ -2,6 +2,8 @@
  * OpenAPI client generation
  * Generates a better-fetch client for OpenAPI endpoints
  */
+import { formatUrlForClient } from "@/utils/url";
+
 import type { OpenAPISourceConfig } from "@/core/config";
 import type { GeneratedFile, OpenAPIAdapterSchema } from "../types";
 
@@ -10,16 +12,26 @@ import type { GeneratedFile, OpenAPIAdapterSchema } from "../types";
  */
 export function generateOpenAPIClient(
   schema: OpenAPIAdapterSchema,
-  _config: OpenAPISourceConfig,
+  config: OpenAPISourceConfig,
 ): GeneratedFile {
-  const { baseUrl } = schema;
+  // Priority: config.baseUrl > schema.baseUrl (from spec)
+  const url = config.baseUrl ?? schema.baseUrl;
+
+  if (!url) {
+    throw new Error(
+      "baseUrl is required: OpenAPI spec has no servers defined. " +
+        "Add a 'baseUrl' field to your source config.",
+    );
+  }
+
+  const formattedUrl = formatUrlForClient(url);
 
   const content = `/* eslint-disable */
 /* OpenAPI Client - Generated once by tangrams. Customize as needed. */
 
 import { createFetch } from "@better-fetch/fetch"
 
-const baseURL = "${baseUrl || "http://localhost:3000"}"
+const baseURL = ${formattedUrl}
 
 /**
  * Returns a configured fetch client.

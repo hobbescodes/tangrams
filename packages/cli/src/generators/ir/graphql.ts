@@ -17,14 +17,13 @@ import {
 } from "graphql";
 
 import {
-  createNamedSchema,
   toFragmentTypeName,
   toMutationResponseTypeName,
   toMutationVariablesTypeName,
   toQueryResponseTypeName,
   toQueryVariablesTypeName,
-  topologicalSortSchemas,
-} from "./utils";
+} from "@/utils/naming";
+import { createNamedSchema, topologicalSortSchemas } from "./utils";
 
 import type {
   GraphQLEnumType,

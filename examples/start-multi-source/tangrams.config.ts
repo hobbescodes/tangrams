@@ -8,6 +8,7 @@ export default defineConfig({
       schema: {
         file: "../shared/mocks/schemas/schema.graphql",
       },
+      url: "http://localhost:3000/graphql",
       documents: "./src/graphql/**/*.graphql",
       generates: ["query", "form"],
     },

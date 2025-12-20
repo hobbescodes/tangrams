@@ -3,7 +3,7 @@
 
 import { GraphQLClient } from "graphql-request"
 
-const endpoint = "YOUR_GRAPHQL_ENDPOINT" // TODO: Set your GraphQL endpoint URL
+const endpoint = "http://localhost:3000/graphql"
 
 /**
  * Returns a GraphQL client instance.

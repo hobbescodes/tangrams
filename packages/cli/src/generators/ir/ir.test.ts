@@ -7,21 +7,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  isArraySchema,
-  isEnumSchema,
-  isIntersectionSchema,
-  isLiteralSchema,
-  isNumberSchema,
-  isObjectSchema,
-  isRawSchema,
-  isRecordSchema,
-  isRefSchema,
-  isStringSchema,
-  isUnionSchema,
-} from "./types";
-import {
-  createNamedSchema,
-  extractDependencies,
   getSafePropertyName,
   isValidIdentifier,
   toCamelCase,
@@ -37,6 +22,23 @@ import {
   toQueryVariablesSchemaName,
   toQueryVariablesTypeName,
   toSchemaName,
+} from "@/utils/naming";
+import {
+  isArraySchema,
+  isEnumSchema,
+  isIntersectionSchema,
+  isLiteralSchema,
+  isNumberSchema,
+  isObjectSchema,
+  isRawSchema,
+  isRecordSchema,
+  isRefSchema,
+  isStringSchema,
+  isUnionSchema,
+} from "./types";
+import {
+  createNamedSchema,
+  extractDependencies,
   topologicalSortSchemas,
 } from "./utils";
 

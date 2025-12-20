@@ -5,11 +5,8 @@
  * that can be emitted to any validator library.
  */
 
-import {
-  createNamedSchema,
-  toPascalCase,
-  topologicalSortSchemas,
-} from "./utils";
+import { toPascalCase } from "@/utils/naming";
+import { createNamedSchema, topologicalSortSchemas } from "./utils";
 
 import type { OpenAPIV3, OpenAPIV3_1 } from "openapi-types";
 import type { ParsedOperation } from "@/adapters/openapi/schema";

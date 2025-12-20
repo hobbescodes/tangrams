@@ -8,8 +8,8 @@
  * with object syntax for complex types.
  */
 
+import { toFragmentSchemaName, toSchemaName } from "@/utils/naming";
 import { createWriter, writeHeader, writeSectionComment } from "@/utils/writer";
-import { toFragmentSchemaName, toSchemaName } from "../ir/utils";
 
 import type {
   ArraySchemaIR,

@@ -3,6 +3,8 @@ import { dirname } from "node:path";
 import { loadConfig } from "c12";
 import * as z from "zod";
 
+import { validateEnvVarTemplates } from "@/utils/url";
+
 import type { DotenvOptions } from "c12";
 
 /**
@@ -269,15 +271,21 @@ export type GraphQLSchemaFileConfig = z.infer<typeof graphqlSchemaFileConfig>;
 export type GraphQLSchemaConfig = z.infer<typeof graphqlSchemaConfig>;
 
 /**
- * GraphQL source configuration
+ * GraphQL source configuration (base schema without refinements)
  */
-export const graphqlSourceSchema = z.object({
+const graphqlSourceBaseSchema = z.object({
   /** Unique name for this source (used for output directory) */
   name: sourceNameSchema,
   /** Source type discriminator */
   type: z.literal("graphql"),
   /** GraphQL schema configuration - URL for introspection or file path(s) for local SDL */
   schema: graphqlSchemaConfig,
+  /**
+   * Runtime URL for the GraphQL endpoint.
+   * Required when using file-based schema. Optional for URL-based schema (overrides schema.url).
+   * Supports env var templates: "${API_URL}" or "${API_URL}/graphql"
+   */
+  url: z.string().optional(),
   /** Glob pattern(s) for GraphQL document files */
   documents: z.union([z.string(), z.array(z.string())]),
   /** What to generate from this source */
@@ -286,12 +294,42 @@ export const graphqlSourceSchema = z.object({
   overrides: overridesSchema.optional(),
 });
 
+/**
+ * GraphQL source configuration with validation refinements
+ */
+export const graphqlSourceSchema = graphqlSourceBaseSchema
+  .refine(
+    (data) => {
+      // If using file-based schema, url is required
+      if ("file" in data.schema) {
+        return data.url !== undefined && data.url.length > 0;
+      }
+      return true;
+    },
+    {
+      message: "url is required when using file-based schema",
+      path: ["url"],
+    },
+  )
+  .superRefine((data, ctx) => {
+    if (data.url) {
+      const error = validateEnvVarTemplates(data.url);
+      if (error !== null) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: error,
+          path: ["url"],
+        });
+      }
+    }
+  });
+
 export type GraphQLSourceConfig = z.infer<typeof graphqlSourceSchema>;
 
 /**
- * OpenAPI source configuration
+ * OpenAPI source configuration (base schema without refinements)
  */
-export const openApiSourceSchema = z.object({
+const openApiSourceBaseSchema = z.object({
   /** Unique name for this source (used for output directory) */
   name: sourceNameSchema,
   /** Source type discriminator */
@@ -300,6 +338,11 @@ export const openApiSourceSchema = z.object({
   spec: z.string().min(1, "OpenAPI spec path or URL is required"),
   /** Headers to send when fetching remote spec */
   headers: z.record(z.string(), z.string()).optional(),
+  /**
+   * Base URL for API requests. Overrides servers from spec if provided.
+   * Supports env var templates: "${API_URL}" or "${API_URL}/v1"
+   */
+  baseUrl: z.string().optional(),
   /** Glob patterns for paths to include (e.g., ["/users/**", "/posts/*"]) */
   include: z.array(z.string()).optional(),
   /** Glob patterns for paths to exclude */
@@ -309,6 +352,24 @@ export const openApiSourceSchema = z.object({
   /** Optional overrides for DB collections */
   overrides: overridesSchema.optional(),
 });
+
+/**
+ * OpenAPI source configuration with validation refinements
+ */
+export const openApiSourceSchema = openApiSourceBaseSchema.superRefine(
+  (data, ctx) => {
+    if (data.baseUrl) {
+      const error = validateEnvVarTemplates(data.baseUrl);
+      if (error !== null) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: error,
+          path: ["baseUrl"],
+        });
+      }
+    }
+  },
+);
 
 export type OpenAPISourceConfig = z.infer<typeof openApiSourceSchema>;
 

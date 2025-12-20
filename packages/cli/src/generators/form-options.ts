@@ -9,8 +9,8 @@
  * Schema.standardSchemaV1() to be Standard Schema compliant.
  */
 
+import { toCamelCase, toPascalCase, toSchemaName } from "@/utils/naming";
 import { createWriter, writeHeader, writeImport } from "@/utils/writer";
-import { toCamelCase, toPascalCase, toSchemaName } from "./ir/utils";
 
 import type CodeBlockWriter from "code-block-writer";
 import type { FormOverridesConfig } from "@/core/config";

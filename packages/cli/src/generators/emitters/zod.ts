@@ -4,12 +4,12 @@
  * Converts IR to Zod validation code.
  */
 
-import { createWriter, writeHeader, writeSectionComment } from "@/utils/writer";
 import {
   getSafePropertyName,
   toFragmentSchemaName,
   toSchemaName,
-} from "../ir/utils";
+} from "@/utils/naming";
+import { createWriter, writeHeader, writeSectionComment } from "@/utils/writer";
 
 import type {
   ArraySchemaIR,

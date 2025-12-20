@@ -1,6 +1,7 @@
 /**
  * GraphQL client generation
  */
+import { formatUrlForClient } from "@/utils/url";
 import { isUrlSchemaConfig } from "./schema";
 
 import type { GraphQLSourceConfig } from "@/core/config";
@@ -13,22 +14,26 @@ export function generateGraphQLClient(
   _schema: GraphQLAdapterSchema,
   config: GraphQLSourceConfig,
 ): GeneratedFile {
-  // For URL-based schemas, use the configured URL
-  // For file-based schemas, use a placeholder that the user must configure
-  const endpoint = isUrlSchemaConfig(config.schema)
-    ? config.schema.url
-    : "YOUR_GRAPHQL_ENDPOINT";
+  // Priority: config.url > schema.url (for URL-based schemas)
+  // For file-based schemas, config.url is required (enforced by validation)
+  let url: string;
+  if (config.url) {
+    url = config.url;
+  } else if (isUrlSchemaConfig(config.schema)) {
+    url = config.schema.url;
+  } else {
+    // This should never happen due to config validation, but safety net
+    throw new Error("GraphQL endpoint URL is required for file-based schemas");
+  }
 
-  const endpointComment = isUrlSchemaConfig(config.schema)
-    ? ""
-    : " // TODO: Set your GraphQL endpoint URL";
+  const formattedUrl = formatUrlForClient(url);
 
   const content = `/* eslint-disable */
 /* GraphQL Client - Generated once by tangrams. Customize as needed. */
 
 import { GraphQLClient } from "graphql-request"
 
-const endpoint = "${endpoint}"${endpointComment}
+const endpoint = ${formattedUrl}
 
 /**
  * Returns a GraphQL client instance.

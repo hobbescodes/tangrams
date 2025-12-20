@@ -161,7 +161,46 @@ describe("graphqlSourceSchema", () => {
   });
 
   // File-based schema configuration tests
-  it("validates file-based schema with single file path", () => {
+  it("validates file-based schema with single file path and url", () => {
+    const source = {
+      name: "main-api",
+      type: "graphql",
+      schema: { file: "./schema.graphql" },
+      url: "http://localhost:4000/graphql",
+      documents: "./src/graphql/**/*.graphql",
+      generates: ["query"],
+    };
+    const result = graphqlSourceSchema.safeParse(source);
+    expect(result.success).toBe(true);
+  });
+
+  it("validates file-based schema with glob pattern and url", () => {
+    const source = {
+      name: "main-api",
+      type: "graphql",
+      schema: { file: "./schemas/**/*.graphql" },
+      url: "http://localhost:4000/graphql",
+      documents: "./src/graphql/**/*.graphql",
+      generates: ["query"],
+    };
+    const result = graphqlSourceSchema.safeParse(source);
+    expect(result.success).toBe(true);
+  });
+
+  it("validates file-based schema with array of patterns and url", () => {
+    const source = {
+      name: "main-api",
+      type: "graphql",
+      schema: { file: ["./schema.graphql", "./extensions/**/*.graphql"] },
+      url: "http://localhost:4000/graphql",
+      documents: "./src/graphql/**/*.graphql",
+      generates: ["query"],
+    };
+    const result = graphqlSourceSchema.safeParse(source);
+    expect(result.success).toBe(true);
+  });
+
+  it("fails when file-based schema is missing url", () => {
     const source = {
       name: "main-api",
       type: "graphql",
@@ -170,31 +209,12 @@ describe("graphqlSourceSchema", () => {
       generates: ["query"],
     };
     const result = graphqlSourceSchema.safeParse(source);
-    expect(result.success).toBe(true);
-  });
-
-  it("validates file-based schema with glob pattern", () => {
-    const source = {
-      name: "main-api",
-      type: "graphql",
-      schema: { file: "./schemas/**/*.graphql" },
-      documents: "./src/graphql/**/*.graphql",
-      generates: ["query"],
-    };
-    const result = graphqlSourceSchema.safeParse(source);
-    expect(result.success).toBe(true);
-  });
-
-  it("validates file-based schema with array of patterns", () => {
-    const source = {
-      name: "main-api",
-      type: "graphql",
-      schema: { file: ["./schema.graphql", "./extensions/**/*.graphql"] },
-      documents: "./src/graphql/**/*.graphql",
-      generates: ["query"],
-    };
-    const result = graphqlSourceSchema.safeParse(source);
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toContain(
+        "url is required when using file-based schema",
+      );
+    }
   });
 
   it("fails when schema has neither url nor file", () => {
@@ -209,13 +229,56 @@ describe("graphqlSourceSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("validates file-based schema with scalars", () => {
+  it("validates file-based schema with scalars and url", () => {
     const source = {
       name: "main-api",
       type: "graphql",
       schema: { file: "./schema.graphql" },
+      url: "http://localhost:4000/graphql",
       documents: "./src/graphql/**/*.graphql",
       scalars: { DateTime: "Date" },
+      generates: ["query"],
+    };
+    const result = graphqlSourceSchema.safeParse(source);
+    expect(result.success).toBe(true);
+  });
+
+  it("validates url with env var template", () => {
+    const source = {
+      name: "main-api",
+      type: "graphql",
+      schema: { file: "./schema.graphql" },
+      url: "${API_URL}/graphql",
+      documents: "./src/graphql/**/*.graphql",
+      generates: ["query"],
+    };
+    const result = graphqlSourceSchema.safeParse(source);
+    expect(result.success).toBe(true);
+  });
+
+  it("fails with invalid env var template in url", () => {
+    const source = {
+      name: "main-api",
+      type: "graphql",
+      schema: { file: "./schema.graphql" },
+      url: "${123INVALID}/graphql",
+      documents: "./src/graphql/**/*.graphql",
+      generates: ["query"],
+    };
+    const result = graphqlSourceSchema.safeParse(source);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toContain("Invalid");
+    }
+  });
+
+  it("allows url to override schema.url for URL-based schema", () => {
+    const source = {
+      name: "main-api",
+      type: "graphql",
+      schema: { url: "http://localhost:4000/graphql" },
+      url: "${PROD_API_URL}",
+      documents: "./src/graphql/**/*.graphql",
       generates: ["query"],
     };
     const result = graphqlSourceSchema.safeParse(source);
@@ -289,6 +352,45 @@ describe("openApiSourceSchema", () => {
     };
     const result = openApiSourceSchema.safeParse(source);
     expect(result.success).toBe(false);
+  });
+
+  it("validates with baseUrl", () => {
+    const source = {
+      name: "users-api",
+      type: "openapi",
+      spec: "./specs/openapi.yaml",
+      baseUrl: "https://api.example.com",
+      generates: ["query"],
+    };
+    const result = openApiSourceSchema.safeParse(source);
+    expect(result.success).toBe(true);
+  });
+
+  it("validates baseUrl with env var template", () => {
+    const source = {
+      name: "users-api",
+      type: "openapi",
+      spec: "./specs/openapi.yaml",
+      baseUrl: "${API_URL}/v1",
+      generates: ["query"],
+    };
+    const result = openApiSourceSchema.safeParse(source);
+    expect(result.success).toBe(true);
+  });
+
+  it("fails with invalid env var template in baseUrl", () => {
+    const source = {
+      name: "users-api",
+      type: "openapi",
+      spec: "./specs/openapi.yaml",
+      baseUrl: "${123INVALID}",
+      generates: ["query"],
+    };
+    const result = openApiSourceSchema.safeParse(source);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toContain("Invalid");
+    }
   });
 });
 

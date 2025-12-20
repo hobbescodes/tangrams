@@ -95,3 +95,94 @@ export function toFragmentTypeName(fragmentName: string): string {
 export function toInfiniteQueryOptionsName(operationName: string): string {
   return `${toCamelCase(operationName)}InfiniteQueryOptions`;
 }
+
+// ============================================================================
+// Response Type Names (aliases for consistency with schema naming)
+// ============================================================================
+
+/**
+ * Convert a GraphQL operation name to a query response type name
+ * e.g., "GetPets" -> "GetPetsQuery"
+ * This is an alias for toQueryTypeName for consistency with schema naming conventions
+ */
+export const toQueryResponseTypeName = toQueryTypeName;
+
+/**
+ * Convert a GraphQL operation name to a mutation response type name
+ * e.g., "CreatePet" -> "CreatePetMutation"
+ * This is an alias for toMutationTypeName for consistency with schema naming conventions
+ */
+export const toMutationResponseTypeName = toMutationTypeName;
+
+// ============================================================================
+// Schema Naming Utilities
+// ============================================================================
+
+/**
+ * Convert a type name to a schema variable name
+ * e.g., "User" -> "userSchema", "CreateUserRequest" -> "createUserRequestSchema"
+ */
+export function toSchemaName(typeName: string): string {
+  const camelCase = typeName.charAt(0).toLowerCase() + typeName.slice(1);
+  return `${camelCase}Schema`;
+}
+
+/**
+ * Convert a GraphQL operation name to a query variables schema name
+ * e.g., "GetPets" -> "getPetsQueryVariablesSchema"
+ */
+export function toQueryVariablesSchemaName(operationName: string): string {
+  return `${toCamelCase(operationName)}QueryVariablesSchema`;
+}
+
+/**
+ * Convert a GraphQL operation name to a mutation variables schema name
+ * e.g., "CreatePet" -> "createPetMutationVariablesSchema"
+ */
+export function toMutationVariablesSchemaName(operationName: string): string {
+  return `${toCamelCase(operationName)}MutationVariablesSchema`;
+}
+
+/**
+ * Convert a GraphQL operation name to a query response schema name
+ * e.g., "GetPets" -> "getPetsQuerySchema"
+ */
+export function toQueryResponseSchemaName(operationName: string): string {
+  return `${toCamelCase(operationName)}QuerySchema`;
+}
+
+/**
+ * Convert a GraphQL operation name to a mutation response schema name
+ * e.g., "CreatePet" -> "createPetMutationSchema"
+ */
+export function toMutationResponseSchemaName(operationName: string): string {
+  return `${toCamelCase(operationName)}MutationSchema`;
+}
+
+/**
+ * Convert a GraphQL fragment name to a fragment schema name
+ * e.g., "PetFields" -> "petFieldsFragmentSchema"
+ */
+export function toFragmentSchemaName(fragmentName: string): string {
+  return `${toCamelCase(fragmentName)}FragmentSchema`;
+}
+
+// ============================================================================
+// Property Naming Utilities
+// ============================================================================
+
+/**
+ * Check if a property name is a valid JavaScript identifier
+ * If not, it needs to be quoted in object literals
+ */
+export function isValidIdentifier(name: string): boolean {
+  return /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(name);
+}
+
+/**
+ * Get a safe property name for use in object literals
+ * Quotes the name if it's not a valid identifier
+ */
+export function getSafePropertyName(name: string): string {
+  return isValidIdentifier(name) ? name : `"${name}"`;
+}

@@ -96,10 +96,13 @@ export async function generate(
   const formSourceNames: string[] = [];
   const dbSourceNames: string[] = [];
 
+  // Compute the tangrams output directory
+  const tangramsOutputDir = join(config.output, "tangrams");
+
   // Process each source
   for (const source of config.sources) {
     const generates = normalizeGenerates(source.generates);
-    const baseOutputDir = join(process.cwd(), config.output, "tangrams");
+    const baseOutputDir = join(process.cwd(), tangramsOutputDir);
     const sourceOutputDir = join(baseOutputDir, source.name);
 
     // Ensure source directory exists
@@ -215,7 +218,7 @@ export async function generate(
   if (generatedOutputs.length > 0) {
     consola.box({
       title: "Generation Complete",
-      message: `Generated: ${generatedOutputs.join(", ")}\nOutput directory: ${config.output}`,
+      message: `Generated: ${generatedOutputs.join(", ")}\nOutput directory: ${tangramsOutputDir}`,
     });
   }
 
