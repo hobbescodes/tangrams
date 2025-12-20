@@ -287,9 +287,9 @@ async function generateSchemaFile(
   };
   const result = adapter.generateSchemas(schema, source, schemaGenOptions);
 
-  // Log any warnings
+  // Log any warnings (deduplicated)
   if (result.warnings) {
-    for (const warning of result.warnings) {
+    for (const warning of [...new Set(result.warnings)]) {
       consola.warn(warning);
     }
   }
@@ -445,9 +445,9 @@ async function generateFormFiles(
     formOverrides: getFormOverrides(source),
   });
 
-  // Log any warnings
+  // Log any warnings (deduplicated)
   if (formResult.warnings) {
-    for (const warning of formResult.warnings) {
+    for (const warning of [...new Set(formResult.warnings)]) {
       consola.warn(warning);
     }
   }
@@ -496,9 +496,9 @@ async function generateDbFiles(options: GenerateDbFilesOptions): Promise<void> {
     collectionOverrides: getDbCollectionOverrides(source),
   });
 
-  // Log any warnings
+  // Log any warnings (deduplicated)
   if (dbResult.warnings) {
-    for (const warning of dbResult.warnings) {
+    for (const warning of [...new Set(dbResult.warnings)]) {
       consola.warn(warning);
     }
   }
