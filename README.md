@@ -15,7 +15,7 @@ tangrams is a comprehensive code generation tool for the TanStack ecosystem. It 
 
 ## Features
 
-- **TanStack Query** - Generate type-safe `queryOptions` and `mutationOptions`
+- **TanStack Query** - Generate type-safe `queryOptions`, `infiniteQueryOptions`, and `mutationOptions`
 - **TanStack Form** - Generate type-safe `formOptions` with validation schemas
 - **TanStack DB** - Generate `queryCollectionOptions` with auto-detected CRUD operations
 - **Standalone Functions** - Generate standalone async fetch functions
@@ -76,7 +76,7 @@ bun add @better-fetch/fetch
 2. **Configure your source** in `tangrams.config.ts`:
 
    ```typescript
-   import { defineConfig } from "tangrams"
+   import { defineConfig } from "tangrams";
 
    export default defineConfig({
      sources: [
@@ -88,7 +88,7 @@ bun add @better-fetch/fetch
          generates: ["query", "form"],
        },
      ],
-   })
+   });
    ```
 
 3. **Generate code**
@@ -101,7 +101,7 @@ bun add @better-fetch/fetch
 
    ```typescript
    import { useQuery, useMutation } from "@tanstack/react-query"
-   import { getUserQueryOptions, createUserMutationOptions } from "./generated/api/query/operations"
+   import { getUserQueryOptions, createUserMutationOptions } from "./tangrams/api/query/operations"
 
    function UserProfile({ userId }: { userId: string }) {
      const { data } = useQuery(getUserQueryOptions({ id: userId }))
@@ -116,7 +116,7 @@ bun add @better-fetch/fetch
 For comprehensive documentation, configuration reference, and usage examples, visit the **[Tangrams Documentation](https://tangrams.dev/docs)**.
 
 - **[Getting Started](https://tangrams.dev/docs)** - Installation, configuration reference, and all available options
-- **[TanStack Query](https://tangrams.dev/docs/tanstack-query)** - Generate `queryOptions` and `mutationOptions`
+- **[TanStack Query](https://tangrams.dev/docs/tanstack-query)** - Generate `queryOptions`, `infiniteQueryOptions` when applicable, and `mutationOptions`
 - **[TanStack Form](https://tangrams.dev/docs/tanstack-form)** - Generate `formOptions` with schema validation
 - **[TanStack DB](https://tangrams.dev/docs/tanstack-db)** - Generate collections with local-first data sync
 
