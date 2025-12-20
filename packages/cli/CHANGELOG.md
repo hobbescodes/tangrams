@@ -1,5 +1,13 @@
 # tangrams
 
+## 0.10.1
+
+### Patch Changes
+
+- ac19838: Add validation for custom scalar mappings in GraphQL config. Previously, invalid scalar values like `{ DateTime: "string" }` instead of `{ DateTime: "z.string()" }` would generate broken code. Now, tangrams validates that scalar values are valid expressions for the selected validator and throws a helpful error with suggestions (e.g., `Did you mean "z.string()"?`).
+- 1c7ec1a: Fix duplicate warnings being output during generation (e.g., unknown scalar warnings now only appear once per unique message)
+- ac19838: Fix infinite query detection to be schema-driven rather than variable-name dependent. Previously, `infiniteQueryOptions` would only be generated if GraphQL variable names matched expected patterns (e.g., `$first`, `$after`). Now, detection analyzes the schema field's arguments and return type directly, allowing any variable names (e.g., `$pageSize` instead of `$first`, `$cursor` instead of `$after`) as long as the schema field supports Relay-style pagination.
+
 ## 0.10.0
 
 ### Minor Changes
