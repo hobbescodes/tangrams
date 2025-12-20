@@ -601,22 +601,6 @@ function writeBuildNestedObjectHelper(writer: CodeBlockWriter): void {
   });
 }
 
-// =============================================================================
-// Import Helpers
-// =============================================================================
-
-/**
- * Get the required imports for predicate translation
- */
-export function getPredicateImports(): string {
-  const writer = createWriter();
-  writer.writeLine(
-    `import { parseLoadSubsetOptions } from "@tanstack/query-db-collection"`,
-  );
-  writer.writeLine(`import type { LoadSubsetOptions } from "@tanstack/db"`);
-  return writer.toString().trim();
-}
-
 /**
  * Check if an entity needs predicate translation (is configured for on-demand mode)
  */

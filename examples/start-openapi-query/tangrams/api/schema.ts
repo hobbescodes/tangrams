@@ -5,7 +5,9 @@ import * as z from "zod"
 
 // Zod Schemas
 export const petCategorySchema = z.enum(["dog", "cat", "bird", "fish", "reptile"])
+
 export const petStatusSchema = z.enum(["available", "pending", "sold"])
+
 export const petSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -16,6 +18,7 @@ export const petSchema = z.object({
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime()
 })
+
 export const createPetInputSchema = z.object({
   name: z.string(),
   category: petCategorySchema,
@@ -23,6 +26,7 @@ export const createPetInputSchema = z.object({
   tags: z.array(z.string()),
   photoUrl: z.url().nullish()
 })
+
 export const updatePetInputSchema = z.object({
   name: z.string().nullish(),
   category: petCategorySchema.nullish(),
@@ -30,7 +34,9 @@ export const updatePetInputSchema = z.object({
   tags: z.array(z.string()).nullish(),
   photoUrl: z.url().nullish()
 })
+
 export const userRoleSchema = z.enum(["admin", "user", "guest"])
+
 export const userSchema = z.object({
   id: z.string(),
   email: z.email(),
@@ -39,60 +45,82 @@ export const userSchema = z.object({
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime()
 })
+
 export const createUserInputSchema = z.object({
   email: z.email(),
   name: z.string(),
   role: userRoleSchema
 })
+
 export const updateUserInputSchema = z.object({
   email: z.email().nullish(),
   name: z.string().nullish(),
   role: userRoleSchema.nullish()
 })
+
 export const listPetsResponseSchema = z.object({
   data: z.array(petSchema),
   total: z.number().int()
 })
+
 export const listPetsParamsSchema = z.object({
   status: petStatusSchema.nullish(),
   category: petCategorySchema.nullish(),
   limit: z.number().int().nullish(),
   offset: z.number().int().nullish()
 })
+
 export const createPetRequestSchema = createPetInputSchema
+
 export const createPetResponseSchema = petSchema
+
 export const getPetResponseSchema = petSchema
+
 export const getPetParamsSchema = z.object({
   petId: z.string()
 })
+
 export const updatePetRequestSchema = updatePetInputSchema
+
 export const updatePetResponseSchema = petSchema
+
 export const updatePetParamsSchema = z.object({
   petId: z.string()
 })
+
 export const deletePetParamsSchema = z.object({
   petId: z.string()
 })
+
 export const listUsersResponseSchema = z.object({
   data: z.array(userSchema),
   total: z.number().int()
 })
+
 export const listUsersParamsSchema = z.object({
   role: userRoleSchema.nullish(),
   limit: z.number().int().nullish(),
   offset: z.number().int().nullish()
 })
+
 export const createUserRequestSchema = createUserInputSchema
+
 export const createUserResponseSchema = userSchema
+
 export const getUserResponseSchema = userSchema
+
 export const getUserParamsSchema = z.object({
   userId: z.string()
 })
+
 export const updateUserRequestSchema = updateUserInputSchema
+
 export const updateUserResponseSchema = userSchema
+
 export const updateUserParamsSchema = z.object({
   userId: z.string()
 })
+
 export const deleteUserParamsSchema = z.object({
   userId: z.string()
 })

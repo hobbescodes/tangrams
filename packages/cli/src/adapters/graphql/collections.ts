@@ -16,7 +16,6 @@ import {
 
 import {
   generatePredicateTranslator,
-  getPredicateImports,
   needsPredicateTranslation,
 } from "@/generators/predicates";
 import { toCamelCase, toPascalCase } from "@/utils/naming";
@@ -569,12 +568,16 @@ export function generateGraphQLCollections(
   const hasOnDemandEntities = entities.some(needsPredicateTranslation);
 
   // External imports (sorted alphabetically by package)
-  writeImport(writer, "@tanstack/query-db-collection", [
-    "queryCollectionOptions",
-  ]);
+  const queryDbCollectionImports = ["queryCollectionOptions"];
   if (hasOnDemandEntities) {
-    writer.writeLine(getPredicateImports());
+    queryDbCollectionImports.push("parseLoadSubsetOptions");
+    queryDbCollectionImports.sort();
   }
+  writeImport(
+    writer,
+    "@tanstack/query-db-collection",
+    queryDbCollectionImports,
+  );
   writeImport(writer, "@tanstack/react-db", ["createCollection"]);
 
   // Internal imports (sorted alphabetically)
@@ -594,7 +597,11 @@ export function generateGraphQLCollections(
   }
 
   // Type imports (sorted alphabetically, always last with blank line)
-  const typeImports: string[] = ["QueryClient"];
+  writer.blankLine();
+  if (hasOnDemandEntities) {
+    writeImport(writer, "@tanstack/db", ["LoadSubsetOptions"], true);
+  }
+  writeImport(writer, "@tanstack/react-query", ["QueryClient"], true);
 
   // Import variables types for on-demand entities (these are actually used in predicate translators)
   const variablesTypeNames = entities
@@ -602,9 +609,6 @@ export function generateGraphQLCollections(
     .map((e) => e.listQuery.paramsTypeName)
     .filter((name): name is string => !!name)
     .sort();
-
-  writer.blankLine();
-  writeImport(writer, "@tanstack/react-query", typeImports, true);
 
   if (variablesTypeNames.length > 0) {
     writeImport(writer, options.typesImportPath, variablesTypeNames, true);

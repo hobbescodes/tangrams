@@ -5,7 +5,9 @@ import * as z from "zod"
 
 // Zod Schemas
 export const petStatusSchema = z.enum(["available", "pending", "sold"])
+
 export const petCategorySchema = z.enum(["dog", "cat", "bird", "fish", "reptile"])
+
 export const createPetInputSchema = z.object({
   name: z.string(),
   category: petCategorySchema,
@@ -13,6 +15,7 @@ export const createPetInputSchema = z.object({
   tags: z.array(z.string()),
   photoUrl: z.string().nullish()
 })
+
 export const updatePetInputSchema = z.object({
   name: z.string().nullish(),
   category: petCategorySchema.nullish(),
@@ -20,6 +23,7 @@ export const updatePetInputSchema = z.object({
   tags: z.array(z.string()).nullish(),
   photoUrl: z.string().nullish()
 })
+
 export const petFieldsFragmentSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -30,31 +34,38 @@ export const petFieldsFragmentSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string()
 })
+
 export const getPetsQueryVariablesSchema = z.object({
   status: petStatusSchema.nullish(),
   category: petCategorySchema.nullish(),
   limit: z.number().int().nullish(),
   offset: z.number().int().nullish()
 })
+
 export const getPetByIdQueryVariablesSchema = z.object({
   id: z.string()
 })
+
 export const createPetMutationVariablesSchema = z.object({
   input: createPetInputSchema
 })
+
 export const updatePetMutationVariablesSchema = z.object({
   id: z.string(),
   input: updatePetInputSchema
 })
+
 export const deletePetMutationVariablesSchema = z.object({
   id: z.string()
 })
+
 export const getPetsConnectionQueryVariablesSchema = z.object({
   status: petStatusSchema.nullish(),
   category: petCategorySchema.nullish(),
   first: z.number().int().nullish(),
   after: z.string().nullish()
 })
+
 export const getPetsQuerySchema = z.object({
   pets: z.object({
   data: z.array(z.object({
@@ -63,24 +74,29 @@ export const getPetsQuerySchema = z.object({
   total: z.number().int()
 })
 })
+
 export const getPetByIdQuerySchema = z.object({
   pet: z.object({
   ...petFieldsFragmentSchema.shape
 }).nullish()
 })
+
 export const createPetMutationSchema = z.object({
   createPet: z.object({
   ...petFieldsFragmentSchema.shape
 })
 })
+
 export const updatePetMutationSchema = z.object({
   updatePet: z.object({
   ...petFieldsFragmentSchema.shape
 }).nullish()
 })
+
 export const deletePetMutationSchema = z.object({
   deletePet: z.boolean()
 })
+
 export const getPetsConnectionQuerySchema = z.object({
   petsConnection: z.object({
   edges: z.array(z.object({

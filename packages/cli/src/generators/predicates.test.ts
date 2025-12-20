@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   generatePredicateTranslator,
-  getPredicateImports,
   needsPredicateTranslation,
 } from "./predicates";
 
@@ -47,21 +46,6 @@ describe("needsPredicateTranslation", () => {
   it("returns false when syncMode is undefined", () => {
     const entity = createMockEntity({ syncMode: undefined });
     expect(needsPredicateTranslation(entity)).toBe(false);
-  });
-});
-
-// =============================================================================
-// getPredicateImports Tests
-// =============================================================================
-
-describe("getPredicateImports", () => {
-  it("returns correct import statements", () => {
-    const imports = getPredicateImports();
-
-    expect(imports).toContain("@tanstack/query-db-collection");
-    expect(imports).toContain("parseLoadSubsetOptions");
-    expect(imports).toContain("LoadSubsetOptions");
-    expect(imports).toContain("import type");
   });
 });
 

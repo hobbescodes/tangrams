@@ -50,10 +50,15 @@ export const valibotEmitter: Emitter = {
     // Generate schemas
     if (schemas.length > 0) {
       writeSectionComment(writer, "Valibot Schemas");
-      for (const { name, schema } of schemas) {
+      for (let i = 0; i < schemas.length; i++) {
+        const { name, schema } = schemas[i]!;
         const schemaVarName = toSchemaName(name);
         const schemaCode = emitSchemaIR(schema, warnings);
         writer.writeLine(`export const ${schemaVarName} = ${schemaCode}`);
+        // Add blank line between schemas, but not after the last one
+        if (i < schemas.length - 1) {
+          writer.blankLine();
+        }
       }
       writer.blankLine();
     }
