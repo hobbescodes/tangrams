@@ -143,9 +143,25 @@ Options:
   -c, --config <path>    Path to config file
   -f, --force            Force regeneration of all files including client
   -w, --watch            Watch for file changes and regenerate
+  --clean                Remove stale source directories from previous generations
+  -y, --yes              Skip confirmation prompts (use with --clean)
   --env-file <path>      Path to env file (can be specified multiple times)
   --no-dotenv            Disable automatic .env file loading
 ```
+
+#### Cleanup Mode
+
+When using `--clean`, tangrams will detect and remove stale source directories from previous generations. This is useful when you rename or remove sources from your configuration.
+
+```bash
+# Remove stale artifacts (prompts for confirmation)
+tangrams generate --clean
+
+# Remove stale artifacts without prompting
+tangrams generate --clean --yes
+```
+
+If tangrams detects that a source was renamed (same schema/spec, different name), it will automatically copy the `client.ts` file to the new source directory before removing the old one. This preserves any customizations you've made to the client.
 
 #### Watch Mode
 

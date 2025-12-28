@@ -1,10 +1,22 @@
-import { basename } from "node:path";
+import { basename, join } from "node:path";
 
 import { defineCommand } from "citty";
 import consola from "consola";
 
+import {
+  analyzeCleanup,
+  executeCleanup,
+  needsCleanup,
+  promptForCleanup,
+} from "../../core/cleanup";
 import { loadTangramsConfig, sourceGeneratesQuery } from "../../core/config";
 import { generate } from "../../core/generator";
+import {
+  createEmptyManifest,
+  createSourceEntry,
+  loadManifest,
+  saveManifest,
+} from "../../core/manifest";
 import {
   clearConsole,
   createWatcher,
@@ -85,18 +97,101 @@ function getOpenAPISpecFiles(config: TangramsConfig): string[] {
 }
 
 /**
+ * Options for cleanup operations
+ */
+interface CleanupOpts {
+  /** Whether cleanup is enabled */
+  enabled: boolean;
+  /** Skip confirmation prompts */
+  yes: boolean;
+  /** Running in watch mode (auto-yes) */
+  isWatchMode: boolean;
+}
+
+/**
+ * Run cleanup if enabled and needed
+ * Returns true if cleanup was performed, false otherwise
+ */
+async function runCleanup(options: {
+  config: TangramsConfig;
+  cleanupOpts: CleanupOpts;
+}): Promise<boolean> {
+  const { config, cleanupOpts } = options;
+
+  if (!cleanupOpts.enabled) {
+    return false;
+  }
+
+  const tangramsOutputDir = join(config.output, "tangrams");
+  const manifest = await loadManifest(join(process.cwd(), tangramsOutputDir));
+  const analysis = await analyzeCleanup(manifest, config, tangramsOutputDir);
+
+  if (!needsCleanup(analysis)) {
+    return false;
+  }
+
+  const shouldCleanup = await promptForCleanup(analysis, {
+    yes: cleanupOpts.yes,
+    isWatchMode: cleanupOpts.isWatchMode,
+  });
+
+  if (shouldCleanup) {
+    await executeCleanup(analysis, tangramsOutputDir);
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Save the manifest after generation
+ */
+async function saveGenerationManifest(options: {
+  config: TangramsConfig;
+  result: GenerateResult;
+}): Promise<void> {
+  const { config, result } = options;
+  const tangramsOutputDir = join(config.output, "tangrams");
+  const fullOutputDir = join(process.cwd(), tangramsOutputDir);
+
+  // Create or update manifest
+  const manifest = createEmptyManifest();
+
+  for (const source of config.sources) {
+    const sourceInfo = result.generatedSources.get(source.name);
+    if (sourceInfo) {
+      manifest.sources[source.name] = createSourceEntry(
+        source,
+        sourceInfo.files,
+      );
+    }
+  }
+
+  await saveManifest(fullOutputDir, manifest);
+}
+
+/**
  * Run the generation once and return the result for caching
  */
 async function runGeneration(options: {
   config: TangramsConfig;
   force: boolean;
   cachedSchemas?: Map<string, unknown>;
+  cleanupOpts?: CleanupOpts;
 }): Promise<GenerateResult> {
-  const { config, force, cachedSchemas } = options;
+  const { config, force, cachedSchemas, cleanupOpts } = options;
+
+  // Run cleanup before generation if enabled
+  if (cleanupOpts) {
+    await runCleanup({ config, cleanupOpts });
+  }
 
   consola.start("Generating TanStack Query artifacts...");
   const result = await generate({ config, force, cachedSchemas });
   consola.success("Generation complete!");
+
+  // Save manifest after successful generation
+  await saveGenerationManifest({ config, result });
 
   return result;
 }
@@ -142,9 +237,17 @@ async function runWatchMode(options: {
   config: TangramsConfig;
   dotenv: boolean | DotenvOptions;
   force: boolean;
+  clean: boolean;
 }): Promise<void> {
-  let { configPath, config, dotenv, force } = options;
+  let { configPath, config, dotenv, force, clean } = options;
   let cachedSchemas: Map<string, unknown> | undefined;
+
+  // Cleanup options for watch mode (always auto-yes)
+  const cleanupOpts: CleanupOpts = {
+    enabled: clean,
+    yes: true, // Always auto-yes in watch mode
+    isWatchMode: true,
+  };
 
   // Get document patterns for GraphQL sources
   let documentPatterns = getDocumentPatterns(config);
@@ -158,7 +261,7 @@ async function runWatchMode(options: {
   consola.info("");
 
   try {
-    const result = await runGeneration({ config, force });
+    const result = await runGeneration({ config, force, cleanupOpts });
     cachedSchemas = result.schemas;
   } catch (error) {
     if (error instanceof Error) {
@@ -194,7 +297,8 @@ async function runWatchMode(options: {
       specFiles = getOpenAPISpecFiles(config);
 
       // Re-introspect schema since config may have changed
-      const genResult = await runGeneration({ config, force });
+      // Run cleanup on config change to handle source renames/removals
+      const genResult = await runGeneration({ config, force, cleanupOpts });
       cachedSchemas = genResult.schemas;
 
       displayWatchStatus({
@@ -225,6 +329,7 @@ async function runWatchMode(options: {
     try {
       // Use cached schemas for faster regeneration (GraphQL only)
       // For OpenAPI, we need to re-parse since the spec might have changed
+      // No cleanup needed for document changes (only config changes)
       const result = await runGeneration({
         config,
         force,
@@ -259,7 +364,8 @@ async function runWatchMode(options: {
 
     try {
       // Clear cached schemas to force re-loading
-      const result = await runGeneration({ config, force });
+      // Run cleanup on refresh to catch any stale artifacts
+      const result = await runGeneration({ config, force, cleanupOpts });
       cachedSchemas = result.schemas;
 
       displayWatchStatus({
@@ -355,6 +461,17 @@ export const generateCommand = defineCommand({
       description: "Watch for file changes and regenerate automatically",
       default: false,
     },
+    clean: {
+      type: "boolean",
+      description: "Remove stale source directories from previous generations",
+      default: false,
+    },
+    yes: {
+      type: "boolean",
+      alias: "y",
+      description: "Skip confirmation prompts (use with --clean)",
+      default: false,
+    },
     "env-file": {
       type: "string",
       description: "Path to env file (can be specified multiple times)",
@@ -375,15 +492,23 @@ export const generateCommand = defineCommand({
         dotenv,
       });
 
+      // Build cleanup options
+      const cleanupOpts: CleanupOpts = {
+        enabled: args.clean,
+        yes: args.yes,
+        isWatchMode: false,
+      };
+
       if (args.watch) {
         await runWatchMode({
           configPath,
           config,
           dotenv,
           force: args.force,
+          clean: args.clean,
         });
       } else {
-        await runGeneration({ config, force: args.force });
+        await runGeneration({ config, force: args.force, cleanupOpts });
       }
     } catch (error) {
       if (error instanceof Error) {

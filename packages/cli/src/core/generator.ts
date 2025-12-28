@@ -49,12 +49,27 @@ export interface GenerateOptions {
   cachedSchemas?: Map<string, unknown>;
 }
 
+/**
+ * Information about generated files for a single source
+ */
+export interface GeneratedSourceInfo {
+  /** Source type */
+  type: "graphql" | "openapi";
+  /** Relative file paths from source directory */
+  files: string[];
+}
+
 export interface GenerateResult {
   /**
    * Generated schemas by source name.
    * These can be cached and passed back for incremental rebuilds.
    */
   schemas: Map<string, unknown>;
+  /**
+   * Information about generated files per source.
+   * Used for manifest updates.
+   */
+  generatedSources: Map<string, GeneratedSourceInfo>;
 }
 
 /**
@@ -90,6 +105,7 @@ export async function generate(
 ): Promise<GenerateResult> {
   const { config, force = false, cachedSchemas } = options;
   const generatedSchemas = new Map<string, unknown>();
+  const generatedSources = new Map<string, GeneratedSourceInfo>();
   const generatedOutputs: string[] = [];
 
   // Track what was generated per source
@@ -99,11 +115,19 @@ export async function generate(
 
   // Compute the tangrams output directory
   const tangramsOutputDir = join(config.output, "tangrams");
+  const baseOutputDir = join(process.cwd(), tangramsOutputDir);
+
+  // Ensure tangrams output directory exists
+  await mkdir(baseOutputDir, { recursive: true });
+
+  // Generate .gitignore to exclude manifest from version control
+  await generateGitignore(baseOutputDir);
 
   // Process each source
   for (const source of config.sources) {
+    // Track files generated for this source (for manifest)
+    const sourceFiles: string[] = [];
     const generates = normalizeGenerates(source.generates);
-    const baseOutputDir = join(process.cwd(), tangramsOutputDir);
     const sourceOutputDir = join(baseOutputDir, source.name);
 
     // Ensure source directory exists
@@ -140,6 +164,8 @@ export async function generate(
     const clientPath = join(sourceOutputDir, FILES.client);
 
     // Step 1: Generate client (always, at source root)
+    // client.ts is always tracked in manifest even if skipped (already exists)
+    sourceFiles.push(FILES.client);
     await generateClientFile({
       source,
       sourceOutputDir,
@@ -155,6 +181,7 @@ export async function generate(
         schema,
         config,
       });
+      sourceFiles.push(FILES.schema);
     }
 
     // Step 3: Generate functions if query or db is enabled (at source root)
@@ -167,6 +194,7 @@ export async function generate(
         clientPath,
         schemaPath,
       });
+      sourceFiles.push(FILES.functions);
     }
 
     // Step 4: Generate query files if enabled
@@ -178,6 +206,7 @@ export async function generate(
         schemaPath,
         functionsPath,
       });
+      sourceFiles.push(`query/${FILES.query.options}`);
       querySourceNames.push(source.name);
     }
 
@@ -190,6 +219,7 @@ export async function generate(
         schemaPath,
         validatorLibrary: config.validator,
       });
+      sourceFiles.push(`form/${FILES.form.options}`);
       formSourceNames.push(source.name);
     }
 
@@ -202,8 +232,15 @@ export async function generate(
         typesPath: schemaPath,
         functionsPath,
       });
+      sourceFiles.push(`db/${FILES.db.collections}`);
       dbSourceNames.push(source.name);
     }
+
+    // Track generated files for this source
+    generatedSources.set(source.name, {
+      type: source.type,
+      files: sourceFiles,
+    });
   }
 
   // Build output summary
@@ -225,7 +262,7 @@ export async function generate(
     });
   }
 
-  return { schemas: generatedSchemas };
+  return { schemas: generatedSchemas, generatedSources };
 }
 
 // =============================================================================
@@ -527,4 +564,20 @@ async function generateDbFiles(options: GenerateDbFilesOptions): Promise<void> {
 
   await writeFile(collectionsPath, dbResult.content, "utf-8");
   consola.success(`Generated ${source.name}/db/${FILES.db.collections}`);
+}
+
+// =============================================================================
+// Gitignore Generation
+// =============================================================================
+
+/**
+ * Generate .gitignore in the tangrams output directory
+ * This ensures the manifest file is not committed to version control
+ */
+async function generateGitignore(tangramsOutputDir: string): Promise<void> {
+  const gitignorePath = join(tangramsOutputDir, ".gitignore");
+  const gitignoreContent = `# Tangrams manifest (generated cache - do not commit)
+.tangrams-manifest.json
+`;
+  await writeFile(gitignorePath, gitignoreContent, "utf-8");
 }
