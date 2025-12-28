@@ -1,5 +1,41 @@
 # tangrams
 
+## 0.13.0
+
+### Minor Changes
+
+- a489a29: Add `--clean` flag to remove stale source directories when sources are renamed or removed from configuration.
+
+  **New CLI flags:**
+
+  - `--clean` - Detects and removes orphaned source directories from previous generations
+  - `--yes` / `-y` - Skips confirmation prompts (use with `--clean`)
+
+  **Features:**
+
+  - Automatically detects source renames by comparing configuration fingerprints (schema URL, spec path, document patterns)
+  - When a rename is detected, copies `client.ts` to the new source directory before removing the old one, preserving user customizations
+  - Prompts for confirmation before deleting directories (unless `--yes` is provided)
+  - In watch mode with `--clean`, cleanup runs automatically without prompts on config changes
+  - Generates a `.gitignore` in the `tangrams/` output directory to exclude the manifest file from version control
+
+  **Example usage:**
+
+  ```bash
+  # Clean up stale artifacts with confirmation
+  tangrams generate --clean
+
+  # Clean up without prompting
+  tangrams generate --clean --yes
+
+  # Watch mode with automatic cleanup
+  tangrams generate --watch --clean
+  ```
+
+### Patch Changes
+
+- 8c4f56e: Fix inconsistent relative import paths in generated output. Previously, some imports were generated as `./../schema` instead of `../schema`. This change introduces a `getRelativeImportPath` utility that properly normalizes all relative import paths, and makes all import path calculations dynamic (removing hardcoded `FUNCTIONS_IMPORT_PATH` constants) for consistency and future flexibility.
+
 ## 0.12.1
 
 ### Patch Changes
