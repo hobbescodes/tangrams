@@ -26,12 +26,23 @@ Tangrams generates code that integrates seamlessly with the TanStack ecosystem:
 # Install the CLI
 bun add -D tangrams
 
-# Initialize your config
+# Initialize your config (interactive)
 bunx tangrams init
+```
 
+The init command will guide you through setting up your configuration, including:
+- Choosing a validation library (Zod, Valibot, ArkType, or Effect)
+- Selecting your API source type (GraphQL or OpenAPI)
+- Pointing to your schema or spec
+
+Once configured, generate your code:
+
+```bash
 # Generate the pieces
 bunx tangrams generate
 ```
+
+> **Tip:** Use `bunx tangrams init --skip` to generate a template config file for manual editing.
 
 ## Installation
 
@@ -532,7 +543,10 @@ tangrams init [options]
 
 Options:
   -f, --force    Overwrite existing config file
+  -s, --skip     Skip interactive prompts and generate a template config
 ```
+
+By default, the init command runs interactively, prompting you for configuration values. Use `--skip` to generate a template config file with placeholder values that you can edit manually.
 
 ### `tangrams generate`
 

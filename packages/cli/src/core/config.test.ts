@@ -7,7 +7,8 @@ import {
   collectionOverrideSchema,
   configSchema,
   defineConfig,
-  generateDefaultConfig,
+  generateConfigFromOptions,
+  generateTemplateConfig,
   generatesSchema,
   getFormSources,
   getQuerySources,
@@ -636,59 +637,207 @@ describe("defineConfig", () => {
   });
 });
 
-describe("generateDefaultConfig", () => {
+describe("generateTemplateConfig", () => {
   it("returns a non-empty string", () => {
-    const result = generateDefaultConfig();
+    const result = generateTemplateConfig();
     expect(typeof result).toBe("string");
     expect(result.length).toBeGreaterThan(0);
   });
 
   it("contains defineConfig import", () => {
-    const result = generateDefaultConfig();
+    const result = generateTemplateConfig();
     expect(result).toContain('import { defineConfig } from "tangrams"');
   });
 
   it("contains sources key", () => {
-    const result = generateDefaultConfig();
+    const result = generateTemplateConfig();
     expect(result).toContain("sources:");
   });
 
   it("contains GraphQL source type", () => {
-    const result = generateDefaultConfig();
+    const result = generateTemplateConfig();
     expect(result).toContain('type: "graphql"');
   });
 
-  it("contains schema.url placeholder", () => {
-    const result = generateDefaultConfig();
-    expect(result).toContain("http://localhost:4000/graphql");
+  it("contains placeholder URL instead of fake localhost", () => {
+    const result = generateTemplateConfig();
+    expect(result).toContain("<YOUR_GRAPHQL_URL>");
+    expect(result).not.toContain("http://localhost:4000/graphql");
   });
 
   it("contains documents pattern", () => {
-    const result = generateDefaultConfig();
+    const result = generateTemplateConfig();
     expect(result).toContain("documents:");
     expect(result).toContain(".graphql");
   });
 
   it("contains generates property", () => {
-    const result = generateDefaultConfig();
+    const result = generateTemplateConfig();
     expect(result).toContain("generates:");
   });
 
   it("contains commented headers example", () => {
-    const result = generateDefaultConfig();
+    const result = generateTemplateConfig();
     expect(result).toContain("// headers:");
   });
 
   it("contains commented overrides example with scalars", () => {
-    const result = generateDefaultConfig();
+    const result = generateTemplateConfig();
     expect(result).toContain("// overrides:");
     expect(result).toContain("scalars:");
   });
 
   it("contains commented OpenAPI source example", () => {
-    const result = generateDefaultConfig();
+    const result = generateTemplateConfig();
     expect(result).toContain('// 	type: "openapi"');
     expect(result).toContain("// 	spec:");
+  });
+});
+
+describe("generateConfigFromOptions", () => {
+  describe("GraphQL URL-based source", () => {
+    it("generates valid config with zod validator", () => {
+      const result = generateConfigFromOptions({
+        validator: "zod",
+        source: {
+          type: "graphql",
+          name: "my-api",
+          schema: { type: "url", url: "https://api.example.com/graphql" },
+          documents: "./src/graphql/**/*.graphql",
+          generates: ["query"],
+        },
+      });
+
+      expect(result).toContain('import { defineConfig } from "tangrams"');
+      expect(result).toContain('name: "my-api"');
+      expect(result).toContain('type: "graphql"');
+      expect(result).toContain('url: "https://api.example.com/graphql"');
+      expect(result).toContain('documents: "./src/graphql/**/*.graphql"');
+      expect(result).toContain('generates: ["query"]');
+      // zod is default, so validator line should not be present
+      expect(result).not.toContain("validator:");
+    });
+
+    it("generates config with non-default validator", () => {
+      const result = generateConfigFromOptions({
+        validator: "valibot",
+        source: {
+          type: "graphql",
+          name: "api",
+          schema: { type: "url", url: "https://api.example.com/graphql" },
+          documents: "./src/graphql/**/*.graphql",
+          generates: ["query", "form"],
+        },
+      });
+
+      expect(result).toContain('validator: "valibot"');
+      expect(result).toContain('generates: ["query","form"]');
+    });
+
+    it("generates config with arktype validator", () => {
+      const result = generateConfigFromOptions({
+        validator: "arktype",
+        source: {
+          type: "graphql",
+          name: "api",
+          schema: { type: "url", url: "https://api.example.com/graphql" },
+          documents: "./src/graphql/**/*.graphql",
+          generates: ["query"],
+        },
+      });
+
+      expect(result).toContain('validator: "arktype"');
+    });
+
+    it("generates config with effect validator", () => {
+      const result = generateConfigFromOptions({
+        validator: "effect",
+        source: {
+          type: "graphql",
+          name: "api",
+          schema: { type: "url", url: "https://api.example.com/graphql" },
+          documents: "./src/graphql/**/*.graphql",
+          generates: ["query"],
+        },
+      });
+
+      expect(result).toContain('validator: "effect"');
+    });
+
+    it("generates config with all generators", () => {
+      const result = generateConfigFromOptions({
+        validator: "zod",
+        source: {
+          type: "graphql",
+          name: "api",
+          schema: { type: "url", url: "https://api.example.com/graphql" },
+          documents: "./src/graphql/**/*.graphql",
+          generates: ["query", "form", "db"],
+        },
+      });
+
+      expect(result).toContain('generates: ["query","form","db"]');
+    });
+  });
+
+  describe("GraphQL file-based source", () => {
+    it("generates valid config with file schema and runtime URL", () => {
+      const result = generateConfigFromOptions({
+        validator: "zod",
+        source: {
+          type: "graphql",
+          name: "my-api",
+          schema: {
+            type: "file",
+            file: "./schema.graphql",
+            runtimeUrl: "https://api.example.com/graphql",
+          },
+          documents: "./src/graphql/**/*.graphql",
+          generates: ["query"],
+        },
+      });
+
+      expect(result).toContain('file: "./schema.graphql"');
+      expect(result).toContain('url: "https://api.example.com/graphql"');
+      expect(result).not.toContain("schema: {\n\t\t\t\turl:");
+    });
+  });
+
+  describe("OpenAPI source", () => {
+    it("generates valid OpenAPI config", () => {
+      const result = generateConfigFromOptions({
+        validator: "zod",
+        source: {
+          type: "openapi",
+          name: "rest-api",
+          spec: "./openapi.yaml",
+          generates: ["query", "form"],
+        },
+      });
+
+      expect(result).toContain('import { defineConfig } from "tangrams"');
+      expect(result).toContain('name: "rest-api"');
+      expect(result).toContain('type: "openapi"');
+      expect(result).toContain('spec: "./openapi.yaml"');
+      expect(result).toContain('generates: ["query","form"]');
+      expect(result).not.toContain("documents:");
+      expect(result).not.toContain("schema:");
+    });
+
+    it("generates OpenAPI config with URL spec", () => {
+      const result = generateConfigFromOptions({
+        validator: "valibot",
+        source: {
+          type: "openapi",
+          name: "api",
+          spec: "https://api.example.com/openapi.json",
+          generates: ["query"],
+        },
+      });
+
+      expect(result).toContain('validator: "valibot"');
+      expect(result).toContain('spec: "https://api.example.com/openapi.json"');
+    });
   });
 });
 

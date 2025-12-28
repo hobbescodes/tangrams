@@ -501,22 +501,127 @@ export async function loadTangramsConfig(
 }
 
 // =============================================================================
-// Default Config Generator
+// Config Generator Types
 // =============================================================================
 
 /**
- * Generate a config file content
+ * GraphQL URL-based schema options for config generation
  */
-export function generateDefaultConfig(): string {
+export interface GraphQLUrlSchemaOptions {
+  type: "url";
+  url: string;
+}
+
+/**
+ * GraphQL file-based schema options for config generation
+ */
+export interface GraphQLFileSchemaOptions {
+  type: "file";
+  file: string;
+  runtimeUrl: string;
+}
+
+/**
+ * GraphQL source options for config generation
+ */
+export interface GraphQLSourceOptions {
+  type: "graphql";
+  name: string;
+  schema: GraphQLUrlSchemaOptions | GraphQLFileSchemaOptions;
+  documents: string;
+  generates: ("query" | "form" | "db")[];
+}
+
+/**
+ * OpenAPI source options for config generation
+ */
+export interface OpenAPISourceOptions {
+  type: "openapi";
+  name: string;
+  spec: string;
+  generates: ("query" | "form" | "db")[];
+}
+
+/**
+ * Options for generating a config from interactive prompts
+ */
+export interface ConfigGenerationOptions {
+  validator: ValidatorLibrary;
+  source: GraphQLSourceOptions | OpenAPISourceOptions;
+}
+
+// =============================================================================
+// Config Generators
+// =============================================================================
+
+/**
+ * Generate a config file from interactive prompt options
+ */
+export function generateConfigFromOptions(
+  options: ConfigGenerationOptions,
+): string {
+  const { validator, source } = options;
+
+  const validatorLine =
+    validator === "zod" ? "" : `\n\tvalidator: "${validator}",`;
+  const generatesArray = JSON.stringify(source.generates);
+
+  if (source.type === "graphql") {
+    const schemaBlock =
+      source.schema.type === "url"
+        ? `schema: {
+				url: "${source.schema.url}",
+			},`
+        : `schema: {
+				file: "${source.schema.file}",
+			},
+			url: "${source.schema.runtimeUrl}",`;
+
+    return `import { defineConfig } from "tangrams"
+
+export default defineConfig({${validatorLine}
+	sources: [
+		{
+			name: "${source.name}",
+			type: "graphql",
+			${schemaBlock}
+			documents: "${source.documents}",
+			generates: ${generatesArray},
+		},
+	],
+})
+`;
+  }
+
+  // OpenAPI source
+  return `import { defineConfig } from "tangrams"
+
+export default defineConfig({${validatorLine}
+	sources: [
+		{
+			name: "${source.name}",
+			type: "openapi",
+			spec: "${source.spec}",
+			generates: ${generatesArray},
+		},
+	],
+})
+`;
+}
+
+/**
+ * Generate a template config file with placeholder values (for --skip mode)
+ */
+export function generateTemplateConfig(): string {
   return `import { defineConfig } from "tangrams"
 
 export default defineConfig({
 	sources: [
 		{
-			name: "graphql",
+			name: "api",
 			type: "graphql",
 			schema: {
-				url: "http://localhost:4000/graphql",
+				url: "<YOUR_GRAPHQL_URL>",
 				// headers: { "x-api-key": process.env.API_KEY },
 			},
 			// Or use local schema file(s):
