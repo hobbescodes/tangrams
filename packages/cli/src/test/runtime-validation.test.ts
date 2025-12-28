@@ -218,6 +218,7 @@ async function generateOpenAPIArtifacts(
   // Generate db/collections.ts
   const collectionsResult = openapiAdapter.generateCollections(schema, config, {
     typesImportPath: "../schema",
+    functionsImportPath: "../functions",
     sourceName: config.name,
   });
   await writeFile(
@@ -228,6 +229,7 @@ async function generateOpenAPIArtifacts(
   // Generate query/options.ts
   const queryResult = openapiAdapter.generateOperations(schema, config, {
     typesImportPath: "../schema",
+    functionsImportPath: "../functions",
     sourceName: config.name,
   });
   await writeFile(join(baseDir, "query/options.ts"), queryResult.content);
@@ -252,11 +254,7 @@ async function generateGraphQLArtifacts(
   const clientResult = graphqlAdapter.generateClient(schema, config);
   await writeFile(join(baseDir, "client.ts"), clientResult.content);
 
-  // Generate types.ts
-  const typesResult = graphqlAdapter.generateTypes(schema, config, {});
-  await writeFile(join(baseDir, "types.ts"), typesResult.content);
-
-  // Generate schema.ts
+  // Generate schema.ts (contains all types and validation schemas)
   const schemaResult = graphqlAdapter.generateSchemas(schema, config, {
     validator,
   });
@@ -265,7 +263,7 @@ async function generateGraphQLArtifacts(
   // Generate functions.ts
   const functionsResult = graphqlAdapter.generateFunctions(schema, config, {
     clientImportPath: "./client",
-    typesImportPath: "./types",
+    typesImportPath: "./schema",
   });
   await writeFile(join(baseDir, "functions.ts"), functionsResult.content);
 
@@ -279,7 +277,8 @@ async function generateGraphQLArtifacts(
 
   // Generate db/collections.ts
   const collectionsResult = graphqlAdapter.generateCollections(schema, config, {
-    typesImportPath: "../types",
+    typesImportPath: "../schema",
+    functionsImportPath: "../functions",
     sourceName: config.name,
   });
   await writeFile(
@@ -289,7 +288,8 @@ async function generateGraphQLArtifacts(
 
   // Generate query/options.ts
   const queryResult = graphqlAdapter.generateOperations(schema, config, {
-    typesImportPath: "../types",
+    typesImportPath: "../schema",
+    functionsImportPath: "../functions",
     sourceName: config.name,
   });
   await writeFile(join(baseDir, "query/options.ts"), queryResult.content);

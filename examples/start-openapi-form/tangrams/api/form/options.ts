@@ -3,9 +3,9 @@
 
 import { formOptions } from "@tanstack/react-form"
 
-import { createPetRequestSchema, createUserRequestSchema, updatePetRequestSchema, updateUserRequestSchema } from "./../schema"
+import { createPetRequestSchema, createUserRequestSchema, updatePetRequestSchema, updateUserRequestSchema } from "../schema"
 
-import type { CreatePetRequest, CreateUserRequest, UpdatePetRequest, UpdateUserRequest } from "./../schema"
+import type { CreatePetRequest, CreateUserRequest, UpdatePetRequest, UpdateUserRequest } from "../schema"
 
 export const createPetFormOptions = formOptions({
   defaultValues: {} as CreatePetRequest,

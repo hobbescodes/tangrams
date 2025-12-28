@@ -45,9 +45,6 @@ import type {
   GraphQLAdapterSchema,
 } from "../types";
 
-/** Hardcoded import path for functions (always ../functions from db/) */
-const FUNCTIONS_IMPORT_PATH = "../functions";
-
 /**
  * Result of finding an array in a type
  */
@@ -627,7 +624,7 @@ export function generateGraphQLCollections(
 
   if (allFunctionImports.length > 0) {
     writer.blankLine();
-    writeImport(writer, FUNCTIONS_IMPORT_PATH, allFunctionImports);
+    writeImport(writer, options.functionsImportPath, allFunctionImports);
   }
 
   // Type imports (sorted alphabetically, always last with blank line)

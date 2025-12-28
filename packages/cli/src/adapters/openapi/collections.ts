@@ -27,9 +27,6 @@ import type {
 } from "../types";
 import type { ParsedOperation } from "./schema";
 
-/** Hardcoded import path for functions (always ../functions from db/) */
-const FUNCTIONS_IMPORT_PATH = "../functions";
-
 /** Maximum depth to search for arrays in nested schemas */
 const MAX_ARRAY_SEARCH_DEPTH = 3;
 
@@ -559,7 +556,7 @@ export function generateOpenAPICollections(
 
   if (allFunctionImports.length > 0) {
     writer.blankLine();
-    writeImport(writer, FUNCTIONS_IMPORT_PATH, allFunctionImports);
+    writeImport(writer, options.functionsImportPath, allFunctionImports);
   }
 
   // Type imports (sorted alphabetically, always last with blank line)

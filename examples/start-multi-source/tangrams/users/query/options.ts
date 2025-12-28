@@ -5,7 +5,7 @@ import { infiniteQueryOptions, mutationOptions, queryOptions } from "@tanstack/r
 
 import { createUser, deleteUser, getUser, listUsers, updateUser } from "../functions"
 
-import type { CreateUserRequest, GetUserParams, ListUsersParams, UpdateUserRequest } from "./../schema"
+import type { CreateUserRequest, GetUserParams, ListUsersParams, UpdateUserRequest } from "../schema"
 
 // Query Options (GET operations)
 

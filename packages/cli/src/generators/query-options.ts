@@ -39,6 +39,8 @@ import type { ParsedDocuments, ParsedOperation } from "@/core/documents";
 export interface OperationsGeneratorOptions {
   documents: ParsedDocuments;
   typesImportPath: string;
+  /** Relative import path to the functions file */
+  functionsImportPath: string;
   /** The source name to include in query/mutation keys */
   sourceName: string;
   /** GraphQL schema for analyzing field arguments and return types */
@@ -46,9 +48,6 @@ export interface OperationsGeneratorOptions {
   /** Query overrides from config */
   queryOverrides?: QueryOverridesConfig;
 }
-
-/** Hardcoded import path for functions (always ../functions from query/) */
-const FUNCTIONS_IMPORT_PATH = "../functions";
 
 /**
  * Result of generating GraphQL operations
@@ -384,8 +383,14 @@ function generateAccessorFromPath(path: string): string {
 export function generateGraphQLOperations(
   options: OperationsGeneratorOptions,
 ): GraphQLOperationsResult {
-  const { documents, typesImportPath, sourceName, schema, queryOverrides } =
-    options;
+  const {
+    documents,
+    typesImportPath,
+    functionsImportPath,
+    sourceName,
+    schema,
+    queryOverrides,
+  } = options;
   const { operations } = documents;
   const warnings: string[] = [];
 
@@ -428,7 +433,7 @@ export function generateGraphQLOperations(
   const functionImports = getFunctionImports(operations);
   if (functionImports.length > 0) {
     writer.blankLine();
-    writeImport(writer, FUNCTIONS_IMPORT_PATH, functionImports);
+    writeImport(writer, functionsImportPath, functionImports);
   }
 
   // Type imports (sorted alphabetically, always last with blank line)

@@ -3,9 +3,9 @@
 
 import { formOptions } from "@tanstack/react-form"
 
-import { createUserRequestSchema, updateUserRequestSchema } from "./../schema"
+import { createUserRequestSchema, updateUserRequestSchema } from "../schema"
 
-import type { CreateUserRequest, UpdateUserRequest } from "./../schema"
+import type { CreateUserRequest, UpdateUserRequest } from "../schema"
 
 export const createUserFormOptions = formOptions({
   defaultValues: {} as CreateUserRequest,

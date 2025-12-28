@@ -5,7 +5,7 @@ import { infiniteQueryOptions, mutationOptions, queryOptions } from "@tanstack/r
 
 import { createPet, deletePet, getPetById, getPets, getPetsConnection, updatePet } from "../functions"
 
-import type { CreatePetMutationVariables, DeletePetMutationVariables, GetPetByIdQueryVariables, GetPetsConnectionQueryVariables, GetPetsQueryVariables, UpdatePetMutationVariables } from "./../schema"
+import type { CreatePetMutationVariables, DeletePetMutationVariables, GetPetByIdQueryVariables, GetPetsConnectionQueryVariables, GetPetsQueryVariables, UpdatePetMutationVariables } from "../schema"
 
 // Query Options
 export const getPetsQueryOptions = (variables?: GetPetsQueryVariables) =>

@@ -132,6 +132,7 @@ class GraphQLAdapterImpl implements IGraphQLAdapter {
     const result = generateGraphQLOperations({
       documents: schema.documents,
       typesImportPath: options.typesImportPath,
+      functionsImportPath: options.functionsImportPath,
       sourceName: options.sourceName,
       schema: schema.schema,
       queryOverrides: options.queryOverrides,

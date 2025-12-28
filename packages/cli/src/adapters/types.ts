@@ -130,11 +130,12 @@ export interface FunctionsGenOptions {
 
 /**
  * Options for operation generation
- * Note: Functions are always imported from "../functions" (hardcoded)
  */
 export interface OperationGenOptions {
   /** Relative import path to the types/schema file */
   typesImportPath: string;
+  /** Relative import path to the functions file */
+  functionsImportPath: string;
   /** The source name to include in query/mutation keys */
   sourceName: string;
   /** Query overrides from config (for infinite query generation) */
@@ -246,11 +247,12 @@ export interface CollectionDiscoveryResult {
 
 /**
  * Options for collection generation
- * Note: Functions are always imported from "../functions" (hardcoded)
  */
 export interface CollectionGenOptions {
   /** Relative import path to the types/schema file */
   typesImportPath: string;
+  /** Relative import path to the functions file */
+  functionsImportPath: string;
   /** The source name */
   sourceName: string;
   /** Per-entity overrides from config (includes keyField, syncMode, predicateMapping) */

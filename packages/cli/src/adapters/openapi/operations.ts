@@ -31,9 +31,6 @@ import type {
 } from "../types";
 import type { ParsedOperation } from "./schema";
 
-/** Hardcoded import path for functions (always ../functions from query/) */
-const FUNCTIONS_IMPORT_PATH = "../functions";
-
 /**
  * Extended options for operation generation including query overrides
  */
@@ -91,7 +88,7 @@ export function generateOpenAPIOperations(
   const functionImports = getFunctionImports(operations);
   if (functionImports.length > 0) {
     writer.blankLine();
-    writeImport(writer, FUNCTIONS_IMPORT_PATH, functionImports);
+    writeImport(writer, options.functionsImportPath, functionImports);
   }
 
   // Type imports (sorted alphabetically, always last with blank line)

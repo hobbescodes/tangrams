@@ -5,7 +5,7 @@ import { mutationOptions, queryOptions } from "@tanstack/react-query"
 
 import { createPet, deletePet, getPetById, getPets, updatePet } from "../functions"
 
-import type { CreatePetMutationVariables, DeletePetMutationVariables, GetPetByIdQueryVariables, GetPetsQueryVariables, UpdatePetMutationVariables } from "./../schema"
+import type { CreatePetMutationVariables, DeletePetMutationVariables, GetPetByIdQueryVariables, GetPetsQueryVariables, UpdatePetMutationVariables } from "../schema"
 
 // Query Options
 export const getPetsQueryOptions = (variables?: GetPetsQueryVariables) =>

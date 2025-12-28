@@ -5,7 +5,7 @@ import { createPet, createUser, deletePet, deleteUser, listPets, listUsers, upda
 
 import type { LoadSubsetOptions } from "@tanstack/db"
 import type { QueryClient } from "@tanstack/react-query"
-import type { ListUsersParams } from "./../schema"
+import type { ListUsersParams } from "../schema"
 
 /**
  * Translate TanStack DB predicates to User query parameters

@@ -3,9 +3,9 @@
 
 import { formOptions } from "@tanstack/react-form"
 
-import { createPetMutationVariablesSchema, deletePetMutationVariablesSchema, updatePetMutationVariablesSchema } from "./../schema"
+import { createPetMutationVariablesSchema, deletePetMutationVariablesSchema, updatePetMutationVariablesSchema } from "../schema"
 
-import type { CreatePetMutationVariables, DeletePetMutationVariables, UpdatePetMutationVariables } from "./../schema"
+import type { CreatePetMutationVariables, DeletePetMutationVariables, UpdatePetMutationVariables } from "../schema"
 
 export const createPetFormOptions = formOptions({
   defaultValues: {} as CreatePetMutationVariables,

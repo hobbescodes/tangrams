@@ -25,6 +25,7 @@ describe("generateGraphQLOperations", () => {
     const result = generateGraphQLOperations({
       documents,
       typesImportPath: "./types",
+      functionsImportPath: "../functions",
       sourceName: "test",
       schema,
     });
@@ -37,6 +38,7 @@ describe("generateGraphQLOperations", () => {
     const result = generateGraphQLOperations({
       documents,
       typesImportPath: "./types",
+      functionsImportPath: "../functions",
       sourceName: "test",
       schema,
     });
@@ -49,6 +51,7 @@ describe("generateGraphQLOperations", () => {
     const result = generateGraphQLOperations({
       documents,
       typesImportPath: "./types",
+      functionsImportPath: "../functions",
       sourceName: "test",
       schema,
     });
@@ -58,11 +61,12 @@ describe("generateGraphQLOperations", () => {
     );
   });
 
-  it("imports functions from the hardcoded ../functions path", async () => {
+  it("imports functions from the specified functions path", async () => {
     const documents = await loadDocuments(`${fixturesDir}/user.graphql`);
     const result = generateGraphQLOperations({
       documents,
       typesImportPath: "./types",
+      functionsImportPath: "../functions",
       sourceName: "test",
       schema,
     });
@@ -75,6 +79,7 @@ describe("generateGraphQLOperations", () => {
     const result = generateGraphQLOperations({
       documents,
       typesImportPath: "./custom-types",
+      functionsImportPath: "../functions",
       sourceName: "test",
       schema,
     });
@@ -87,6 +92,7 @@ describe("generateGraphQLOperations", () => {
     const result = generateGraphQLOperations({
       documents,
       typesImportPath: "./types",
+      functionsImportPath: "../functions",
       sourceName: "test",
       schema,
     });
@@ -100,6 +106,7 @@ describe("generateGraphQLOperations", () => {
     const result = generateGraphQLOperations({
       documents,
       typesImportPath: "./types",
+      functionsImportPath: "../functions",
       sourceName: "test",
       schema,
     });
@@ -114,6 +121,7 @@ describe("generateGraphQLOperations", () => {
     const result = generateGraphQLOperations({
       documents,
       typesImportPath: "./types",
+      functionsImportPath: "../functions",
       sourceName: "test",
       schema,
     });
@@ -127,6 +135,7 @@ describe("generateGraphQLOperations", () => {
     const result = generateGraphQLOperations({
       documents,
       typesImportPath: "./types",
+      functionsImportPath: "../functions",
       sourceName: "test",
       schema,
     });
@@ -140,6 +149,7 @@ describe("generateGraphQLOperations", () => {
     const result = generateGraphQLOperations({
       documents,
       typesImportPath: "./types",
+      functionsImportPath: "../functions",
       sourceName: "test",
       schema,
     });
@@ -155,6 +165,7 @@ describe("generateGraphQLOperations", () => {
     const result = generateGraphQLOperations({
       documents,
       typesImportPath: "./types",
+      functionsImportPath: "../functions",
       sourceName: "test",
       schema,
     });
@@ -170,6 +181,7 @@ describe("generateGraphQLOperations", () => {
     const result = generateGraphQLOperations({
       documents,
       typesImportPath: "./types",
+      functionsImportPath: "../functions",
       sourceName: "test",
       schema,
     });
@@ -187,6 +199,7 @@ describe("generateGraphQLOperations", () => {
     const result = generateGraphQLOperations({
       documents,
       typesImportPath: "./types",
+      functionsImportPath: "../functions",
       sourceName: "test",
       schema,
     });
@@ -202,6 +215,7 @@ describe("generateGraphQLOperations", () => {
     const result = generateGraphQLOperations({
       documents,
       typesImportPath: "./types",
+      functionsImportPath: "../functions",
       sourceName: "test",
       schema,
     });
@@ -215,6 +229,7 @@ describe("generateGraphQLOperations", () => {
     const result = generateGraphQLOperations({
       documents,
       typesImportPath: "./types",
+      functionsImportPath: "../functions",
       sourceName: "test",
       schema,
     });
@@ -230,6 +245,7 @@ describe("generateGraphQLOperations", () => {
     const result = generateGraphQLOperations({
       documents,
       typesImportPath: "./types",
+      functionsImportPath: "../functions",
       sourceName: "test",
       schema,
     });
@@ -242,6 +258,7 @@ describe("generateGraphQLOperations", () => {
     const result = generateGraphQLOperations({
       documents,
       typesImportPath: "./types",
+      functionsImportPath: "../functions",
       sourceName: "test",
       schema,
     });
@@ -256,6 +273,7 @@ describe("generateGraphQLOperations", () => {
     const result = generateGraphQLOperations({
       documents,
       typesImportPath: "./types",
+      functionsImportPath: "../functions",
       sourceName: "test",
       schema,
     });
@@ -271,6 +289,7 @@ describe("generateGraphQLOperations", () => {
       const result = generateGraphQLOperations({
         documents,
         typesImportPath: "./types",
+        functionsImportPath: "../functions",
         sourceName: "test",
         schema: relaySchema,
       });
@@ -288,6 +307,7 @@ describe("generateGraphQLOperations", () => {
       const result = generateGraphQLOperations({
         documents,
         typesImportPath: "./types",
+        functionsImportPath: "../functions",
         sourceName: "test",
         schema: relaySchema,
       });
@@ -303,6 +323,7 @@ describe("generateGraphQLOperations", () => {
       const result = generateGraphQLOperations({
         documents,
         typesImportPath: "./types",
+        functionsImportPath: "../functions",
         sourceName: "test",
         schema: relaySchema,
       });
@@ -319,6 +340,7 @@ describe("generateGraphQLOperations", () => {
       const result = generateGraphQLOperations({
         documents,
         typesImportPath: "./types",
+        functionsImportPath: "../functions",
         sourceName: "test",
         schema: relaySchema,
       });
@@ -335,6 +357,7 @@ describe("generateGraphQLOperations", () => {
       const result = generateGraphQLOperations({
         documents,
         typesImportPath: "./types",
+        functionsImportPath: "../functions",
         sourceName: "test",
         schema: relaySchema,
       });
@@ -352,6 +375,7 @@ describe("generateGraphQLOperations", () => {
       const result = generateGraphQLOperations({
         documents,
         typesImportPath: "./types",
+        functionsImportPath: "../functions",
         sourceName: "test",
         schema: relaySchema,
       });

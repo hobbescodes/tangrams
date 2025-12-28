@@ -248,6 +248,7 @@ describe("GraphQL Adapter", () => {
 
       const result = graphqlAdapter.generateOperations(schema, testConfig, {
         typesImportPath: "./types",
+        functionsImportPath: "../functions",
         sourceName: "test",
       });
 
@@ -282,6 +283,7 @@ describe("GraphQL Adapter", () => {
 
       const result = graphqlAdapter.generateOperations(schema, testConfig, {
         typesImportPath: "./types",
+        functionsImportPath: "../functions",
         sourceName: "test",
       });
 
@@ -977,6 +979,7 @@ describe("GraphQL Collection Discovery", () => {
       const schema = await graphqlAdapter.loadSchema(config);
       const result = graphqlAdapter.generateCollections(schema, config, {
         typesImportPath: "./types",
+        functionsImportPath: "../functions",
         sourceName: "test-api",
       });
 
@@ -989,6 +992,7 @@ describe("GraphQL Collection Discovery", () => {
       const schema = await graphqlAdapter.loadSchema(config);
       const result = graphqlAdapter.generateCollections(schema, config, {
         typesImportPath: "./types",
+        functionsImportPath: "../functions",
         sourceName: "test-api",
       });
 
@@ -1002,6 +1006,7 @@ describe("GraphQL Collection Discovery", () => {
       const schema = await graphqlAdapter.loadSchema(config);
       const result = graphqlAdapter.generateCollections(schema, config, {
         typesImportPath: "./types",
+        functionsImportPath: "../functions",
         sourceName: "test-api",
       });
 
@@ -1014,6 +1019,7 @@ describe("GraphQL Collection Discovery", () => {
       const schema = await graphqlAdapter.loadSchema(config);
       const result = graphqlAdapter.generateCollections(schema, config, {
         typesImportPath: "./types",
+        functionsImportPath: "../functions",
         sourceName: "test-api",
       });
 
@@ -1025,6 +1031,7 @@ describe("GraphQL Collection Discovery", () => {
       const schema = await graphqlAdapter.loadSchema(config);
       const result = graphqlAdapter.generateCollections(schema, config, {
         typesImportPath: "./types",
+        functionsImportPath: "../functions",
         sourceName: "test-api",
       });
 
@@ -1037,6 +1044,7 @@ describe("GraphQL Collection Discovery", () => {
       const schema = await graphqlAdapter.loadSchema(config);
       const result = graphqlAdapter.generateCollections(schema, config, {
         typesImportPath: "./types",
+        functionsImportPath: "../functions",
         sourceName: "test-api",
       });
 
@@ -1050,6 +1058,7 @@ describe("GraphQL Collection Discovery", () => {
       const schema = await graphqlAdapter.loadSchema(config);
       const result = graphqlAdapter.generateCollections(schema, config, {
         typesImportPath: "./types",
+        functionsImportPath: "../functions",
         sourceName: "test-api",
       });
 
@@ -1141,6 +1150,7 @@ describe("GraphQL Collection Discovery", () => {
       const schema = await graphqlAdapter.loadSchema(hasuraConfig);
       const result = graphqlAdapter.generateCollections(schema, hasuraConfig, {
         typesImportPath: "./types",
+        functionsImportPath: "../functions",
         sourceName: "hasura-api",
         collectionOverrides: {
           Product: { syncMode: "on-demand" },
@@ -1166,6 +1176,7 @@ describe("GraphQL Collection Discovery", () => {
       const schema = await graphqlAdapter.loadSchema(hasuraConfig);
       const result = graphqlAdapter.generateCollections(schema, hasuraConfig, {
         typesImportPath: "./types",
+        functionsImportPath: "../functions",
         sourceName: "hasura-api",
         collectionOverrides: {
           Product: { syncMode: "on-demand" },
@@ -1182,6 +1193,7 @@ describe("GraphQL Collection Discovery", () => {
       const schema = await graphqlAdapter.loadSchema(hasuraConfig);
       const result = graphqlAdapter.generateCollections(schema, hasuraConfig, {
         typesImportPath: "./types",
+        functionsImportPath: "../functions",
         sourceName: "hasura-api",
         collectionOverrides: {
           Product: { syncMode: "on-demand", predicateMapping: "prisma" },
@@ -1198,6 +1210,7 @@ describe("GraphQL Collection Discovery", () => {
       const schema = await graphqlAdapter.loadSchema(hasuraConfig);
       const result = graphqlAdapter.generateCollections(schema, hasuraConfig, {
         typesImportPath: "./types",
+        functionsImportPath: "../functions",
         sourceName: "hasura-api",
       });
 

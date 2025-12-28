@@ -154,6 +154,7 @@ describe("GraphQL Collection Discovery", () => {
         connectionConfig,
         {
           typesImportPath: "./schema",
+          functionsImportPath: "../functions",
           sourceName: "api",
         },
       );
@@ -170,6 +171,7 @@ describe("GraphQL Collection Discovery", () => {
         connectionConfig,
         {
           typesImportPath: "./schema",
+          functionsImportPath: "../functions",
           sourceName: "api",
         },
       );
@@ -188,6 +190,7 @@ describe("GraphQL Collection Discovery", () => {
         connectionConfig,
         {
           typesImportPath: "./schema",
+          functionsImportPath: "../functions",
           sourceName: "api",
         },
       );

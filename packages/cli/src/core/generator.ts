@@ -1,10 +1,11 @@
 import { constants } from "node:fs";
 import { access, mkdir, writeFile } from "node:fs/promises";
-import { dirname, join, relative } from "node:path";
+import { dirname, join } from "node:path";
 
 import consola from "consola";
 
 import { getAdapter } from "@/adapters";
+import { getRelativeImportPath } from "@/utils/paths";
 import {
   getDbCollectionOverrides,
   getFormOverrides,
@@ -169,12 +170,13 @@ export async function generate(
     }
 
     // Step 4: Generate query files if enabled
-    if (generates.query) {
+    if (generates.query && functionsPath) {
       await generateQueryFiles({
         source,
         sourceOutputDir,
         schema,
         schemaPath,
+        functionsPath,
       });
       querySourceNames.push(source.name);
     }
@@ -198,6 +200,7 @@ export async function generate(
         sourceOutputDir,
         schema,
         typesPath: schemaPath,
+        functionsPath,
       });
       dbSourceNames.push(source.name);
     }
@@ -334,7 +337,7 @@ async function generateFunctionsFile(
   // Calculate relative import paths
   const functionsPath = join(sourceOutputDir, FILES.functions);
   const functionsDir = dirname(functionsPath);
-  const clientImportPath = `./${relative(functionsDir, clientPath).replace(/\.ts$/, "")}`;
+  const clientImportPath = getRelativeImportPath(functionsDir, clientPath);
 
   // Both GraphQL and OpenAPI now use schema.ts for types
   if (!schemaPath) {
@@ -342,7 +345,7 @@ async function generateFunctionsFile(
       `Source "${source.name}" requires schema file for functions generation`,
     );
   }
-  const typesImportPath = `./${relative(functionsDir, schemaPath).replace(/\.ts$/, "")}`;
+  const typesImportPath = getRelativeImportPath(functionsDir, schemaPath);
 
   const functionsResult = adapter.generateFunctions(schema, source, {
     clientImportPath,
@@ -365,6 +368,8 @@ interface GenerateQueryFilesOptions {
   schema: unknown;
   /** Path to schema file (for OpenAPI - types come from here) */
   schemaPath?: string;
+  /** Path to functions file */
+  functionsPath: string;
 }
 
 /**
@@ -375,7 +380,8 @@ interface GenerateQueryFilesOptions {
 async function generateQueryFiles(
   options: GenerateQueryFilesOptions,
 ): Promise<void> {
-  const { source, sourceOutputDir, schema, schemaPath } = options;
+  const { source, sourceOutputDir, schema, schemaPath, functionsPath } =
+    options;
 
   consola.info(`Generating query files for: ${source.name}`);
 
@@ -395,12 +401,14 @@ async function generateQueryFiles(
   // Generate operations
   const optionsPath = join(queryOutputDir, FILES.query.options);
 
-  // Calculate relative import paths (from query/ to schema.ts at source root)
+  // Calculate relative import paths (from query/ to schema.ts and functions.ts at source root)
   const optionsDir = dirname(optionsPath);
-  const typesImportPath = `./${relative(optionsDir, schemaPath).replace(/\.ts$/, "")}`;
+  const typesImportPath = getRelativeImportPath(optionsDir, schemaPath);
+  const functionsImportPath = getRelativeImportPath(optionsDir, functionsPath);
 
   const optionsResult = adapter.generateOperations(schema, source, {
     typesImportPath,
+    functionsImportPath,
     sourceName: source.name,
     queryOverrides: getQueryOverrides(source),
   });
@@ -443,7 +451,7 @@ async function generateFormFiles(
 
   // Calculate relative import path from form options to schema
   const formOptionsDir = dirname(formOptionsPath);
-  const schemaImportPath = `./${relative(formOptionsDir, schemaPath).replace(/\.ts$/, "")}`;
+  const schemaImportPath = getRelativeImportPath(formOptionsDir, schemaPath);
 
   const formResult = adapter.generateFormOptions(schema, source, {
     schemaImportPath,
@@ -473,6 +481,8 @@ interface GenerateDbFilesOptions {
   schema: unknown;
   /** Path to types file (schema.ts for all source types) */
   typesPath: string;
+  /** Path to functions file */
+  functionsPath: string;
 }
 
 /**
@@ -480,7 +490,7 @@ interface GenerateDbFilesOptions {
  * Outputs to: <source-name>/db/collections.ts
  */
 async function generateDbFiles(options: GenerateDbFilesOptions): Promise<void> {
-  const { source, sourceOutputDir, schema, typesPath } = options;
+  const { source, sourceOutputDir, schema, typesPath, functionsPath } = options;
 
   consola.info(`Generating db files for: ${source.name}`);
 
@@ -495,10 +505,15 @@ async function generateDbFiles(options: GenerateDbFilesOptions): Promise<void> {
 
   // Calculate relative import paths
   const collectionsDir = dirname(collectionsPath);
-  const typesImportPath = `./${relative(collectionsDir, typesPath).replace(/\.ts$/, "")}`;
+  const typesImportPath = getRelativeImportPath(collectionsDir, typesPath);
+  const functionsImportPath = getRelativeImportPath(
+    collectionsDir,
+    functionsPath,
+  );
 
   const dbResult = adapter.generateCollections(schema, source, {
     typesImportPath,
+    functionsImportPath,
     sourceName: source.name,
     collectionOverrides: getDbCollectionOverrides(source),
   });

@@ -5,7 +5,7 @@ import { infiniteQueryOptions, mutationOptions, queryOptions } from "@tanstack/r
 
 import { createPet, deletePet, getPet, listPets, updatePet } from "../functions"
 
-import type { CreatePetRequest, GetPetParams, ListPetsParams, UpdatePetRequest } from "./../schema"
+import type { CreatePetRequest, GetPetParams, ListPetsParams, UpdatePetRequest } from "../schema"
 
 // Query Options (GET operations)
 
