@@ -243,7 +243,7 @@ describe("OpenAPI Adapter", () => {
         paginationConfig,
         {
           typesImportPath: "./types",
-        functionsImportPath: "../functions",
+          functionsImportPath: "../functions",
           sourceName: "api",
         },
       );
@@ -261,7 +261,7 @@ describe("OpenAPI Adapter", () => {
         paginationConfig,
         {
           typesImportPath: "./types",
-        functionsImportPath: "../functions",
+          functionsImportPath: "../functions",
           sourceName: "api",
         },
       );
@@ -278,7 +278,7 @@ describe("OpenAPI Adapter", () => {
         paginationConfig,
         {
           typesImportPath: "./types",
-        functionsImportPath: "../functions",
+          functionsImportPath: "../functions",
           sourceName: "api",
         },
       );
@@ -295,7 +295,7 @@ describe("OpenAPI Adapter", () => {
         paginationConfig,
         {
           typesImportPath: "./types",
-        functionsImportPath: "../functions",
+          functionsImportPath: "../functions",
           sourceName: "api",
         },
       );
@@ -312,7 +312,7 @@ describe("OpenAPI Adapter", () => {
         paginationConfig,
         {
           typesImportPath: "./types",
-        functionsImportPath: "../functions",
+          functionsImportPath: "../functions",
           sourceName: "api",
         },
       );
@@ -334,7 +334,7 @@ describe("OpenAPI Adapter", () => {
         paginationConfig,
         {
           typesImportPath: "./types",
-        functionsImportPath: "../functions",
+          functionsImportPath: "../functions",
           sourceName: "api",
         },
       );
@@ -349,7 +349,7 @@ describe("OpenAPI Adapter", () => {
         paginationConfig,
         {
           typesImportPath: "./types",
-        functionsImportPath: "../functions",
+          functionsImportPath: "../functions",
           sourceName: "api",
         },
       );
@@ -365,7 +365,7 @@ describe("OpenAPI Adapter", () => {
         paginationConfig,
         {
           typesImportPath: "./types",
-        functionsImportPath: "../functions",
+          functionsImportPath: "../functions",
           sourceName: "api",
           queryOverrides: {
             operations: {
@@ -389,7 +389,7 @@ describe("OpenAPI Adapter", () => {
         paginationConfig,
         {
           typesImportPath: "./types",
-        functionsImportPath: "../functions",
+          functionsImportPath: "../functions",
           sourceName: "api",
           queryOverrides: {
             operations: {
@@ -517,7 +517,7 @@ describe("Remote OpenAPI Spec Loading", () => {
         config,
         {
           typesImportPath: "./types",
-        functionsImportPath: "../functions",
+          functionsImportPath: "../functions",
           sourceName: "petstore",
         },
       );
@@ -1582,7 +1582,7 @@ describe("OpenAPI Extended Types Generation", () => {
     const schema = await openapiAdapter.loadSchema(extendedConfig);
     const result = openapiAdapter.generateOperations(schema, extendedConfig, {
       typesImportPath: "./types",
-        functionsImportPath: "../functions",
+      functionsImportPath: "../functions",
       sourceName: "petstore-extended",
     });
 
@@ -1603,7 +1603,7 @@ describe("OpenAPI Operations Generation Edge Cases", () => {
     const schema = await openapiAdapter.loadSchema(config);
     const result = openapiAdapter.generateOperations(schema, config, {
       typesImportPath: "./types",
-        functionsImportPath: "../functions",
+      functionsImportPath: "../functions",
       sourceName: "petstore",
     });
 
@@ -1623,7 +1623,7 @@ describe("OpenAPI Operations Generation Edge Cases", () => {
     const schema = await openapiAdapter.loadSchema(config);
     const result = openapiAdapter.generateOperations(schema, config, {
       typesImportPath: "./types",
-        functionsImportPath: "../functions",
+      functionsImportPath: "../functions",
       sourceName: "petstore",
     });
 
@@ -1643,7 +1643,7 @@ describe("OpenAPI Operations Generation Edge Cases", () => {
     const schema = await openapiAdapter.loadSchema(config);
     const result = openapiAdapter.generateOperations(schema, config, {
       typesImportPath: "./types",
-        functionsImportPath: "../functions",
+      functionsImportPath: "../functions",
       sourceName: "petstore",
     });
 
@@ -2406,7 +2406,7 @@ describe("OpenAPI Collection Discovery", () => {
         filterableConfig,
         {
           typesImportPath: "./schema",
-        functionsImportPath: "../functions",
+          functionsImportPath: "../functions",
           sourceName: "filterable",
           collectionOverrides: {
             Product: { syncMode: "on-demand" },
@@ -2436,7 +2436,7 @@ describe("OpenAPI Collection Discovery", () => {
         filterableConfig,
         {
           typesImportPath: "./schema",
-        functionsImportPath: "../functions",
+          functionsImportPath: "../functions",
           sourceName: "filterable",
           collectionOverrides: {
             Product: { syncMode: "on-demand" },
@@ -2456,7 +2456,7 @@ describe("OpenAPI Collection Discovery", () => {
         filterableConfig,
         {
           typesImportPath: "./schema",
-        functionsImportPath: "../functions",
+          functionsImportPath: "../functions",
           sourceName: "filterable",
           collectionOverrides: {
             Product: { syncMode: "on-demand", predicateMapping: "jsonapi" },
@@ -2476,7 +2476,7 @@ describe("OpenAPI Collection Discovery", () => {
         filterableConfig,
         {
           typesImportPath: "./schema",
-        functionsImportPath: "../functions",
+          functionsImportPath: "../functions",
           sourceName: "filterable",
         },
       );
