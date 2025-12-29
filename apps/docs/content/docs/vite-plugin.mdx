@@ -1,0 +1,218 @@
+---
+title: Vite Plugin
+description: Integrate tangrams code generation into your Vite build process
+---
+
+# Vite Plugin
+
+For Vite projects, tangrams provides a plugin that integrates code generation directly into your dev server and build process. The plugin reads configuration from your `tangrams.config.ts` file and adds automatic file watching and cleanup.
+
+## Installation
+
+```bash
+bun add -D tangrams vite
+```
+
+## Basic Usage
+
+First, create your tangrams configuration file:
+
+```ts title="tangrams.config.ts"
+import { defineConfig } from "tangrams"
+
+export default defineConfig({
+  sources: [
+    {
+      name: "api",
+      type: "graphql",
+      schema: { url: "http://localhost:4000/graphql" },
+      documents: "./src/graphql/operations.graphql",
+      generates: ["query"],
+    },
+  ],
+})
+```
+
+Then add the plugin to your Vite config:
+
+```ts title="vite.config.ts"
+import { defineConfig } from "vite"
+import { tangrams } from "tangrams/vite"
+
+export default defineConfig({
+  plugins: [
+    tangrams(), // Loads tangrams.config.ts automatically
+  ],
+})
+```
+
+The plugin will:
+- Run code generation on both dev server start and production builds
+- Watch for file changes in development and automatically regenerate
+- Clean up stale directories by default
+
+## Plugin Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `configFile` | `string` | - | Path to config file (auto-discovers tangrams.config.ts by default) |
+| `force` | `boolean` | `false` | Force regenerate all files including client.ts |
+| `watch` | `boolean` | `true` | Watch for file changes in dev mode |
+| `clean` | `boolean` | `true` | Automatically remove stale source directories |
+
+### Custom Config Path
+
+Specify a custom config file path:
+
+```ts title="vite.config.ts"
+import { defineConfig } from "vite"
+import { tangrams } from "tangrams/vite"
+
+export default defineConfig({
+  plugins: [
+    tangrams({
+      configFile: "./config/tangrams.config.ts",
+    }),
+  ],
+})
+```
+
+## Watch Mode
+
+In development, the plugin watches for changes to:
+
+- **GraphQL documents** - Files matching your `documents` patterns
+- **OpenAPI specs** - Local spec files (not remote URLs)
+
+When changes are detected:
+1. The plugin regenerates affected artifacts
+2. A full page reload is triggered to pick up the changes
+
+### Disabling Watch
+
+If you prefer to regenerate manually, disable watch mode:
+
+```ts
+tangrams({
+  watch: false,
+})
+```
+
+## Cleanup Behavior
+
+By default, the plugin automatically removes stale source directories when sources are renamed or removed from your configuration. This keeps your generated output clean.
+
+### How Cleanup Works
+
+1. Tangrams tracks generated sources in a manifest file
+2. On each generation, it compares the manifest to your current config
+3. Directories that no longer have a matching source are removed
+4. If a source was renamed (same schema, different name), client.ts is preserved
+
+### Disabling Cleanup
+
+If you prefer to manage cleanup manually:
+
+```ts
+tangrams({
+  clean: false,
+})
+```
+
+## Examples
+
+### GraphQL with TanStack Query
+
+```ts title="tangrams.config.ts"
+import { defineConfig } from "tangrams"
+
+export default defineConfig({
+  sources: [
+    {
+      name: "api",
+      type: "graphql",
+      schema: { url: "http://localhost:4000/graphql" },
+      documents: "./src/graphql/operations.graphql",
+      generates: ["query"],
+    },
+  ],
+})
+```
+
+```ts title="vite.config.ts"
+import { defineConfig } from "vite"
+import { tangrams } from "tangrams/vite"
+
+export default defineConfig({
+  plugins: [tangrams()],
+})
+```
+
+### OpenAPI with Forms and Valibot
+
+```ts title="tangrams.config.ts"
+import { defineConfig } from "tangrams"
+
+export default defineConfig({
+  validator: "valibot",
+  sources: [
+    {
+      name: "petstore",
+      type: "openapi",
+      spec: "./openapi.yaml",
+      generates: ["query", "form"],
+    },
+  ],
+})
+```
+
+```ts title="vite.config.ts"
+import { defineConfig } from "vite"
+import { tangrams } from "tangrams/vite"
+
+export default defineConfig({
+  plugins: [tangrams()],
+})
+```
+
+### Multiple Sources
+
+```ts title="tangrams.config.ts"
+import { defineConfig } from "tangrams"
+
+export default defineConfig({
+  sources: [
+    {
+      name: "users",
+      type: "graphql",
+      schema: { url: "http://localhost:4000/users/graphql" },
+      documents: "./src/graphql/users/operations.graphql",
+      generates: ["query", "form"],
+    },
+    {
+      name: "products",
+      type: "openapi",
+      spec: "https://api.example.com/openapi.json",
+      generates: ["query"],
+    },
+  ],
+})
+```
+
+```ts title="vite.config.ts"
+import { defineConfig } from "vite"
+import { tangrams } from "tangrams/vite"
+
+export default defineConfig({
+  plugins: [tangrams()],
+})
+```
+
+## CLI Compatibility
+
+The Vite plugin and CLI both read from the same `tangrams.config.ts` file, so you can use both interchangeably:
+
+- Use the CLI for one-off generation: `bunx tangrams generate`
+- Use the Vite plugin for automatic generation during development
+
+This makes it easy to run generation in CI/CD pipelines or other environments where Vite isn't available.

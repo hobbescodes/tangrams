@@ -110,6 +110,37 @@ bun add @better-fetch/fetch
    }
    ```
 
+## Vite Plugin
+
+For Vite projects, tangrams provides a plugin that integrates code generation into your dev server and build process. The plugin reads configuration from your `tangrams.config.ts` file and provides automatic file watching and cleanup.
+
+```typescript
+// vite.config.ts
+import { defineConfig } from "vite"
+import { tangrams } from "tangrams/vite"
+
+export default defineConfig({
+  plugins: [
+    tangrams(), // Loads tangrams.config.ts automatically
+  ],
+})
+```
+
+### Plugin Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `configFile` | `string` | - | Path to config file (auto-discovers tangrams.config.ts by default) |
+| `force` | `boolean` | `false` | Force regenerate all files |
+| `watch` | `boolean` | `true` | Watch for changes in dev mode |
+| `clean` | `boolean` | `true` | Remove stale directories |
+
+### Custom Config Path
+
+```typescript
+tangrams({ configFile: "./config/tangrams.config.ts" })
+```
+
 ## Documentation
 
 For comprehensive documentation, configuration reference, and usage examples, visit the **[Tangrams Documentation](https://tangrams.dev/docs)**.
