@@ -22,17 +22,9 @@ describe("Vite Plugin", () => {
       expect(plugin.name).toBe("tangrams");
     });
 
-    it("should accept inline config options", () => {
+    it("should accept configFile option", () => {
       const options: TangramsPluginOptions = {
-        sources: [
-          {
-            name: "api",
-            type: "graphql",
-            schema: { url: "https://example.com/graphql" },
-            documents: "./src/graphql/operations.graphql",
-            generates: ["query"],
-          },
-        ],
+        configFile: "./custom-tangrams.config.ts",
       };
 
       const plugin = tangrams(options);
@@ -58,40 +50,15 @@ describe("Vite Plugin", () => {
       expect(plugin.name).toBe("tangrams");
     });
 
-    it("should accept configFile option", () => {
-      const plugin = tangrams({ configFile: "./custom-config.ts" });
+    it("should accept all options together", () => {
+      const options: TangramsPluginOptions = {
+        configFile: "./tangrams.config.ts",
+        force: true,
+        watch: true,
+        clean: true,
+      };
 
-      expect(plugin.name).toBe("tangrams");
-    });
-
-    it("should accept validator option", () => {
-      const plugin = tangrams({
-        validator: "valibot",
-        sources: [
-          {
-            name: "api",
-            type: "openapi",
-            spec: "./openapi.yaml",
-            generates: ["query"],
-          },
-        ],
-      });
-
-      expect(plugin.name).toBe("tangrams");
-    });
-
-    it("should accept output option", () => {
-      const plugin = tangrams({
-        output: "./generated",
-        sources: [
-          {
-            name: "api",
-            type: "openapi",
-            spec: "./openapi.yaml",
-            generates: ["query"],
-          },
-        ],
-      });
+      const plugin = tangrams(options);
 
       expect(plugin.name).toBe("tangrams");
     });

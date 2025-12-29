@@ -112,25 +112,16 @@ bun add @better-fetch/fetch
 
 ## Vite Plugin
 
-For Vite projects, you can configure tangrams directly in your `vite.config.ts`:
+For Vite projects, tangrams provides a plugin that integrates code generation into your dev server and build process. The plugin reads configuration from your `tangrams.config.ts` file and provides automatic file watching and cleanup.
 
 ```typescript
+// vite.config.ts
 import { defineConfig } from "vite"
 import { tangrams } from "tangrams/vite"
 
 export default defineConfig({
   plugins: [
-    tangrams({
-      sources: [
-        {
-          name: "api",
-          type: "graphql",
-          schema: { url: "http://localhost:4000/graphql" },
-          documents: "./src/graphql/operations.graphql",
-          generates: ["query"],
-        },
-      ],
-    }),
+    tangrams(), // Loads tangrams.config.ts automatically
   ],
 })
 ```
@@ -139,27 +130,16 @@ export default defineConfig({
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `sources` | `SourceConfig[]` | - | Data sources to generate from |
-| `output` | `string` | `"."` | Output directory for generated files |
-| `validator` | `"zod" \| "valibot" \| "arktype" \| "effect"` | `"zod"` | Validation library |
+| `configFile` | `string` | - | Path to config file (auto-discovers tangrams.config.ts by default) |
 | `force` | `boolean` | `false` | Force regenerate all files |
 | `watch` | `boolean` | `true` | Watch for changes in dev mode |
 | `clean` | `boolean` | `true` | Remove stale directories |
-| `configFile` | `string` | - | Path to external config file |
 
-### Using External Config
-
-The plugin can also load configuration from an external file:
+### Custom Config Path
 
 ```typescript
-// Load tangrams.config.ts automatically
-tangrams()
-
-// Or specify a custom config file
 tangrams({ configFile: "./config/tangrams.config.ts" })
 ```
-
-This is useful when migrating from CLI-based generation or when you prefer keeping configuration separate from your Vite config.
 
 ## Documentation
 

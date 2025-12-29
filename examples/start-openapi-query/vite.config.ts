@@ -10,16 +10,7 @@ export default defineConfig({
   plugins: [
     devtools(),
     tsconfigPaths(),
-    tangrams({
-      sources: [
-        {
-          name: "api",
-          type: "openapi",
-          spec: "../shared/mocks/schemas/openapi.yaml",
-          generates: ["query"],
-        },
-      ],
-    }),
+    tangrams(),
     tanstackStart(),
     react(),
     tailwindcss(),

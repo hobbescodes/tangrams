@@ -1,8 +1,8 @@
 /**
  * Tangrams Vite Plugin
  *
- * Enables configuration of tangrams directly in vite.config.ts
- * instead of a separate tangrams.config.ts file.
+ * Provides automatic code generation during Vite dev and build.
+ * Configuration is always loaded from a tangrams.config.ts file.
  *
  * @example
  * ```ts
@@ -10,17 +10,19 @@
  * import { tangrams } from "tangrams/vite"
  *
  * export default defineConfig({
+ *   plugins: [tangrams()],
+ * })
+ * ```
+ *
+ * @example With custom config path
+ * ```ts
+ * import { defineConfig } from "vite"
+ * import { tangrams } from "tangrams/vite"
+ *
+ * export default defineConfig({
  *   plugins: [
  *     tangrams({
- *       sources: [
- *         {
- *           name: "api",
- *           type: "graphql",
- *           schema: { url: "https://api.example.com/graphql" },
- *           documents: "./src/graphql/operations.graphql",
- *           generates: ["query"],
- *         },
- *       ],
+ *       configFile: "./custom-tangrams.config.ts",
  *     }),
  *   ],
  * })
@@ -30,11 +32,7 @@
 import { join } from "node:path";
 
 import { analyzeCleanup, executeCleanup, needsCleanup } from "./core/cleanup";
-import {
-  configSchema,
-  loadTangramsConfig,
-  sourceGeneratesQuery,
-} from "./core/config";
+import { loadTangramsConfig, sourceGeneratesQuery } from "./core/config";
 import { generate } from "./core/generator";
 import {
   createEmptyManifest,
@@ -49,7 +47,6 @@ import type {
   GraphQLSourceConfig,
   OpenAPISourceConfig,
   TangramsConfig,
-  TangramsConfigInput,
 } from "./core/config";
 import type { GenerateResult } from "./core/generator";
 import type { TangramsLogger } from "./utils/logger";
@@ -58,7 +55,13 @@ import type { TangramsLogger } from "./utils/logger";
 // Plugin Options
 // =============================================================================
 
-export interface TangramsPluginOptions extends Partial<TangramsConfigInput> {
+export interface TangramsPluginOptions {
+  /**
+   * Path to config file.
+   * If not provided, looks for tangrams.config.{ts,js,mjs,cjs,json}
+   */
+  configFile?: string;
+
   /**
    * Force regeneration of all files including client.ts
    * @default false
@@ -76,12 +79,6 @@ export interface TangramsPluginOptions extends Partial<TangramsConfigInput> {
    * @default true
    */
   clean?: boolean;
-
-  /**
-   * Path to external config file. If not provided and no inline sources,
-   * looks for tangrams.config.{ts,js,mjs,cjs,json}
-   */
-  configFile?: string;
 }
 
 // =============================================================================
@@ -91,10 +88,11 @@ export interface TangramsPluginOptions extends Partial<TangramsConfigInput> {
 /**
  * Tangrams Vite plugin for code generation
  *
- * Supports three usage patterns:
- * - Inline configuration: Pass sources directly to the plugin
- * - Auto-discovery: Call with no arguments to load tangrams.config.ts
- * - Custom config file: Specify configFile option to load from a custom path
+ * The plugin loads configuration from tangrams.config.ts (or a custom path)
+ * and provides:
+ * - Automatic generation on dev server start and build
+ * - File watching in dev mode to regenerate on changes
+ * - Cleanup of stale directories
  */
 export function tangrams(options: TangramsPluginOptions = {}): Plugin {
   let resolvedConfig: TangramsConfig | null = null;
@@ -112,7 +110,7 @@ export function tangrams(options: TangramsPluginOptions = {}): Plugin {
       logger = createViteLogger(config.logger);
 
       try {
-        // Resolve tangrams config
+        // Resolve tangrams config from file
         resolvedConfig = await resolveTangramsConfig(options, config.root);
       } catch (error) {
         // Log error but don't throw - allow Vite to continue
@@ -180,31 +178,12 @@ export function tangrams(options: TangramsPluginOptions = {}): Plugin {
 // =============================================================================
 
 /**
- * Resolve tangrams configuration from options or external file
+ * Resolve tangrams configuration from config file
  */
 async function resolveTangramsConfig(
   options: TangramsPluginOptions,
   root: string,
 ): Promise<TangramsConfig> {
-  // If inline sources provided, use inline config
-  if (options.sources && options.sources.length > 0) {
-    const configInput: TangramsConfigInput = {
-      output: options.output,
-      validator: options.validator,
-      sources: options.sources,
-    };
-
-    const result = configSchema.safeParse(configInput);
-    if (!result.success) {
-      const errors = result.error.issues
-        .map((e) => `  - ${e.path.join(".")}: ${e.message}`)
-        .join("\n");
-      throw new Error(`Invalid tangrams config:\n${errors}`);
-    }
-    return result.data;
-  }
-
-  // Otherwise, load from config file
   // Use root as the working directory for config resolution
   const originalCwd = process.cwd();
   try {

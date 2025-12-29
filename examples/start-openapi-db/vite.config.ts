@@ -10,17 +10,7 @@ export default defineConfig({
   plugins: [
     devtools(),
     tsconfigPaths(),
-    tangrams({
-      sources: [
-        {
-          name: "api",
-          type: "openapi",
-          spec: "../shared/mocks/schemas/openapi.yaml",
-          exclude: ["/users/**"],
-          generates: ["db"],
-        },
-      ],
-    }),
+    tangrams(),
     tanstackStart({
       spa: { enabled: true },
     }),
