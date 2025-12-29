@@ -184,17 +184,17 @@ async function resolveTangramsConfig(
   options: TangramsPluginOptions,
   root: string,
 ): Promise<TangramsConfig> {
-  // Use root as the working directory for config resolution
-  const originalCwd = process.cwd();
-  try {
-    process.chdir(root);
-    const { config } = await loadTangramsConfig({
-      configPath: options.configFile,
-    });
-    return config;
-  } finally {
-    process.chdir(originalCwd);
-  }
+  // Compute absolute config path if provided, otherwise let c12 discover it
+  const configPath = options.configFile
+    ? join(root, options.configFile)
+    : undefined;
+
+  const { config } = await loadTangramsConfig({
+    configPath,
+    cwd: root,
+  });
+
+  return config;
 }
 
 // =============================================================================

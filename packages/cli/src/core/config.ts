@@ -13,6 +13,8 @@ import type { DotenvOptions } from "c12";
 export interface LoadConfigOptions {
   /** Path to the config file */
   configPath?: string;
+  /** Working directory for config resolution (defaults to process.cwd()) */
+  cwd?: string;
   /** Dotenv configuration - true to load .env, false to disable, or DotenvOptions object */
   dotenv?: boolean | DotenvOptions;
 }
@@ -467,8 +469,10 @@ export function defineConfig(config: TangramsConfigInput): TangramsConfigInput {
 export async function loadTangramsConfig(
   options: LoadConfigOptions = {},
 ): Promise<LoadConfigResult> {
-  // If a config path is provided, use its directory as cwd for dotenv resolution
-  const cwd = options.configPath ? dirname(options.configPath) : undefined;
+  // Determine cwd: explicit option > config path directory > undefined (uses process.cwd())
+  const cwd =
+    options.cwd ??
+    (options.configPath ? dirname(options.configPath) : undefined);
 
   const { config, configFile } = await loadConfig<TangramsConfigInput>({
     name: "tangrams",

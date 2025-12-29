@@ -9,7 +9,7 @@ export default defineConfig({
         file: "../shared/mocks/schemas/schema.graphql",
       },
       url: "http://localhost:3000/graphql",
-      documents: "./src/graphql/operations.graphql",
+      documents: "./src/graphql/**/*.graphql",
       generates: ["db"],
     },
   ],

@@ -68,17 +68,23 @@ export function createViteLogger(viteLogger: ViteLoggerLike): TangramsLogger {
       viteLogger.info(`${prefix} ${message}`, { timestamp: true }),
     box: (options) => {
       // Vite doesn't have a box method, so we format it nicely
-      const border = "─".repeat(
-        Math.max(options.title.length, options.message.length) + 4,
+      const lines = options.message.split("\n");
+      const maxLineLength = Math.max(
+        options.title.length,
+        ...lines.map((line) => line.length),
       );
+      const padding = 4;
+      const contentWidth = maxLineLength + padding;
+      const border = "─".repeat(contentWidth);
+
       viteLogger.info(`${prefix} ┌${border}┐`, { timestamp: true });
       viteLogger.info(
-        `${prefix} │ ${options.title.padEnd(border.length - 2)} │`,
+        `${prefix} │ ${options.title.padEnd(contentWidth - 2)} │`,
         { timestamp: true },
       );
       viteLogger.info(`${prefix} ├${border}┤`, { timestamp: true });
-      for (const line of options.message.split("\n")) {
-        viteLogger.info(`${prefix} │ ${line.padEnd(border.length - 2)} │`, {
+      for (const line of lines) {
+        viteLogger.info(`${prefix} │ ${line.padEnd(contentWidth - 2)} │`, {
           timestamp: true,
         });
       }
