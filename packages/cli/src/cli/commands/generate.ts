@@ -22,6 +22,7 @@ import {
   createWatcher,
   setupKeyboardInput,
 } from "../../core/watcher";
+import { createConsolaLogger } from "../../utils/logger";
 
 import type { DotenvOptions } from "c12";
 import type {
@@ -30,6 +31,9 @@ import type {
   TangramsConfig,
 } from "../../core/config";
 import type { GenerateResult } from "../../core/generator";
+
+// Create logger instance for CLI usage
+const logger = createConsolaLogger();
 
 /**
  * Determine dotenv options based on CLI arguments
@@ -187,7 +191,7 @@ async function runGeneration(options: {
   }
 
   consola.start("Generating TanStack Query artifacts...");
-  const result = await generate({ config, force, cachedSchemas });
+  const result = await generate({ config, force, cachedSchemas, logger });
   consola.success("Generation complete!");
 
   // Save manifest after successful generation

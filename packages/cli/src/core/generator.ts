@@ -2,9 +2,8 @@ import { constants } from "node:fs";
 import { access, mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import consola from "consola";
-
 import { getAdapter } from "@/adapters";
+import { defaultLogger } from "@/utils/logger";
 import { getRelativeImportPath } from "@/utils/paths";
 import {
   getDbCollectionOverrides,
@@ -14,6 +13,7 @@ import {
   normalizeGenerates,
 } from "./config";
 
+import type { TangramsLogger } from "@/utils/logger";
 import type { SourceConfig, TangramsConfig, ValidatorLibrary } from "./config";
 
 // =============================================================================
@@ -47,6 +47,11 @@ export interface GenerateOptions {
    * Used by watch mode for faster rebuilds when only documents change.
    */
   cachedSchemas?: Map<string, unknown>;
+  /**
+   * Logger instance for output.
+   * Defaults to consola logger if not provided.
+   */
+  logger?: TangramsLogger;
 }
 
 /**
@@ -103,7 +108,12 @@ async function fileExists(path: string): Promise<boolean> {
 export async function generate(
   options: GenerateOptions,
 ): Promise<GenerateResult> {
-  const { config, force = false, cachedSchemas } = options;
+  const {
+    config,
+    force = false,
+    cachedSchemas,
+    logger = defaultLogger,
+  } = options;
   const generatedSchemas = new Map<string, unknown>();
   const generatedSources = new Map<string, GeneratedSourceInfo>();
   const generatedOutputs: string[] = [];
@@ -139,12 +149,12 @@ export async function generate(
     const cacheKey = `source:${source.name}`;
 
     if (cachedSchemas?.has(cacheKey)) {
-      consola.info(`\nUsing cached schema for: ${source.name}`);
+      logger.info(`\nUsing cached schema for: ${source.name}`);
       schema = cachedSchemas.get(cacheKey);
     } else {
-      consola.info(`\nLoading schema for: ${source.name} (${source.type})`);
+      logger.info(`\nLoading schema for: ${source.name} (${source.type})`);
       schema = await adapter.loadSchema(source);
-      consola.success("Schema loaded");
+      logger.success("Schema loaded");
     }
 
     // Cache the schema
@@ -171,6 +181,7 @@ export async function generate(
       sourceOutputDir,
       schema,
       force,
+      logger,
     });
 
     // Step 2: Generate validation schemas if needed (at source root)
@@ -180,6 +191,7 @@ export async function generate(
         sourceOutputDir,
         schema,
         config,
+        logger,
       });
       sourceFiles.push(FILES.schema);
     }
@@ -193,6 +205,7 @@ export async function generate(
         schema,
         clientPath,
         schemaPath,
+        logger,
       });
       sourceFiles.push(FILES.functions);
     }
@@ -205,6 +218,7 @@ export async function generate(
         schema,
         schemaPath,
         functionsPath,
+        logger,
       });
       sourceFiles.push(`query/${FILES.query.options}`);
       querySourceNames.push(source.name);
@@ -218,6 +232,7 @@ export async function generate(
         schema,
         schemaPath,
         validatorLibrary: config.validator,
+        logger,
       });
       sourceFiles.push(`form/${FILES.form.options}`);
       formSourceNames.push(source.name);
@@ -231,6 +246,7 @@ export async function generate(
         schema,
         typesPath: schemaPath,
         functionsPath,
+        logger,
       });
       sourceFiles.push(`db/${FILES.db.collections}`);
       dbSourceNames.push(source.name);
@@ -256,7 +272,7 @@ export async function generate(
 
   // Final success message
   if (generatedOutputs.length > 0) {
-    consola.box({
+    logger.box({
       title: "Generation Complete",
       message: `Generated: ${generatedOutputs.join(", ")}\nOutput directory: ${tangramsOutputDir}`,
     });
@@ -274,6 +290,7 @@ interface GenerateClientFileOptions {
   sourceOutputDir: string;
   schema: unknown;
   force: boolean;
+  logger: TangramsLogger;
 }
 
 /**
@@ -283,13 +300,13 @@ interface GenerateClientFileOptions {
 async function generateClientFile(
   options: GenerateClientFileOptions,
 ): Promise<void> {
-  const { source, sourceOutputDir, schema, force } = options;
+  const { source, sourceOutputDir, schema, force, logger } = options;
 
   const clientPath = join(sourceOutputDir, FILES.client);
   const clientExists = await fileExists(clientPath);
 
   if (clientExists && !force) {
-    consola.info(
+    logger.info(
       `Skipping ${FILES.client} (already exists, use --force to regenerate)`,
     );
     return;
@@ -298,7 +315,7 @@ async function generateClientFile(
   const adapter = getAdapter(source.type);
   const clientResult = adapter.generateClient(schema, source);
   await writeFile(clientPath, clientResult.content, "utf-8");
-  consola.success(`Generated ${source.name}/${FILES.client}`);
+  logger.success(`Generated ${source.name}/${FILES.client}`);
 }
 
 // =============================================================================
@@ -310,6 +327,7 @@ interface GenerateSchemaFileOptions {
   sourceOutputDir: string;
   schema: unknown;
   config: TangramsConfig;
+  logger: TangramsLogger;
 }
 
 /**
@@ -320,9 +338,9 @@ interface GenerateSchemaFileOptions {
 async function generateSchemaFile(
   options: GenerateSchemaFileOptions,
 ): Promise<string> {
-  const { source, sourceOutputDir, schema, config } = options;
+  const { source, sourceOutputDir, schema, config, logger } = options;
 
-  consola.info(`Generating ${config.validator} schemas for: ${source.name}`);
+  logger.info(`Generating ${config.validator} schemas for: ${source.name}`);
 
   const adapter = getAdapter(source.type);
   const schemaGenOptions = {
@@ -334,13 +352,13 @@ async function generateSchemaFile(
   // Log any warnings (deduplicated)
   if (result.warnings) {
     for (const warning of [...new Set(result.warnings)]) {
-      consola.warn(warning);
+      logger.warn(warning);
     }
   }
 
   const schemaPath = join(sourceOutputDir, FILES.schema);
   await writeFile(schemaPath, result.content, "utf-8");
-  consola.success(`Generated ${source.name}/${FILES.schema}`);
+  logger.success(`Generated ${source.name}/${FILES.schema}`);
 
   return schemaPath;
 }
@@ -355,6 +373,7 @@ interface GenerateFunctionsFileOptions {
   schema: unknown;
   clientPath: string;
   schemaPath?: string;
+  logger: TangramsLogger;
 }
 
 /**
@@ -365,9 +384,10 @@ interface GenerateFunctionsFileOptions {
 async function generateFunctionsFile(
   options: GenerateFunctionsFileOptions,
 ): Promise<string> {
-  const { source, sourceOutputDir, schema, clientPath, schemaPath } = options;
+  const { source, sourceOutputDir, schema, clientPath, schemaPath, logger } =
+    options;
 
-  consola.info(`Generating functions for: ${source.name}`);
+  logger.info(`Generating functions for: ${source.name}`);
 
   const adapter = getAdapter(source.type);
 
@@ -390,7 +410,7 @@ async function generateFunctionsFile(
   });
 
   await writeFile(functionsPath, functionsResult.content, "utf-8");
-  consola.success(`Generated ${source.name}/${FILES.functions}`);
+  logger.success(`Generated ${source.name}/${FILES.functions}`);
 
   return functionsPath;
 }
@@ -407,6 +427,7 @@ interface GenerateQueryFilesOptions {
   schemaPath?: string;
   /** Path to functions file */
   functionsPath: string;
+  logger: TangramsLogger;
 }
 
 /**
@@ -417,10 +438,10 @@ interface GenerateQueryFilesOptions {
 async function generateQueryFiles(
   options: GenerateQueryFilesOptions,
 ): Promise<void> {
-  const { source, sourceOutputDir, schema, schemaPath, functionsPath } =
+  const { source, sourceOutputDir, schema, schemaPath, functionsPath, logger } =
     options;
 
-  consola.info(`Generating query files for: ${source.name}`);
+  logger.info(`Generating query files for: ${source.name}`);
 
   const adapter = getAdapter(source.type);
   const queryOutputDir = join(sourceOutputDir, "query");
@@ -450,7 +471,7 @@ async function generateQueryFiles(
     queryOverrides: getQueryOverrides(source),
   });
   await writeFile(optionsPath, optionsResult.content, "utf-8");
-  consola.success(`Generated ${source.name}/query/${FILES.query.options}`);
+  logger.success(`Generated ${source.name}/query/${FILES.query.options}`);
 }
 
 // =============================================================================
@@ -463,6 +484,7 @@ interface GenerateFormFilesOptions {
   schema: unknown;
   schemaPath: string;
   validatorLibrary: ValidatorLibrary;
+  logger: TangramsLogger;
 }
 
 /**
@@ -472,10 +494,16 @@ interface GenerateFormFilesOptions {
 async function generateFormFiles(
   options: GenerateFormFilesOptions,
 ): Promise<void> {
-  const { source, sourceOutputDir, schema, schemaPath, validatorLibrary } =
-    options;
+  const {
+    source,
+    sourceOutputDir,
+    schema,
+    schemaPath,
+    validatorLibrary,
+    logger,
+  } = options;
 
-  consola.info(`Generating form files for: ${source.name}`);
+  logger.info(`Generating form files for: ${source.name}`);
 
   const adapter = getAdapter(source.type);
   const formOutputDir = join(sourceOutputDir, "form");
@@ -500,12 +528,12 @@ async function generateFormFiles(
   // Log any warnings (deduplicated)
   if (formResult.warnings) {
     for (const warning of [...new Set(formResult.warnings)]) {
-      consola.warn(warning);
+      logger.warn(warning);
     }
   }
 
   await writeFile(formOptionsPath, formResult.content, "utf-8");
-  consola.success(`Generated ${source.name}/form/${FILES.form.options}`);
+  logger.success(`Generated ${source.name}/form/${FILES.form.options}`);
 }
 
 // =============================================================================
@@ -520,6 +548,7 @@ interface GenerateDbFilesOptions {
   typesPath: string;
   /** Path to functions file */
   functionsPath: string;
+  logger: TangramsLogger;
 }
 
 /**
@@ -527,9 +556,10 @@ interface GenerateDbFilesOptions {
  * Outputs to: <source-name>/db/collections.ts
  */
 async function generateDbFiles(options: GenerateDbFilesOptions): Promise<void> {
-  const { source, sourceOutputDir, schema, typesPath, functionsPath } = options;
+  const { source, sourceOutputDir, schema, typesPath, functionsPath, logger } =
+    options;
 
-  consola.info(`Generating db files for: ${source.name}`);
+  logger.info(`Generating db files for: ${source.name}`);
 
   const adapter = getAdapter(source.type);
   const dbOutputDir = join(sourceOutputDir, "db");
@@ -558,12 +588,12 @@ async function generateDbFiles(options: GenerateDbFilesOptions): Promise<void> {
   // Log any warnings (deduplicated)
   if (dbResult.warnings) {
     for (const warning of [...new Set(dbResult.warnings)]) {
-      consola.warn(warning);
+      logger.warn(warning);
     }
   }
 
   await writeFile(collectionsPath, dbResult.content, "utf-8");
-  consola.success(`Generated ${source.name}/db/${FILES.db.collections}`);
+  logger.success(`Generated ${source.name}/db/${FILES.db.collections}`);
 }
 
 // =============================================================================
