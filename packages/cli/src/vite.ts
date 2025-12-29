@@ -45,11 +45,7 @@ import {
 import { createViteLogger } from "./utils/logger";
 
 import type { Plugin, ViteDevServer } from "vite";
-import type {
-  GraphQLSourceConfig,
-  OpenAPISourceConfig,
-  TangramsConfig,
-} from "./core/config";
+import type { TangramsConfig } from "./core/config";
 import type { GenerateResult } from "./core/generator";
 import type { TangramsLogger } from "./utils/logger";
 
@@ -368,19 +364,18 @@ function getWatchPatterns(config: TangramsConfig): string[] {
   const patterns: string[] = [];
 
   for (const source of config.sources) {
-    if (source.type === "graphql" && sourceGeneratesQuery(source)) {
-      const graphqlSource = source as GraphQLSourceConfig;
-      const docs = graphqlSource.documents;
+    if (source.type === "graphql") {
+      if (!sourceGeneratesQuery(source)) continue;
+      const docs = source.documents;
       if (Array.isArray(docs)) {
         patterns.push(...docs);
       } else {
         patterns.push(docs);
       }
     } else if (source.type === "openapi") {
-      const openApiSource = source as OpenAPISourceConfig;
       // Only watch local files, not URLs
-      if (!isUrl(openApiSource.spec)) {
-        patterns.push(openApiSource.spec);
+      if (!isUrl(source.spec)) {
+        patterns.push(source.spec);
       }
     }
   }
@@ -394,19 +389,14 @@ function getWatchPatterns(config: TangramsConfig): string[] {
 function isWatchedFile(file: string, config: TangramsConfig): boolean {
   for (const source of config.sources) {
     if (source.type === "graphql") {
-      const graphqlSource = source as GraphQLSourceConfig;
-      const docs = graphqlSource.documents;
+      const docs = source.documents;
       const patterns = Array.isArray(docs) ? docs : [docs];
 
       if (picomatch.isMatch(file, patterns)) {
         return true;
       }
     } else if (source.type === "openapi") {
-      const openApiSource = source as OpenAPISourceConfig;
-      if (
-        !isUrl(openApiSource.spec) &&
-        picomatch.isMatch(file, openApiSource.spec)
-      ) {
+      if (!isUrl(source.spec) && picomatch.isMatch(file, source.spec)) {
         return true;
       }
     }
